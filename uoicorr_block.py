@@ -2,11 +2,14 @@ import argparse
 import numpy as np
 import h5py
 import time
+import pdb
 
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
 
 from PyUoI.UoI_Lasso import UoI_Lasso
+
+total_start = time.time()
 
 ### parse arguments ###
 parser = argparse.ArgumentParser()
@@ -16,6 +19,7 @@ parser.add_argument('--kappa', type=float, default=0.3)
 parser.add_argument('--reps', type=int, default=50)
 parser.add_argument('--sparsity', type=float, default=1.)
 parser.add_argument('--results_file', default='results.h5')
+parser.add_argument('--est_score', default = 'BIC')
 args = parser.parse_args()
 
 # size of each block
@@ -86,9 +90,8 @@ for rep in range(reps):
 				normalize=True,
 				n_boots_sel=48,
 				n_boots_est=48,
-				selection_thres_min=selection_thres_min,
-				n_selection_thres=48,
-				estimation_score='BIC'
+				estimation_score=args.est_score,
+				stability_selection = selection_thres_min
 			)
 			uoi.fit(X, y.ravel())
 			beta_hat = uoi.coef_
@@ -105,5 +108,5 @@ results['r2_true'] = r2_true_results
 results['beta'] = betas
 results['beta_hats'] = beta_hats
 results.close()
-
+print('Total runtime: %f' % time.time() - total_start)
 

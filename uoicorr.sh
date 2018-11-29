@@ -3,8 +3,8 @@
 #SBATCH -n 1
 #SBATCH -t 05:00:00
 #SBATCH --job-name=uoicorr
-#SBATCH --out=/global/homes/s/sachdeva/uoicorr/uoicorr_o.txt
-#SBATCH --error=/global/homes/s/sachdeva/uoicorr/uoicorr_e.txt
+#SBATCH --out=/global/homes/a/akumar25/logs/uoicorr_o.txt
+#SBATCH --error=/global/homes/s/sachdeva/logs/uoicorr_e.txt
 #SBATCH --mail-user=pratik.sachdeva@berkeley.edu
 #SBATCH --mail-type=FAIL
 

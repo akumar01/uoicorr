@@ -1,0 +1,7 @@
+block_size: 5
+n_blocks: 5
+kappa: 0.3
+reps: 50
+sparsity: 1.0
+results_file: results.h5
+est_score: BIC
