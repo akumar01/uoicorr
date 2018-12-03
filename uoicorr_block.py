@@ -1,9 +1,12 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
 import argparse
 import numpy as np
 import h5py
 import time
 import pdb
-
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
 
@@ -108,5 +111,5 @@ results['r2_true'] = r2_true_results
 results['beta'] = betas
 results['beta_hats'] = beta_hats
 results.close()
-print('Total runtime: %f' % time.time() - total_start)
+print('Total runtime: %f' %  (time.time() - total_start))
 

@@ -1,61 +1,78 @@
 import os
 from datetime import datetime
 import subprocess
+import shlex
+import pdb
 
-# Create and execute an sbatch script for each desired job 
-# For each job, need to specify the python script to be used 
-# and the relevant arguments. These values are specified as a list
-# of dictionaries
+# Make sure we aren't mistakenly submitting jobs with incorrect parameters
+def validate_jobs(jobs):
+	# Ensure that result_files are all unique
+	rfs = []
+	for job in jobs:
+		args = shlex.split(job['args'])
+		rfile = [a for a in args if 'results_file' in a][0].split('results_file=')[1]
+		rfs.append(rfile)
+	assert len(frozenset(rfs)) == len(rfs), 'Not all results files are unique!'
 
-script_dir = '/g\lobal/homes/a/akumar25'
+if __name__ == '__main__':
+	# Create and execute an sbatch script for each desired job 
+	# For each job, need to specify the python script to be used 
+	# and the relevant arguments. These values are specified as a list
+	# of dictionaries
 
-root_dir = '/global/homes/a/akumar25/uoicorr'
+	script_dir = '/global/homes/a/akumar25'
 
-jobdir = '11282018'
+	root_dir = '/global/homes/a/akumar25/uoicorr'
 
-d = '%s/%s' % (root_dir, jobdir)
+	jobdir = '12032018'
 
-if not os.path.exists(d):
-	os.makedirs(d)
+	d = '%s/%s' % (root_dir, jobdir)
 
-jobnames = ['block_BIC', 'block_AIC']
-jobs = [{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5' % (d, jobnames[0])},
-		{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --est_score=AIC' % (d, jobnames[1])}]
+	if not os.path.exists(d):
+		os.makedirs(d)
 
-# Log stuff
-log_file = open('%s/log.txt' % d, 'w')
-log_file.write('Jobs submitted at ' + "{:%H:%M:%S, %B %d, %Y}".format(datetime.now()) + '\n\n\n')
+	jobnames = ['sparsity1', 'sparsity08', 'sparsity06', 'sparsity04', 'sparsity02']
+	jobs = [{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --block_size=10' % (d, jobnames[0])},
+			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --block_size=10 --sparsity=0.8' % (d, jobnames[1])},
+			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --block_size=10 --sparsity=0.6' % (d, jobnames[2])},
+			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --block_size=10 --sparsity=0.4' % (d, jobnames[3])},
+			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --block_size=10 --sparsity=0.2' % (d, jobnames[4])}]
 
-# Write an sbatch script for each job
-for i, job in enumerate(jobs):
-	log_file.write('Job name: %s\n' % jobnames[i])
-	for key, val in job.items():
-		log_file.write('%s: %s\n'  %(key, val))
-	log_file.write('\n\n')
+	validate_jobs(jobs)
+	# Log stuff
+	log_file = open('%s/log.txt' % d, 'w')
+	log_file.write('Jobs submitted at ' + "{:%H:%M:%S, %B %d, %Y}".format(datetime.now()) + '\n\n\n')
 
-	sbname = '%s/sbatch%d.sh' % (d, i)
-	with open(sbname, 'w') as sb:
-		# Arguments common across jobs
-		sb.write('#!/bin/bash\n')
-		sb.write('#SBATCH -q shared\n')
-		sb.write('#SBATCH -n 1\n')
-		sb.write('#SBATCH -t 05:00:00\n')
+	# Write an sbatch script for each job
+	for i, job in enumerate(jobs):
+		log_file.write('Job name: %s\n' % jobnames[i])
+		for key, val in job.items():
+			log_file.write('%s: %s\n'  %(key, val))
+		log_file.write('\n\n')
 
-		sb.write('#SBATCH --job-name=%s\n' % jobnames[i])
-		sb.write('#SBATCH --out=%s/%s.o\n' % (d, jobnames[i]))
-		sb.write('#SBATCH --error=%s/%s.e\n' % (d, jobnames[i]))
-		sb.write('#SBATCH --mail-user=ankit_kumar@berkeley.edu\n')
-		sb.write('#SBATCH --mail-type=FAIL\n')
-		# Load python and any other necessary modules
-		sb.write('module load python/3.6-anaconda-4.4\n')
-		# script(s) to actually run
-		sb.write('srun -C haswell python3  %s/%s %s' % (script_dir, job['script'], job['args']))
-		sb.close()
+		sbname = '%s/sbatch%d.sh' % (d, i)
+		with open(sbname, 'w') as sb:
+			# Arguments common across jobs
+			sb.write('#!/bin/bash\n')
+			sb.write('#SBATCH -q shared\n')
+			sb.write('#SBATCH -n 1\n')
+			sb.write('#SBATCH -t 10:00:00\n')
 
-	# Change permissions
-	os.system('chmod u+x %s' % sbname)
+			sb.write('#SBATCH --job-name=%s\n' % jobnames[i])
+			sb.write('#SBATCH --out=%s/%s.o\n' % (d, jobnames[i]))
+			sb.write('#SBATCH --error=%s/%s.e\n' % (d, jobnames[i]))
+			sb.write('#SBATCH --mail-user=ankit_kumar@berkeley.edu\n')
+			sb.write('#SBATCH --mail-type=FAIL\n')
+			# Load python and any other necessary modules
+			sb.write('module load python/3.6-anaconda-4.4\n')
+			# script(s) to actually run
+			sb.write('srun -C haswell python3  %s/%s %s' % (script_dir, job['script'], job['args']))
+			sb.close()
 
-	# Submit the job
-	os.system('sbatch %s ' % sbname)
+		# Change permissions
+		os.system('chmod u+x %s' % sbname)
 
-log_file.close()
+		# Submit the job
+		os.system('sbatch %s ' % sbname)
+
+	log_file.close()
