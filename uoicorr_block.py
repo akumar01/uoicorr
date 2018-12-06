@@ -10,7 +10,27 @@ import pdb
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
 
+
+
+# Hack to be able to import PyUoI
+
+# import sys, os
+# parent_path, current_dir = os.path.split(os.path.abspath('.'))
+# while current_dir not in ['nse']:
+# 	parent_path, current_dir = os.path.split(parent_path)
+# p = os.path.join(parent_path, current_dir)
+# # Add analysis
+# if p not in sys.path:
+# 	sys.path.append(p)
+
+# # And standard list of subdirectories
+# if '%s\\pyuoi' % p not in sys.path:
+# 	sys.path.append('%s\\pyuoi' % p)
+
+# from pyuoi.UoI_Lasso import UoI_Lasso
+
 from PyUoI.UoI_Lasso import UoI_Lasso
+
 
 total_start = time.time()
 
@@ -24,6 +44,8 @@ parser.add_argument('--sparsity', type=float, default=1.)
 parser.add_argument('--results_file', default='results.h5')
 parser.add_argument('--est_score', default = 'BIC')
 args = parser.parse_args()
+
+
 
 # size of each block
 block_size = args.block_size
@@ -44,8 +66,8 @@ n_samples = 5 * n_features
 n_nonzero_beta = int(sparsity * block_size)
 
 # correlations and selection thresholds
-correlations = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
-selection_thres_mins = np.array([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+correlations = np.array([0.0, 0.25, 0.5, 0.75])
+selection_thres_mins = np.array([0.5, 1.])
 
 results = h5py.File(results_file, 'w')
 # result arrays: fits
@@ -94,7 +116,7 @@ for rep in range(reps):
 				n_boots_sel=48,
 				n_boots_est=48,
 				estimation_score=args.est_score,
-				stability_selection = selection_thres_min
+				stability_selection=selection_thres_min
 			)
 			uoi.fit(X, y.ravel())
 			beta_hat = uoi.coef_

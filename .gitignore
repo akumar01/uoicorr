@@ -11,3 +11,4 @@ __pycache__/
 *.gz
 *.tex
 data/
+*.h5

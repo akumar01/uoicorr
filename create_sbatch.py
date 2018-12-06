@@ -24,20 +24,19 @@ if __name__ == '__main__':
 
 	root_dir = '/global/homes/a/akumar25/uoicorr'
 
-	jobdir = '12032018'
+	jobdir = '12052018'
 
 	d = '%s/%s' % (root_dir, jobdir)
 
 	if not os.path.exists(d):
 		os.makedirs(d)
 
-	jobnames = ['sparsity1', 'sparsity08', 'sparsity06', 'sparsity04', 'sparsity02']
-	jobs = [{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --block_size=10' % (d, jobnames[0])},
-			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --block_size=10 --sparsity=0.8' % (d, jobnames[1])},
-			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --block_size=10 --sparsity=0.6' % (d, jobnames[2])},
-			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --block_size=10 --sparsity=0.4' % (d, jobnames[3])},
-			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --block_size=10 --sparsity=0.2' % (d, jobnames[4])}]
-
+	jobnames = ['sparse1', 'sparse08', 'sparse06', 'sparse04', 'sparse02']
+	jobs = [{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --kappa=0.1 --sparsity=1' % (d, jobnames[0])},
+			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --kappa=0.1 --sparsity=08' % (d, jobnames[1])},
+			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --kappa=0.1 --sparsity=06' % (d, jobnames[2])},
+			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --kappa=0.1 --sparsity=04' % (d, jobnames[3])},
+			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --kappa=0.1 --sparsity=02' % (d, jobnames[4])}]
 	validate_jobs(jobs)
 	# Log stuff
 	log_file = open('%s/log.txt' % d, 'w')
@@ -56,7 +55,7 @@ if __name__ == '__main__':
 			sb.write('#!/bin/bash\n')
 			sb.write('#SBATCH -q shared\n')
 			sb.write('#SBATCH -n 1\n')
-			sb.write('#SBATCH -t 10:00:00\n')
+			sb.write('#SBATCH -t 20:00:00\n')
 
 			sb.write('#SBATCH --job-name=%s\n' % jobnames[i])
 			sb.write('#SBATCH --out=%s/%s.o\n' % (d, jobnames[i]))

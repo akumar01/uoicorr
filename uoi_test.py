@@ -21,20 +21,22 @@ if p not in sys.path:
 	sys.path.append(p)
 
 # And standard list of subdirectories
-if '%s\\PyUoI' % p not in sys.path:
-	sys.path.append('%s\\PyUoI' % p)
+if '%s\\pyuoi' % p not in sys.path:
+	sys.path.append('%s\\pyuoi' % p)
 
-from PyUoI.UoI_Lasso import UoI_Lasso
+from pyuoi.UoI_Lasso import UoI_Lasso
 
 # Can we get PyUoI_Lasso to recover a simple model?
-
-reps = 50
+reps = 25
 # Inverse signal to noise ratio
-kappa = 0.3
+kappa = 0.1
 
 sparsity = 0.2
 
-results_file = 'C:\\Users\\Ankit\\nse\\uoicorr\\data\\test\\test2.h5'
+selection_thres_mins = np.array([0.5, 1.0])
+
+results_file = 'C:\\Users\\akumar\\nse\\uoicorr\\data\\test\\test6.h5'
+assert not os.path.isfile(results_file), "Results file already exists!"
 
 n_features = 20
 
@@ -45,14 +47,12 @@ n_samples = 5 * n_features
 results = h5py.File(results_file, 'w')
 # result arrays: fits
 betas = np.zeros((reps, n_features))
-beta_hats = np.zeros((reps, n_features))
+beta_hats = np.zeros((reps, selection_thres_mins.size, n_features))
 # result arrays: scores
-fn_results = np.zeros(reps)
-fp_results = np.zeros(reps)
-r2_results = np.zeros(reps)
+fn_results = np.zeros((reps, selection_thres_mins.size))
+fp_results = np.zeros((reps, selection_thres_mins.size))
+r2_results = np.zeros((reps, selection_thres_mins.size))
 r2_true_results = np.zeros(reps)
-
-selection_thres_mins = np.array([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
 
 for rep in range(reps):
 	beta = np.random.uniform(low = 0, high = 10, size = (n_features, 1))
@@ -77,21 +77,22 @@ for rep in range(reps):
 	y = np.dot(X, beta) + noise
 	y_test = np.dot(X_test, beta) + noise_test
 	start = time.time()
-	uoi = UoI_Lasso(
-		normalize=True,
-		n_boots_sel=48,
-		n_boots_est=48,
-		estimation_score='BIC'
-	)
-	uoi.fit(X, y.ravel())
-	beta_hat = uoi.coef_
-	beta_hats[rep, :] = beta_hat
-	fn_results[rep] = np.count_nonzero(beta[beta_hat == 0, 0])
-	fp_results[rep] = np.count_nonzero(beta_hat[beta.ravel() == 0])
-	r2_results[rep] = r2_score(y_test, np.dot(X_test, beta_hat))
+	for i, s in enumerate(selection_thres_mins):
+		uoi = UoI_Lasso(
+			normalize=True,
+			n_boots_sel=48,
+			n_boots_est=48,
+			estimation_score='BIC',
+			stability_selection = s
+		)
+		uoi.fit(X, y.ravel())
+		beta_hat = uoi.coef_
+		beta_hats[rep, i, :] = beta_hat
+		fn_results[rep, i] = np.count_nonzero(beta[beta_hat == 0, 0])
+		fp_results[rep, i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
+		r2_results[rep, i] = r2_score(y_test, np.dot(X_test, beta_hat))
 	print(time.time() - start)
 	r2_true_results[rep] = r2_score(y_test, np.dot(X_test, beta))
-
 results['fn'] = fn_results
 results['fp'] = fp_results
 results['r2'] = r2_results
