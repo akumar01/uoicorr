@@ -10,5 +10,7 @@ __pycache__/
 *.pdf
 *.gz
 *.tex
+*.png
 data/
 *.h5
+cori/

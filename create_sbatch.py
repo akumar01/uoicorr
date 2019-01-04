@@ -1,18 +1,35 @@
-import os
+import sys, os
 from datetime import datetime
 import subprocess
 import shlex
 import pdb
+import itertools
+import glob
+import argparse
+
 
 # Make sure we aren't mistakenly submitting jobs with incorrect parameters
-def validate_jobs(jobs):
-	# Ensure that result_files are all unique
-	rfs = []
-	for job in jobs:
-		args = shlex.split(job['args'])
-		rfile = [a for a in args if 'results_file' in a][0].split('results_file=')[1]
-		rfs.append(rfile)
-	assert len(frozenset(rfs)) == len(rfs), 'Not all results files are unique!'
+def validate_jobs(jobdir, jobnames):
+	# Ensure that no existing jobs will be overwritten
+	for jobname in jobnames:
+		assert not glob.glob('%s*' % jobname), 'Not all jobs are unique!'		
+
+
+# Write longer arguments to file. jobdir should be the directory
+# that the job files go into (global path) 
+# args is a dictionary containing the arguments
+def write_args_to_file(args, results_files, jobnames, jobdir):
+	arg_files = []
+	for i, arg in enumerate(args):
+		arg_file = '%s/%s_params.py' % (jobdir, jobnames[i])
+		with open(arg_file, 'w') as f:
+			for key, value in arg.items():
+				f.write('{0} = {1}\n'.format(key, value))
+			f.write('results_file = %s' % results_files[i])
+			f.close()
+		# Strip the .py from the end
+		arg_files.append(arg_file.split('.py')[0])
+	return arg_files 
 
 if __name__ == '__main__':
 	# Create and execute an sbatch script for each desired job 
@@ -20,26 +37,62 @@ if __name__ == '__main__':
 	# and the relevant arguments. These values are specified as a list
 	# of dictionaries
 
+	# Command line arguments
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-test', action='store_true')
+	parser.add_argument('-first_only', action='store_true')
+	
+	cmd_args = parser.parse_args()
+	
+
 	script_dir = '/global/homes/a/akumar25'
 
 	root_dir = '/global/homes/a/akumar25/uoicorr'
 
-	jobdir = '12052018'
+	jobdir = '01022019'
 
-	d = '%s/%s' % (root_dir, jobdir)
+	jobdir = '%s/%s' % (root_dir, jobdir)
 
-	if not os.path.exists(d):
-		os.makedirs(d)
+	if not os.path.exists(jobdir):
+		os.makedirs(jobdir)
 
-	jobnames = ['sparse1', 'sparse08', 'sparse06', 'sparse04', 'sparse02']
-	jobs = [{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --kappa=0.1 --sparsity=1' % (d, jobnames[0])},
-			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --kappa=0.1 --sparsity=08' % (d, jobnames[1])},
-			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --kappa=0.1 --sparsity=06' % (d, jobnames[2])},
-			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --kappa=0.1 --sparsity=04' % (d, jobnames[3])},
-			{'script': 'uoicorr_block.py', 'args': '--results_file=%s/%s.h5 --kappa=0.1 --sparsity=02' % (d, jobnames[4])}]
-	validate_jobs(jobs)
-	# Log stuff
-	log_file = open('%s/log.txt' % d, 'w')
+	# Specify script to use:
+	script = 'uoicorr_block.py'
+
+	# List the set of arguments to the script(s) that will be iterated over
+	iter_params = {'sparsity' : [1., 0.8, 0.6, 0.4, 0.2], 
+	'selection_thres_mins' : [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]}
+	iter_keys = list(iter_params.keys())
+
+	# List arguments that will be held constant across all jobs:
+	comm_params = {'block_size': 10, 'n_blocks': 5, 'kappa' : 0.1, 
+	'correlations' : [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+	'est_score': '\'BIC\'', 'reps' : 50}
+
+	jobnames =  []
+	args = []
+
+	for i, arg_comb in enumerate(itertools.product(*list(iter_params.values()))):
+		arg = {}
+		for j in range(len(arg_comb)):
+			arg[iter_keys[j]] = arg_comb[j]			
+		for key, value in comm_params.items():
+			arg[key] = value
+
+		args.append(arg)
+		jobnames.append('job%d' % i)
+
+	results_files = ['\'%s/%s.h5\'' % (jobdir, jobname) for jobname in jobnames]
+	# Write the arguments to file
+	arg_files = write_args_to_file(args, results_files, jobnames, jobdir)
+	# Generate an interable containing the script name and the parameter file name
+	jobs = [{'script': script, 'arg_file' : arg_file} for arg_file in arg_files]
+
+	# Ensure we aren't accidentally duplicating/overwriting existing jobs
+	validate_jobs(jobdir, jobnames)
+
+	# Log all job details
+	log_file = open('%s/log.txt' % jobdir, 'w')
 	log_file.write('Jobs submitted at ' + "{:%H:%M:%S, %B %d, %Y}".format(datetime.now()) + '\n\n\n')
 
 	# Write an sbatch script for each job
@@ -49,29 +102,30 @@ if __name__ == '__main__':
 			log_file.write('%s: %s\n'  %(key, val))
 		log_file.write('\n\n')
 
-		sbname = '%s/sbatch%d.sh' % (d, i)
+		sbname = '%s/sbatch%d.sh' % (jobdir, i)
 		with open(sbname, 'w') as sb:
 			# Arguments common across jobs
 			sb.write('#!/bin/bash\n')
 			sb.write('#SBATCH -q shared\n')
 			sb.write('#SBATCH -n 1\n')
-			sb.write('#SBATCH -t 20:00:00\n')
+			sb.write('#SBATCH -t 10:00:00\n')
 
 			sb.write('#SBATCH --job-name=%s\n' % jobnames[i])
-			sb.write('#SBATCH --out=%s/%s.o\n' % (d, jobnames[i]))
-			sb.write('#SBATCH --error=%s/%s.e\n' % (d, jobnames[i]))
+			sb.write('#SBATCH --out=%s/%s.o\n' % (jobdir, jobnames[i]))
+			sb.write('#SBATCH --error=%s/%s.e\n' % (jobdir, jobnames[i]))
 			sb.write('#SBATCH --mail-user=ankit_kumar@berkeley.edu\n')
 			sb.write('#SBATCH --mail-type=FAIL\n')
 			# Load python and any other necessary modules
 			sb.write('module load python/3.6-anaconda-4.4\n')
 			# script(s) to actually run
-			sb.write('srun -C haswell python3  %s/%s %s' % (script_dir, job['script'], job['args']))
+			sb.write('srun -C haswell python3  %s/%s --arg_file=%s' % (script_dir, job['script'], job['arg_file']))
 			sb.close()
-
+			
 		# Change permissions
 		os.system('chmod u+x %s' % sbname)
-
-		# Submit the job
-		os.system('sbatch %s ' % sbname)
+		if not cmd_args.test:
+			if not cmd_args.first_only or i == 0:
+				# Submit the job
+				os.system('sbatch %s ' % sbname)
 
 	log_file.close()
