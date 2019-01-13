@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
 	root_dir = '/global/homes/a/akumar25/uoicorr'
 
-	jobdir = '01022019'
+	jobdir = '01112019'
 
 	jobdir = '%s/%s' % (root_dir, jobdir)
 
@@ -57,17 +57,24 @@ if __name__ == '__main__':
 		os.makedirs(jobdir)
 
 	# Specify script to use:
-	script = 'uoicorr_block.py'
+	script = 'uoien_block.py'
 
 	# List the set of arguments to the script(s) that will be iterated over
-	iter_params = {'sparsity' : [1., 0.8, 0.6, 0.4, 0.2], 
-	'selection_thres_mins' : [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]}
+	iter_params = {'sparsity' : [1., 0.8, 0.6, 0.4, 0.2], 'block_size': [6, 12, 20, 30]}
 	iter_keys = list(iter_params.keys())
 
 	# List arguments that will be held constant across all jobs:
-	comm_params = {'block_size': 10, 'n_blocks': 5, 'kappa' : 0.1, 
+	comm_params = {'kappa' : 0.3, 'n_features' : 60,
 	'correlations' : [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
-	'est_score': '\'BIC\'', 'reps' : 50}
+	'est_score': '\'r2\'', 'reps' : 1, 'selection_thres_mins' : [1.0]}
+
+	# Parameters for ElasticNet
+	if script == 'elasticnet_block.py' or script == 'uoien_block.py':
+		comm_params['l1_ratios'] = [0.1, 0.2, 0.5, 0.75, 0.9, 0.95, 0.99]
+		comm_params['n_alphas'] = 48
+
+	# Description of what the job is
+	desc = "UoI_ElasticNet with block correlation and reduced signal to noise. R^2 est_score, and a range of l1_ratios"
 
 	jobnames =  []
 	args = []
@@ -82,50 +89,55 @@ if __name__ == '__main__':
 		args.append(arg)
 		jobnames.append('job%d' % i)
 
-	results_files = ['\'%s/%s.h5\'' % (jobdir, jobname) for jobname in jobnames]
-	# Write the arguments to file
-	arg_files = write_args_to_file(args, results_files, jobnames, jobdir)
-	# Generate an interable containing the script name and the parameter file name
-	jobs = [{'script': script, 'arg_file' : arg_file} for arg_file in arg_files]
+	cont = input("You are about to submit %d jobs, do you want to continue? [0/1]" % len(jobnames))
+	if cont:
 
-	# Ensure we aren't accidentally duplicating/overwriting existing jobs
-	validate_jobs(jobdir, jobnames)
+		results_files = ['\'%s/%s.h5\'' % (jobdir, jobname) for jobname in jobnames]
+		# Write the arguments to file
+		arg_files = write_args_to_file(args, results_files, jobnames, jobdir)
+		# Generate an interable containing the script name and the parameter file name
+		jobs = [{'script': script, 'arg_file' : arg_file} for arg_file in arg_files]
 
-	# Log all job details
-	log_file = open('%s/log.txt' % jobdir, 'w')
-	log_file.write('Jobs submitted at ' + "{:%H:%M:%S, %B %d, %Y}".format(datetime.now()) + '\n\n\n')
+		# Ensure we aren't accidentally duplicating/overwriting existing jobs
+		validate_jobs(jobdir, jobnames)
 
-	# Write an sbatch script for each job
-	for i, job in enumerate(jobs):
-		log_file.write('Job name: %s\n' % jobnames[i])
-		for key, val in job.items():
-			log_file.write('%s: %s\n'  %(key, val))
-		log_file.write('\n\n')
+		# Log all job details
+		log_file = open('%s/log.txt' % jobdir, 'w')
+		log_file.write('Jobs submitted at ' + "{:%H:%M:%S, %B %d, %Y}".format(datetime.now()) + '\n\n\n')
+		log_file.write('Run Description: %s\n\n\n' % desc)
 
-		sbname = '%s/sbatch%d.sh' % (jobdir, i)
-		with open(sbname, 'w') as sb:
-			# Arguments common across jobs
-			sb.write('#!/bin/bash\n')
-			sb.write('#SBATCH -q shared\n')
-			sb.write('#SBATCH -n 1\n')
-			sb.write('#SBATCH -t 10:00:00\n')
+		# Write an sbatch script for each job
+		for i, job in enumerate(jobs):
+			log_file.write('Job name: %s\n' % jobnames[i])
+			for key, val in job.items():
+				log_file.write('%s: %s\n'  %(key, val))
+			log_file.write('\n\n')
 
-			sb.write('#SBATCH --job-name=%s\n' % jobnames[i])
-			sb.write('#SBATCH --out=%s/%s.o\n' % (jobdir, jobnames[i]))
-			sb.write('#SBATCH --error=%s/%s.e\n' % (jobdir, jobnames[i]))
-			sb.write('#SBATCH --mail-user=ankit_kumar@berkeley.edu\n')
-			sb.write('#SBATCH --mail-type=FAIL\n')
-			# Load python and any other necessary modules
-			sb.write('module load python/3.6-anaconda-4.4\n')
-			# script(s) to actually run
-			sb.write('srun -C haswell python3  %s/%s --arg_file=%s' % (script_dir, job['script'], job['arg_file']))
-			sb.close()
-			
-		# Change permissions
-		os.system('chmod u+x %s' % sbname)
-		if not cmd_args.test:
-			if not cmd_args.first_only or i == 0:
-				# Submit the job
-				os.system('sbatch %s ' % sbname)
+			sbname = '%s/sbatch%d.sh' % (jobdir, i)
+			with open(sbname, 'w') as sb:
+				# Arguments common across jobs
+				sb.write('#!/bin/bash\n')
+				sb.write('#SBATCH -q shared\n')
+				sb.write('#SBATCH -n 1\n')
+				sb.write('#SBATCH -t 10:00:00\n')
 
-	log_file.close()
+				sb.write('#SBATCH --job-name=%s\n' % jobnames[i])
+				sb.write('#SBATCH --out=%s/%s.o\n' % (jobdir, jobnames[i]))
+				sb.write('#SBATCH --error=%s/%s.e\n' % (jobdir, jobnames[i]))
+				sb.write('#SBATCH --mail-user=ankit_kumar@berkeley.edu\n')
+				sb.write('#SBATCH --mail-type=FAIL\n')
+				# Load python and any other necessary modules
+				sb.write('module load python/3.6-anaconda-4.4\n')
+				# script(s) to actually run
+				sb.write('srun -C haswell python3  %s/%s --arg_file=%s' 
+					% (script_dir, job['script'], job['arg_file']))
+				sb.close()
+				
+			# Change permissions
+			os.system('chmod u+x %s' % sbname)
+			if not cmd_args.test:
+				if not cmd_args.first_only or i == 0:
+					# Submit the job
+					os.system('sbatch %s ' % sbname)
+
+		log_file.close()

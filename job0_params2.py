@@ -1,0 +1,9 @@
+sparsity = 1.0
+block_size = 6
+kappa = 0.1
+n_features = 60
+correlations = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+est_score = 'BIC'
+reps = 1
+selection_thres_mins = [0.5]
+results_file = 'test3.h5'

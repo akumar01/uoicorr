@@ -10,6 +10,7 @@ from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
 import importlib
 import pdb
+from pyuoi.linear_model.elasticnet import UoI_ElasticNet
 
 total_start = time.time()
 
@@ -17,35 +18,14 @@ total_start = time.time()
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--arg_file', default=None)
-parser.add_argument('-l', action= 'store_true')
-args = parser.parse_args()
-
-### Flag whether or not the script is being run locally ###
-if args.l:
-	# Hack to import pyuoi
-	parent_path, current_dir = os.path.split(os.path.abspath('.'))
-	while current_dir not in ['nse']:
-		parent_path, current_dir = os.path.split(parent_path)
-	p = os.path.join(parent_path, current_dir)
-	# Add analysis
-	if p not in sys.path:
-		sys.path.append(p)
-
-	# And standard list of subdirectories
-	if '%s\\pyuoi' % p not in sys.path:
-		sys.path.append('%s\\pyuoi' % p)
-
-
-from pyuoi.linear_model.lasso import UoI_Lasso
 
 ### Import arguments from file ###
 try:
-	arg_file_path, arg_file = os.path.split(args.arg_file)
+	arg_file_path, arg_file = os.path.split(parser.parse_args().arg_file)
 	sys.path.append(arg_file_path)
 	args = importlib.import_module(arg_file) 
 except:
 	print('Warning! Could not load arg file')
-
 n_features = args.n_features
 block_size = args.block_size
 kappa = args.kappa
@@ -55,6 +35,9 @@ correlations = args.correlations
 selection_thres_mins = args.selection_thres_mins
 sparsity = args.sparsity
 results_file = args.results_file
+
+# Elastic net parameters
+l1_ratios = args.l1_ratios
 
 # Ensure that selection_thres_mins and correlations are numpy arrays
 if not isinstance(selection_thres_mins, np.ndarray):
@@ -75,11 +58,9 @@ n_samples = 5 * n_features
 n_nonzero_beta = int(sparsity * block_size)
 
 results = h5py.File(results_file, 'w')
-
-# result arrays: 
+# result arrays: fits
 betas = np.zeros((reps, n_features))
 beta_hats = np.zeros((reps, correlations.size, selection_thres_mins.size, n_features))
-
 # result arrays: scores
 fn_results = np.zeros((reps, correlations.size, selection_thres_mins.size))
 fp_results = np.zeros((reps, correlations.size, selection_thres_mins.size))
@@ -120,11 +101,15 @@ for rep in range(reps):
 
 		for thres_idx, selection_thres_min in enumerate(selection_thres_mins):
 			start = time.time()
-			uoi = UoI_Lasso(
+			uoi = UoI_ElasticNet(
 				normalize=True,
 				n_boots_sel=48,
 				n_boots_est=48,
-				estimation_score=args.est_score)
+				alphas = l1_ratios,
+				estimation_score=args.est_score,
+				stability_selection = selection_thres_min,
+				warm_start = False
+			)
 			uoi.fit(X, y.ravel())
 			beta_hat = uoi.coef_
 			beta_hats[rep, corr_idx, thres_idx, :] = beta_hat
