@@ -12,7 +12,7 @@ from sklearn.linear_model.coordinate_descent import _alpha_grid
 from sklearn.linear_model import ElasticNet
 from sklearn.model_selection import KFold
 
-from utils import gen_data
+from utils import gen_data, gen_beta, block_covariance
 
 total_start = time.time()
 
@@ -37,6 +37,8 @@ reps = args.reps
 correlations = args.correlations
 sparsity = args.sparsity
 results_file = args.results_file
+n_samples = args.n_samples
+betadist = args.betadist
 
 # Elastic Net hyperparmeters
 l1_ratios = args.l1_ratios
@@ -72,18 +74,15 @@ r2_true_results = np.zeros((reps, correlations.size))
 
 for rep in range(reps):
 
+	beta = gen_beta(n_features, block_size, sparsity, betadist=betadist)
+	betas[rep, :] = beta.ravel()
+
 	for corr_idx, correlation in enumerate(correlations):
 
+		Sigma = block_covariance(n_features, correlation, block_size)
 
-		# create covariance matrix for block
-		block_Sigma = correlation * np.ones((block_size, block_size)) 
-		np.fill_diagonal(block_Sigma, np.ones(block_size))
-		# populate entire covariance matrix
-		rep_block_Sigma = [block_Sigma] * n_blocks
-		Sigma = block_diag(*rep_block_Sigma)
-
-		X, X_test, y, y_test, beta = gen_data(n_features=n_features, block_size=block_size,
-								 	kappa = kappa, covariance = Sigma, sparsity = sparsity)
+		X, X_test, y, y_test = gen_data(n_samples = n_samples, 
+		n_features=n_features,	kappa = kappa, covariance = Sigma, beta = beta)
 
 		alphas = np.zeros((l1_ratios.size, n_alphas))
 		scores = np.zeros((l1_ratios.size, n_alphas))

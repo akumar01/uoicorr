@@ -1,15 +1,14 @@
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 import sys, os
 import argparse
 import numpy as np
 import h5py
 import time
 import pdb
+import importlib
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
-import importlib
-import pdb
+
+from utils import gen_beta, gen_data, block_covariance
 
 total_start = time.time()
 
@@ -69,11 +68,6 @@ if not isinstance(correlations, np.ndarray):
 	else:
 		correlations = np.array(correlations)
 
-# set up other variables
-n_blocks = int(np.floor(n_features/block_size))
-n_samples = 5 * n_features
-n_nonzero_beta = int(sparsity * block_size)
-
 results = h5py.File(results_file, 'w')
 
 # result arrays: 
@@ -87,36 +81,18 @@ r2_results = np.zeros((reps, correlations.size, selection_thres_mins.size))
 r2_true_results = np.zeros((reps, correlations.size))
 
 for rep in range(reps):
-	beta = np.random.uniform(low=0, high=10, size=(n_features, 1))
-	mask = np.array([])
-	for block in range(n_blocks):
-		block_mask = np.zeros(block_size)
-		block_mask[:n_nonzero_beta] = np.ones(n_nonzero_beta)
-		np.random.shuffle(block_mask)
-		mask = np.concatenate((mask, block_mask))
-	mask = mask[..., np.newaxis]
-	beta = beta * mask
-	betas[rep, :] = beta.ravel()
-	for corr_idx, correlation in enumerate(correlations):
-		# create covariance matrix for block
-		block_Sigma = correlation * np.ones((block_size, block_size)) 
-		np.fill_diagonal(block_Sigma, np.ones(block_size))
-		# populate entire covariance matrix
-		rep_block_Sigma = [block_Sigma] * n_blocks
-		Sigma = block_diag(*rep_block_Sigma)
-		# draw samples
-		X = np.random.multivariate_normal(mean=np.zeros(n_features), cov=Sigma, size=n_samples)
-		X_test = np.random.multivariate_normal(mean=np.zeros(n_features), cov=Sigma, size=n_samples)
 
-		# signal and noise variance
-		signal_variance = np.sum(Sigma * np.dot(beta, beta.T))
-		noise_variance = kappa * signal_variance
-		# draw noise
-		noise = np.random.normal(loc=0, scale=np.sqrt(noise_variance), size=(n_samples, 1))
-		noise_test = np.random.normal(loc=0, scale=np.sqrt(noise_variance), size=(n_samples, 1))
-		# response variable
-		y = np.dot(X, beta) + noise
-		y_test = np.dot(X_test, beta) + noise_test
+	# Generate model coefficients (CHANGE SO BETADIST IS A FILE PARAM)
+	beta = gen_beta(n_features, block_size, sparsity, betadist = 'uniform')
+
+	for corr_idx, correlation in enumerate(correlations):
+
+		# Block covariance structure
+		Sigma = block_covariance(n_features, correlation, block_size)
+
+		# Generate data (CHANGE SO N_SAMPLES IS A FILE PARAM)
+		X, X_test, y, y_test = gen_data(n_samples, n_features, kappa,
+												Sigma, beta)
 
 		for thres_idx, selection_thres_min in enumerate(selection_thres_mins):
 			start = time.time()

@@ -2,18 +2,23 @@ import numpy as np
 from scipy.linalg import block_diag
 import pdb
 
-# Generate toy data to fit given number of features, covariance structure, signal to noise, and sparsity
-# Note that sparsity is applied within blocks. When this is not desired, set the block size to equal n_features
-def gen_data(n_samples = 5 * 60, 
-    n_features = 60, block_size = 6, kappa = 0.1,  covariance = np.diag(np.ones(60)), sparsity = 0.6):
 
+
+def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'uniform'):
     n_blocks = int(np.floor(n_features/block_size))
     
     n_nonzero_beta = int(sparsity * block_size)
     
     # Choose model coefficients to be uniformly distributed
-    beta = np.random.uniform(low=0, high=10, size=(n_features, 1))
-
+    if betadist == 'uniform':
+        beta = np.random.uniform(low=0, high=10, size=(n_features, 1))
+    elif betadist == 'invexp':
+        beta = invexp_dist(-5, 5, n_features)
+        beta = np.reshape(beta, (n_features, 1))
+    elif betadist == 'laplace':
+        beta = np.random.laplace(size=(n_featurs, 1))
+    elif betadist == 'clustered':
+        beta = np.random.laplac
     # Apply sparsity separately to each block
     mask = np.array([])
     for block in range(n_blocks):
@@ -23,6 +28,13 @@ def gen_data(n_samples = 5 * 60,
         mask = np.concatenate((mask, block_mask))
     mask = mask[..., np.newaxis]
     beta = beta * mask
+
+    return beta
+
+# Generate toy data to fit given number of features, covariance structure, signal to noise, and sparsity
+# Note that sparsity is applied within blocks. When this is not desired, set the block size to equal n_features
+def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
+            covariance = np.diag(np.ones(60)), beta = np.random.uniform(0, 10, (60, 1))):
     
     # draw samples from a multivariate normal distribution cenetered around 0
     X = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)
@@ -45,7 +57,7 @@ def gen_data(n_samples = 5 * 60,
 #     y_test = y_test - np.mean(y_test)
 
 
-    return X, X_test, y, y_test, beta
+    return X, X_test, y, y_test
 
 # Create a block diagonal covariance matrix 
 def block_covariance(n_features = 60, correlation = 1, block_size = 6):
@@ -60,10 +72,18 @@ def block_covariance(n_features = 60, correlation = 1, block_size = 6):
     sigma = block_diag(*rep_block_sigma)
     return sigma
 
-# Sample from 1/Exp[-Abs|x|], properly normalized
-def inverse_exponential_distribution(xmin, xmax, n_samples):
+# Create a covariance matrix where the correlations are given by an exponential
+# fall off
+def exp_falloff(n_features = 60, L = 1):
+    indices = np.arange(n_features)
+    distances = np.abs(np.subtract.outer(indices, indices))
+    sigma = np.exp(-distances/L)
+    return sigma
 
-    x = np.linspace(xmin, xmax, 10000)
+# Sample from 1/Exp[-Abs|x|], properly normalized
+def invexp_dist(low, high, n_samples):
+
+    x = np.linspace(low, high, 10000)
     fx = np.exp(np.abs(x))
 
     # normalize
@@ -81,3 +101,21 @@ def inverse_exponential_distribution(xmin, xmax, n_samples):
             y = np.append(y, x[np.argwhere(Fx == min(Fx[(Fx - ux) > 0])).ravel()])
 
     return y
+
+# Return samples clustered around a set of points
+def cluster_dist(low, high, n_clusters, cluster_width, n_samples):
+
+    x = np.zeros(n_samples)
+
+    # Evenly space clusters
+    cluster_centers = np.cumsum((high - low)//n_clusters * np.ones(n_clusters))
+
+    for idx in range(n_samples):
+        # Randomly choose cluster center
+        center = np.random.choice(cluster_centers)
+        # Sample from uniform distribution centered on cluster with width
+        # given by cluster_width 
+        x[idx] = np.random.uniform(low = center - cluster_width/2, 
+            high = center + cluster_width/2)
+
+    return x

@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
 	root_dir = '/global/homes/a/akumar25/uoicorr'
 
-	jobdir = '01112019'
+	jobdir = '01132019c'
 
 	jobdir = '%s/%s' % (root_dir, jobdir)
 
@@ -57,7 +57,7 @@ if __name__ == '__main__':
 		os.makedirs(jobdir)
 
 	# Specify script to use:
-	script = 'uoien_block.py'
+	script = 'elasticnet_block.py'
 
 	# List the set of arguments to the script(s) that will be iterated over
 	iter_params = {'sparsity' : [1., 0.8, 0.6, 0.4, 0.2], 'block_size': [6, 12, 20, 30]}
@@ -66,7 +66,8 @@ if __name__ == '__main__':
 	# List arguments that will be held constant across all jobs:
 	comm_params = {'kappa' : 0.3, 'n_features' : 60,
 	'correlations' : [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
-	'est_score': '\'r2\'', 'reps' : 1, 'selection_thres_mins' : [1.0]}
+	'est_score': '\'r2\'', 'reps' : 50, 'selection_thres_mins' : [1.0],
+	'n_samples' : 60 * 5, 'betadist':'\'uniform\''}
 
 	# Parameters for ElasticNet
 	if script == 'elasticnet_block.py' or script == 'uoien_block.py':
@@ -74,8 +75,7 @@ if __name__ == '__main__':
 		comm_params['n_alphas'] = 48
 
 	# Description of what the job is
-	desc = "UoI_ElasticNet with block correlation and reduced signal to noise. R^2 est_score, and a range of l1_ratios"
-
+	desc = "Re-doing 01112019b with reps set to 50 (and not 1)"
 	jobnames =  []
 	args = []
 
