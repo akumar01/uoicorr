@@ -36,7 +36,7 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
 # Note that sparsity is applied within blocks. When this is not desired, set the block size to equal n_features
 def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
             covariance = np.diag(np.ones(60)), beta = np.random.uniform(0, 10, (60, 1))):
-    
+
     # draw samples from a multivariate normal distribution cenetered around 0
     X = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)
     X_test = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)

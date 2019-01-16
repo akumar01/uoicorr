@@ -22,6 +22,7 @@ def validate_jobs(jobdir, jobnames):
 def write_args_to_file(args, results_files, jobnames, jobdir):
 	arg_files = []
 	for i, arg in enumerate(args):
+		arg['results_file'] = results_files[i]
 		arg_file = '%s/%s_params.json' % (jobdir, jobnames[i])
 		with open(arg_file, 'w') as f:
 			json.dump(arg, f)
