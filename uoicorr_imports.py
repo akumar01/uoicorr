@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import correlate
 from math import floor, ceil
+
 # Script to add the entire project directory structure to the python path
 import sys, os
 
@@ -23,4 +24,7 @@ if p not in sys.path:
 if '%s\\pyuoi' % p not in sys.path:
 	sys.path.append('%s\\pyuoi' % p)
 
-from pyuoi.UoI_Lasso import UoI_Lasso
+from pyuoi.linear_model.lasso import UoI_Lasso
+from pyuoi.linear_model.elasticnet import UoI_ElasticNet
+
+from postprocess import postprocess_file, postprocess_dir

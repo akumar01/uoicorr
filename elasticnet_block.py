@@ -124,6 +124,13 @@ for rep in range(reps):
 		r2_results[rep, corr_idx] = r2_score(y_test, np.dot(X_test, beta_hat))
 		r2_true_results[rep, corr_idx] = r2_score(y_test, np.dot(X_test, beta))
 
+results['fn'] = fn_results
+results['fp'] = fp_results
+results['r2'] = r2_results
+results['r2_true'] = r2_true_results
+results['betas'] = betas
+results['beta_hats'] = beta_hats
+
 results.close()
 print('Total runtime: %f' %  (time.time() - total_start))
 

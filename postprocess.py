@@ -34,26 +34,24 @@ def postprocess(data_file, params):
 	data_list = []
 
 	for cidx, corr in enumerate(params.correlations):
-		for sidx, stm in enumerate(params.selection_thres_mins):
-			# Create a dictionary to append to the main data frame
-			data_dict = {}
-			# Parameters to store
-			try:
-				data_dict['sparsity'] = params.sparsity
-				data_dict['block_size'] = params.block_size
-				data_dict['sel_thres_min'] = stm
-				data_dict['correlation'] = corr
-				data_dict['beta'] = data_file['beta'][:]
-				data_dict['r2_true'] = data_file['r2_true'][:]
-				data_dict['r2'] = data_file['r2'][:, cidx, sidx]
-				data_dict['fn'] = data_file['fn'][:, cidx, sidx]
-				data_dict['fp'] = data_file['fp'][:, cidx, sidx]
-				data_dict['beta_hats'] = data_file['beta_hats'][:, cidx, sidx, :]
-			except:
-				pdb.set_trace()
+		# Create a dictionary to append to the main data frame
+		data_dict = {}
+		# Parameters to store
+		try:
+			data_dict['sparsity'] = params.sparsity
+			data_dict['block_size'] = params.block_size
+			data_dict['betadist'] = params.betadist
+			data_dict['correlation'] = corr
+			data_dict['beta'] = data_file['beta'][:]
+			data_dict['r2_true'] = data_file['r2_true'][:, cidx]
+			data_dict['r2'] = data_file['r2'][:, cidx]
+			data_dict['fn'] = data_file['fn'][:, cidx]
+			data_dict['fp'] = data_file['fp'][:, cidx]
+			data_dict['beta_hats'] = data_file['beta_hats'][:, cidx, :]
+		except:
+			pdb.set_trace()
 
-
-			data_list.append(data_dict)
+		data_list.append(data_dict)
 
 	return data_list
 

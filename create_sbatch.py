@@ -6,7 +6,8 @@ import pdb
 import itertools
 import glob
 import argparse
-
+import importlib
+import json
 
 # Make sure we aren't mistakenly submitting jobs with incorrect parameters
 def validate_jobs(jobdir, jobnames):
@@ -21,14 +22,12 @@ def validate_jobs(jobdir, jobnames):
 def write_args_to_file(args, results_files, jobnames, jobdir):
 	arg_files = []
 	for i, arg in enumerate(args):
-		arg_file = '%s/%s_params.py' % (jobdir, jobnames[i])
+		arg_file = '%s/%s_params.json' % (jobdir, jobnames[i])
 		with open(arg_file, 'w') as f:
-			for key, value in arg.items():
-				f.write('{0} = {1}\n'.format(key, value))
-			f.write('results_file = %s' % results_files[i])
+			json.dump(arg, f)
 			f.close()
 		# Strip the .py from the end
-		arg_files.append(arg_file.split('.py')[0])
+		arg_files.append(arg_file)
 	return arg_files 
 
 if __name__ == '__main__':
@@ -39,46 +38,59 @@ if __name__ == '__main__':
 
 	# Command line arguments
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-test', action='store_true')
-	parser.add_argument('-first_only', action='store_true')
 	
+	# Param file from which to create job scripts
+	parser.add_argument('param_file', default=None)
+
+	# Create job files without actually submitting them
+	parser.add_argument('-t', '--test', action='store_true')
+	# Submit only the first job
+	parser.add_argument('-f', '--first_only', action='store_true')
+	# Edit the 'reps' parameter to equal 1
+	parser.add_argument('-s', '--single_rep', action='store_true')
+
 	cmd_args = parser.parse_args()
+
+	# Load param file
 	
+	try:
+		param_file_path, param_file = os.path.split(cmd_args.param_file)
+		sys.path.append(param_file_path)
+		params = importlib.import_module(param_file)
+	except:
+		print('Warning! Could not load param file')
 
-	script_dir = '/global/homes/a/akumar25'
+	script_dir = params.script_dir
 
-	root_dir = '/global/homes/a/akumar25/uoicorr'
+	root_dir = params.root_dir
 
-	jobdir = '01132019c'
+	jobdir = params.jobdir
 
 	jobdir = '%s/%s' % (root_dir, jobdir)
 
 	if not os.path.exists(jobdir):
 		os.makedirs(jobdir)
 
-	# Specify script to use:
-	script = 'elasticnet_block.py'
-
-	# List the set of arguments to the script(s) that will be iterated over
-	iter_params = {'sparsity' : [1., 0.8, 0.6, 0.4, 0.2], 'block_size': [6, 12, 20, 30]}
+	script = params.script
+	iter_params = params.iter_params
 	iter_keys = list(iter_params.keys())
+	comm_params = params.comm_params
+	desc = params.desc
 
-	# List arguments that will be held constant across all jobs:
-	comm_params = {'kappa' : 0.3, 'n_features' : 60,
-	'correlations' : [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
-	'est_score': '\'r2\'', 'reps' : 50, 'selection_thres_mins' : [1.0],
-	'n_samples' : 60 * 5, 'betadist':'\'uniform\''}
+	# Change the reps to 1 if flagged
+	if cmd_args.single_rep:
+		if 'reps' in iter_params.keys():
+			iter_params['reps'] = [1]
+		elif 'reps' in comm_params.keys():
+			comm_params['reps'] = 1
+		else:
+			print('Warning! No reps parameter found')
 
-	# Parameters for ElasticNet
-	if script == 'elasticnet_block.py' or script == 'uoien_block.py':
-		comm_params['l1_ratios'] = [0.1, 0.2, 0.5, 0.75, 0.9, 0.95, 0.99]
-		comm_params['n_alphas'] = 48
-
-	# Description of what the job is
-	desc = "Re-doing 01112019b with reps set to 50 (and not 1)"
 	jobnames =  []
 	args = []
 
+	# Iterate over all combinations of parameters in iter_params and combine them
+	# with comm_params to produce a unique argument dictionary for each individual job
 	for i, arg_comb in enumerate(itertools.product(*list(iter_params.values()))):
 		arg = {}
 		for j in range(len(arg_comb)):
@@ -119,7 +131,7 @@ if __name__ == '__main__':
 				sb.write('#!/bin/bash\n')
 				sb.write('#SBATCH -q shared\n')
 				sb.write('#SBATCH -n 1\n')
-				sb.write('#SBATCH -t 10:00:00\n')
+				sb.write('#SBATCH -t %s\n' % params.job_time)
 
 				sb.write('#SBATCH --job-name=%s\n' % jobnames[i])
 				sb.write('#SBATCH --out=%s/%s.o\n' % (jobdir, jobnames[i]))

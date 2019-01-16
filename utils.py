@@ -16,9 +16,10 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
         beta = invexp_dist(-5, 5, n_features)
         beta = np.reshape(beta, (n_features, 1))
     elif betadist == 'laplace':
-        beta = np.random.laplace(size=(n_featurs, 1))
+        beta = np.random.laplace(scale = 1, size=(n_features, 1))
     elif betadist == 'clustered':
-        beta = np.random.laplac
+        beta = cluster_dist(low = 0, high = 25, n_clusters = 5, 
+            cluster_width = 1, size = (n_features, 1))
     # Apply sparsity separately to each block
     mask = np.array([])
     for block in range(n_blocks):
@@ -103,14 +104,14 @@ def invexp_dist(low, high, n_samples):
     return y
 
 # Return samples clustered around a set of points
-def cluster_dist(low, high, n_clusters, cluster_width, n_samples):
+def cluster_dist(low, high, n_clusters, cluster_width, size):
 
-    x = np.zeros(n_samples)
+    x = np.zeros(size)
 
     # Evenly space clusters
     cluster_centers = np.cumsum((high - low)//n_clusters * np.ones(n_clusters))
 
-    for idx in range(n_samples):
+    for idx in range(size[0]):
         # Randomly choose cluster center
         center = np.random.choice(cluster_centers)
         # Sample from uniform distribution centered on cluster with width
