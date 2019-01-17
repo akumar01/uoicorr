@@ -42,12 +42,30 @@ def postprocess(data_file, params):
 			data_dict['block_size'] = params.block_size
 			data_dict['betadist'] = params.betadist
 			data_dict['correlation'] = corr
-			data_dict['beta'] = data_file['beta'][:]
-			data_dict['r2_true'] = data_file['r2_true'][:, cidx]
-			data_dict['r2'] = data_file['r2'][:, cidx]
-			data_dict['fn'] = data_file['fn'][:, cidx]
-			data_dict['fp'] = data_file['fp'][:, cidx]
-			data_dict['beta_hats'] = data_file['beta_hats'][:, cidx, :]
+			# data_dict['beta'] = data_file['beta'][:]
+			# data_dict['r2_true'] = data_file['r2_true'][:, cidx]
+			# data_dict['r2'] = data_file['r2'][:, cidx]
+			# data_dict['fn'] = data_file['fn'][:, cidx]
+			# data_dict['fp'] = data_file['fp'][:, cidx]
+			# data_dict['beta_hats'] = data_file['beta_hats'][:, cidx, :]
+
+			data_dict['betas'] = data_file['betas'][:]
+			data_dict['r2_scores'] = data_file['r2_scores'][:]
+			data_dict['r2_fp'] = data_file['r2_fp'][:]
+			data_dict['r2_fn'] = data_file['r2_fn'][:]
+
+			data_dict['BIC_scores'] = data_file['BIC_scores'][:]
+			data_dict['BIC_fp'] = data_file['BIC_fp'][:]
+			data_dict['BIC_fn'] = data_file['BIC_fn'][:]
+
+			data_dict['AIC_scores'] = data_file['AIC_scores'][:]
+			data_dict['AIC_fp'] = data_file['AIC_fp'][:]
+			data_dict['AIC_fn'] = data_file['AIC_fn'][:]
+
+			data_dict['AICc_scores'] = data_file['AICc_scores'][:]
+			data_dict['AICc_fp'] = data_file['AICc_fp'][:]
+			data_dict['AICc_fn'] = data_file['AICc_fn'][:]
+
 		except:
 			pdb.set_trace()
 
@@ -87,10 +105,11 @@ def postprocess_dir(dirname):
 	for data_file in data_files:
 		# Load the corresponding parameter file
 		params = importlib.import_module('%s_params' % data_file.split('.h5')[0])
-
-		# Load the data
-		file = h5py.File(data_file, 'r')
-
+		try:
+			# Load the data
+			file = h5py.File(data_file, 'r')
+		except:
+			continue
 		data_list.extend(postprocess(file, params))
 
 	# Copy to dataframe

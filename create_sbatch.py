@@ -6,8 +6,8 @@ import pdb
 import itertools
 import glob
 import argparse
-import importlib
 import json
+import importlib
 
 # Make sure we aren't mistakenly submitting jobs with incorrect parameters
 def validate_jobs(jobdir, jobnames):
@@ -55,9 +55,9 @@ if __name__ == '__main__':
 	# Load param file
 	
 	try:
-		param_file_path, param_file = os.path.split(cmd_args.param_file)
-		sys.path.append(param_file_path)
-		params = importlib.import_module(param_file)
+		path, name = cmd_args.param_file.split('/')
+		sys.path.append(path)
+		params = importlib.import_module(name)
 	except:
 		print('Warning! Could not load param file')
 
@@ -105,7 +105,7 @@ if __name__ == '__main__':
 	cont = input("You are about to submit %d jobs, do you want to continue? [0/1]" % len(jobnames))
 	if cont:
 
-		results_files = ['\'%s/%s.h5\'' % (jobdir, jobname) for jobname in jobnames]
+		results_files = ['%s/%s.h5' % (jobdir, jobname) for jobname in jobnames]
 		# Write the arguments to file
 		arg_files = write_args_to_file(args, results_files, jobnames, jobdir)
 		# Generate an interable containing the script name and the parameter file name

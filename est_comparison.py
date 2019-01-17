@@ -4,6 +4,9 @@ import pdb
 import argparse, sys, os
 import importlib
 import numpy as np
+
+from pydoc import locate
+
 from sklearn.metrics import r2_score
 
 from pyuoi.linear_model.elasticnet import UoI_ElasticNet

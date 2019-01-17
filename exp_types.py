@@ -3,30 +3,24 @@ import numpy as np
 from sklearn.linear_model.coordinate_descent import _alpha_grid
 from sklearn.linear_model import ElasticNet
 from sklearn.model_selection import KFold
-
+from sklearn.metrics import r2_score
 
 from pyuoi.linear_model.lasso import UoI_Lasso
 from pyuoi.linear_model.elasticnet import UoI_ElasticNet
-from utils import block_covariance
 
-class BlockCovariance():
-	@classmethod
-	def get_covariance(self, n_features, correlation, block_size):
-		return block_covariance(n_features, correlation, block_size)
-
-
-class UoI_Lasso_block(BlockCovariance):
+class UoILasso():
 	@classmethod
 	def run(self, X, y, args):
 		uoi = UoI_Lasso(
 			normalize=True,
 			n_boots_sel=48,
 			n_boots_est=48,
-			estimation_score=args['est_score'])
+			estimation_score=args['est_score']
+			)
 		uoi.fit(X, y.ravel())
 		return uoi	
 
-class UoI_ElasticNet_block(BlockCovariance):
+class UoIElasticNet():
 
 	@classmethod
 	def run(self, X, y, args):
@@ -41,7 +35,7 @@ class UoI_ElasticNet_block(BlockCovariance):
 		uoi.fit(X, y.ravel())
 		return uoi	
 
-class ElasticNet_block(BlockCovariance):
+class EN():
 
 	@classmethod
 	def run(self, X, y, args):
@@ -49,6 +43,13 @@ class ElasticNet_block(BlockCovariance):
 		l1_ratios = args['l1_ratios']
 		n_alphas = args['n_alphas']
 		cv_splits = 10
+
+		if not isinstance(l1_ratios, np.ndarray):
+			if np.isscalar(l1_ratios):
+				l1_ratios = np.array([l1_ratios])
+			else:
+				l1_ratios = np.array(l1_ratios)
+
 
 		alphas = np.zeros((l1_ratios.size, n_alphas))
 		scores = np.zeros((l1_ratios.size, n_alphas))
