@@ -63,7 +63,6 @@ cov_params = args['cov_params']
 exp_type = args['exp_type']
 
 
-
 # Determines the type of experiment to do 
 # exp = importlib.import_module(exp_type, 'exp_types')
 exp = locate('exp_types.%s' % exp_type)
@@ -84,30 +83,30 @@ for rep in range(reps):
 
 	# Generate model coefficients
 	beta = gen_beta(n_features, block_size, sparsity, betadist = betadist)
+	betas[rep, :] = beta.ravel()
 
 	for cov_idx, cov_param in enumerate(cov_params):
 		start = time.time()
 		# Return covariance matrix
-		sigma = gen_covariance(cov_type, n_features, **cov_param)
-
+		sigma = gen_covariance(cov_type, n_features, block_size, **cov_param)
 		X, X_test, y, y_test = gen_data(n_samples = n_samples, 
 		n_features= n_features,	kappa = kappa, covariance = sigma, beta = beta)
 
 		model = exp.run(X, y, args)
 
 		beta_hat = model.coef_
+		beta_hats[rep, cov_idx, :] = beta_hat.ravel()
 		fn_results[rep, cov_idx] = np.count_nonzero(beta[beta_hat == 0, 0])
 		fp_results[rep, cov_idx] = np.count_nonzero(beta_hat[beta.ravel() == 0])
-		r2_results[rep, cov_idx] = r2_score(y_test, np.dot(X_test, beta_hat))
-		r2_true_results[rep, cov_idx] = r2_score(y_test, model.predict(X_test))
-
+		r2_results[rep, cov_idx] = r2_score(y_test, model.predict(X_test))
+		r2_true_results[rep, cov_idx] = r2_score(y_test, np.dot(X_test, beta))
 		print(time.time() - start)
 
 results['fn'] = fn_results
 results['fp'] = fp_results
 results['r2'] = r2_results
 results['r2_true'] = r2_true_results
-results['beta'] = betas
+results['betas'] = betas
 results['beta_hats'] = beta_hats
 
 results.close()

@@ -61,14 +61,14 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
     return X, X_test, y, y_test
 
 # Return covariance matrix based on covariance type:
-def gen_covariance(cov_type, n_features = 60, **kwargs):
+def gen_covariance(cov_type, n_features = 60, block_size = 6, **kwargs):
     if cov_type == 'block':
-        return block_covariance(n_features, **kwargs)
+        return block_covariance(n_features, block_size, **kwargs)
     elif cov_type == 'falloff':
         return exp_falloff(n_features, **kwargs)
 
 # Create a block diagonal covariance matrix 
-def block_covariance(n_features = 60, correlation = 1, block_size = 6):
+def block_covariance(n_features = 60, block_size = 6, correlation = 0):
 
     n_blocks = int(n_features/block_size)
 

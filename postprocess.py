@@ -1,9 +1,10 @@
 import os, glob
-import importlib
+import json
 import h5py
 import pickle
 import numpy as np
 import pandas as pd
+import itertools
 import pdb
 
 
@@ -12,62 +13,47 @@ def postprocess(data_file, params):
 
 	# beta and r2_true is already in correct format
 
-	# beta_hats are originally in format reps, correlations, selection_thres_mins, n_features
+	# beta_hats are originally in format reps, correlations, n_features
 	# need to go to (reps, n_features)
 
-	# fn, fp, r2 are in shape (reps, correlations, selection_thres_mins)
-	
-	# Ensure that selection_thres_mins and correlations are numpy arrays
-
-	if not isinstance(params.selection_thres_mins, np.ndarray):
-		if np.isscalar(params.selection_thres_mins):
-			params.selection_thres_mins = np.array([params.selection_thres_mins])
-		else:
-			params.selection_thres_mins = np.array(params.selection_thres_mins)
-
-	if not isinstance(params.correlations, np.ndarray):
-		if np.isscalar(params.correlations):
-			params.correlations = np.array([params.correlations])
-		else:
-			params.correlations = np.array(params.correlations)
+	# fn, fp, r2 are in shape (reps, correlations)
 
 	data_list = []
+	
+	for covidx, cov_param in enumerate(params['cov_params']):
+		data_dict = {} 
 
-	for cidx, corr in enumerate(params.correlations):
-		# Create a dictionary to append to the main data frame
-		data_dict = {}
-		# Parameters to store
-		try:
-			data_dict['sparsity'] = params.sparsity
-			data_dict['block_size'] = params.block_size
-			data_dict['betadist'] = params.betadist
-			data_dict['correlation'] = corr
-			# data_dict['beta'] = data_file['beta'][:]
-			# data_dict['r2_true'] = data_file['r2_true'][:, cidx]
-			# data_dict['r2'] = data_file['r2'][:, cidx]
-			# data_dict['fn'] = data_file['fn'][:, cidx]
-			# data_dict['fp'] = data_file['fp'][:, cidx]
-			# data_dict['beta_hats'] = data_file['beta_hats'][:, cidx, :]
+		# beta has different length
+		data_dict['beta'] = data_file['beta'][:]
 
-			data_dict['betas'] = data_file['betas'][:]
-			data_dict['r2_scores'] = data_file['r2_scores'][:]
-			data_dict['r2_fp'] = data_file['r2_fp'][:]
-			data_dict['r2_fn'] = data_file['r2_fn'][:]
+		data_dict = params.copy()
+		data_dict['cov_params'] = cov_param
 
-			data_dict['BIC_scores'] = data_file['BIC_scores'][:]
-			data_dict['BIC_fp'] = data_file['BIC_fp'][:]
-			data_dict['BIC_fn'] = data_file['BIC_fn'][:]
+		# For standard uoicorr_base experiments
+		data_dict['betas'] = data_file['betas'][:]
+		data_dict['r2_true'] = data_file['r2_true'][:, covidx]
+		data_dict['r2'] = data_file['r2'][:, covidx]
+		data_dict['fn'] = data_file['fn'][:, covidx]
+		data_dict['fp'] = data_file['fp'][:, covidx]
+		data_dict['beta_hats'] = data_file['beta_hats'][:, covidx, :]
 
-			data_dict['AIC_scores'] = data_file['AIC_scores'][:]
-			data_dict['AIC_fp'] = data_file['AIC_fp'][:]
-			data_dict['AIC_fn'] = data_file['AIC_fn'][:]
+		# For est comparison experiments
+		# data_dict['betas'] = data_file['betas'][:]
+		# data_dict['r2_scores'] = data_file['r2_scores'][:]
+		# data_dict['r2_fp'] = data_file['r2_fp'][:]
+		# data_dict['r2_fn'] = data_file['r2_fn'][:]
 
-			data_dict['AICc_scores'] = data_file['AICc_scores'][:]
-			data_dict['AICc_fp'] = data_file['AICc_fp'][:]
-			data_dict['AICc_fn'] = data_file['AICc_fn'][:]
+		# data_dict['BIC_scores'] = data_file['BIC_scores'][:]
+		# data_dict['BIC_fp'] = data_file['BIC_fp'][:]
+		# data_dict['BIC_fn'] = data_file['BIC_fn'][:]
 
-		except:
-			pdb.set_trace()
+		# data_dict['AIC_scores'] = data_file['AIC_scores'][:]
+		# data_dict['AIC_fp'] = data_file['AIC_fp'][:]
+		# data_dict['AIC_fn'] = data_file['AIC_fn'][:]
+
+		# data_dict['AICc_scores'] = data_file['AICc_scores'][:]
+		# data_dict['AICc_fp'] = data_file['AICc_fp'][:]
+		# data_dict['AICc_fn'] = data_file['AICc_fn'][:]
 
 		data_list.append(data_dict)
 
@@ -77,7 +63,9 @@ def postprocess(data_file, params):
 # Postprocess a single file and parameter file pair
 def postprocess_file(data_file, param_file):
 	# Load the parameters
-	params = importlib.import_module(param_file)
+	with open(param_file) as f:
+		# Load the corresponding parameter file
+		params = json.load(f)
 
 	# Load the data
 
@@ -94,17 +82,16 @@ def postprocess_file(data_file, param_file):
 # Postprocess an entire directory of data, will assume standard nomenclature of
 # associated parameter files
 def postprocess_dir(dirname):
-	os.chdir('data/%s' % dirname)
 	# Collect all .h5 files
-	data_files = glob.glob('*.h5')
-
+	data_files = glob.glob('data/%s/*.h5' % dirname)
 
 	# List to store all data
 	data_list = []
 
 	for data_file in data_files:
-		# Load the corresponding parameter file
-		params = importlib.import_module('%s_params' % data_file.split('.h5')[0])
+		with open('%s_params.json' % data_file.split('.h5')[0], 'r') as f:
+			# Load the corresponding parameter file
+			params = json.load(f)
 		try:
 			# Load the data
 			file = h5py.File(data_file, 'r')
