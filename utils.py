@@ -127,3 +127,4 @@ def cluster_dist(low, high, n_clusters, cluster_width, size):
             high = center + cluster_width/2)
 
     return x
+

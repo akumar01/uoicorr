@@ -23,8 +23,6 @@ def postprocess(data_file, params):
 	for covidx, cov_param in enumerate(params['cov_params']):
 		data_dict = {} 
 
-		# beta has different length
-		data_dict['beta'] = data_file['beta'][:]
 
 		data_dict = params.copy()
 		data_dict['cov_params'] = cov_param
@@ -83,8 +81,7 @@ def postprocess_file(data_file, param_file):
 # associated parameter files
 def postprocess_dir(dirname):
 	# Collect all .h5 files
-	data_files = glob.glob('data/%s/*.h5' % dirname)
-
+	data_files = glob.glob('%s/*.h5' % dirname)
 	# List to store all data
 	data_list = []
 

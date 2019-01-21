@@ -1,8 +1,6 @@
 __pycache__/
 *.pyc
-*.ipython
 .ipynb_checkpoints/
-*.ipynb
 *.aux
 *.bbl
 *.blg

@@ -32,14 +32,10 @@ def change_param(key, value, directory, sbatch = False, jobnums = None):
 				jobnum = int(file.split('.sh')[0].split('sbatch')[1])
 
 				if jobnum in jobnums:
-					with open(file, 'r+') as f:
-					# change parameter and add sbatch to list
-						edit_sbatch(f, key, value)	
+					edit_sbatch(file, key, value)	
 
 			else:
-				with open(file, 'r+') as f:
-				# change parameter and add sbatch to list
-					edit_sbatch(f, key, value)
+				edit_sbatch(file, key, value)
 
 	else:
 		files = glob.glob('uoicorr/%s/*.json' % directory)
@@ -53,18 +49,21 @@ def change_param(key, value, directory, sbatch = False, jobnums = None):
 					with open(file, 'r+') as f:
 					# change parameter and add sbatch to list
 						params = json.load(f)
-						params[key] = value
-						f.close()
+					params[key] = value
+					with open(file, 'w') as f:
+						json.dump(params, f)
 			else:
 				with open(file, 'r+') as f:
 				# change parameter and add sbatch to list
 					params = json.load(f)
-					params[key] = value
-					f.close()
+				params[key] = value
+				with open(file, 'w') as f:
+					json.dump(params, f)
 
 # Given an sbatch file, find parameter given by flag and set to value
-def edit_sbatch(fobject, flag, value):
-	fcontent = fobject.read()
+def edit_sbatch(file, flag, value):
+	with open(file, 'r') as fobject:
+		fcontent = fobject.read()
 	paramstring = '#SBATCH %s' % flag
 	start_loc = fcontent.find(paramstring)
 	if start_loc != -1:
@@ -74,8 +73,8 @@ def edit_sbatch(fobject, flag, value):
 
 		current_value = fcontent[end_loc:endofline]
 		fcontent = fcontent.replace(current_value, value)
-
-		fobject.write(fcontent)
+		with open(file, 'w') as fobject:
+			fobject.write(fcontent)
 	else:
 		print('Could not find flag in sbatch file')
 
