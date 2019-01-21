@@ -8,6 +8,7 @@ import glob
 import argparse
 import json
 import importlib
+import subprocess
 
 # Make sure we aren't mistakenly submitting jobs with incorrect parameters
 def validate_jobs(jobdir, jobnames):
@@ -54,12 +55,11 @@ if __name__ == '__main__':
 
 	# Load param file
 	
-	try:
-		path, name = cmd_args.param_file.split('/')
-		sys.path.append(path)
-		params = importlib.import_module(name)
-	except:
-		print('Warning! Could not load param file')
+	path, name = cmd_args.param_file.split('/')
+	sys.path.append(path)
+	params = importlib.import_module(name)
+	f = open('%s.py' % cmd_args.param_file, 'r')
+	fcontents = f.read()
 
 	script_dir = params.script_dir
 
@@ -102,6 +102,8 @@ if __name__ == '__main__':
 		args.append(arg)
 		jobnames.append('job%d' % i)
 
+	hostname = subprocess.check_output(['hostname'])
+
 	cont = input("You are about to submit %d jobs, do you want to continue? [0/1]" % len(jobnames))
 	if cont:
 
@@ -117,14 +119,10 @@ if __name__ == '__main__':
 		# Log all job details
 		log_file = open('%s/log.txt' % jobdir, 'w')
 		log_file.write('Jobs submitted at ' + "{:%H:%M:%S, %B %d, %Y}".format(datetime.now()) + '\n\n\n')
-		log_file.write('Run Description: %s\n\n\n' % desc)
+		log_file.write(fcontents)
 
 		# Write an sbatch script for each job
 		for i, job in enumerate(jobs):
-			log_file.write('Job name: %s\n' % jobnames[i])
-			for key, val in job.items():
-				log_file.write('%s: %s\n'  %(key, val))
-			log_file.write('\n\n')
 
 			sbname = '%s/sbatch%d.sh' % (jobdir, i)
 			with open(sbname, 'w') as sb:
@@ -142,8 +140,12 @@ if __name__ == '__main__':
 				# Load python and any other necessary modules
 				sb.write('module load python/3.6-anaconda-4.4\n')
 				# script(s) to actually run
-				sb.write('srun -C haswell python3  %s/%s --arg_file=%s' 
-					% (script_dir, job['script'], job['arg_file']))
+				if 'cori' in hostname:
+					sb.write('srun -C haswell python3  %s/%s %s' 
+						% (script_dir, job['script'], job['arg_file']))
+				else:
+					sb.write('srun python3  %s/%s %s' 
+						% (script_dir, job['script'], job['arg_file']))
 				sb.close()
 				
 			# Change permissions

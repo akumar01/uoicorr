@@ -24,11 +24,21 @@ class UoIElasticNet():
 
 	@classmethod
 	def run(self, X, y, args):
+
+		l1_ratios = args['l1_ratios']
+
+		# Ensure that the l1_ratios are an np array
+		if not isinstance(l1_ratios, np.ndarray):
+			if np.isscalar(l1_ratios):
+				l1_ratios = np.array([l1_ratios])
+			else:
+				l1_ratios = np.array(l1_ratios)
+
 		uoi = UoI_ElasticNet(
 			normalize=True,
 			n_boots_sel=48,
 			n_boots_est=48,
-			alphas = args['l1_ratios'],
+			alphas = l1_ratios,
 			estimation_score=args['est_score'],
 			warm_start = False
 		)
