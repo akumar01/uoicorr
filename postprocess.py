@@ -27,6 +27,7 @@ def postprocess(data_file, params):
 		data_dict = params.copy()
 		data_dict['cov_params'] = cov_param
 		# For standard uoicorr_base experiments
+
 		try:
 			data_dict['betas'] = data_file['betas'][:]
 		except:
@@ -98,8 +99,11 @@ def postprocess_dir(dirname):
 			file = h5py.File(data_file, 'r')
 		except:
 			continue
-		data_list.extend(postprocess(file, params))
-
+		
+		try:
+			data_list.extend(postprocess(file, params))
+		except:
+			continue
 	# Copy to dataframe
 	dataframe = pd.DataFrame(data_list)
 
@@ -107,4 +111,5 @@ def postprocess_dir(dirname):
 	# f = open('all', 'wb')
 
 	# pickle.dump(dataframe, f)
+	print(dataframe.shape)
 	return dataframe

@@ -140,7 +140,7 @@ if __name__ == '__main__':
 				# Load python and any other necessary modules
 				sb.write('module load python/3.6-anaconda-4.4\n')
 				# script(s) to actually run
-				if 'cori' in hostname:
+				if 'cori'.encode() in hostname:
 					sb.write('srun -C haswell python3  %s/%s %s' 
 						% (script_dir, job['script'], job['arg_file']))
 				else:
