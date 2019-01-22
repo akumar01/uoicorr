@@ -26,6 +26,7 @@ def write_args_to_file(args, results_files, jobnames, jobdir):
 		arg['results_file'] = results_files[i]
 		arg_file = '%s/%s_params.json' % (jobdir, jobnames[i])
 		with open(arg_file, 'w') as f:
+			pdb.set_trace()
 			json.dump(arg, f)
 			f.close()
 		# Strip the .py from the end

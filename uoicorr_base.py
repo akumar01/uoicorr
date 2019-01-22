@@ -62,7 +62,6 @@ cov_type = args['cov_type']
 cov_params = args['cov_params']
 exp_type = args['exp_type']
 
-
 # Determines the type of experiment to do 
 # exp = importlib.import_module(exp_type, 'exp_types')
 exp = locate('exp_types.%s' % exp_type)
@@ -79,6 +78,10 @@ fp_results = np.zeros((reps, len(cov_params)))
 r2_results = np.zeros((reps, len(cov_params)))
 r2_true_results = np.zeros((reps, len(cov_params)))
 
+if cov_type == 'interpolate':
+	if cov_params != list:
+		cov_params = [cov_params]
+
 for rep in range(reps):
 
 	# Generate model coefficients
@@ -88,7 +91,12 @@ for rep in range(reps):
 	for cov_idx, cov_param in enumerate(cov_params):
 		start = time.time()
 		# Return covariance matrix
-		sigma = gen_covariance(cov_type, n_features, block_size, **cov_param)
+		# If the type of covariance is interpolate, then the matricies have been
+		# pre-generated
+		if cov_type == 'interpolate':
+			sigma = np.array(cov_param['sigma'])
+		else:
+			sigma = gen_covariance(cov_type, n_features, block_size, **cov_params)
 		X, X_test, y, y_test = gen_data(n_samples = n_samples, 
 		n_features= n_features,	kappa = kappa, covariance = sigma, beta = beta)
 

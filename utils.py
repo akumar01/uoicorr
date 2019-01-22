@@ -82,11 +82,28 @@ def block_covariance(n_features = 60, block_size = 6, correlation = 0):
 
 # Create a covariance matrix where the correlations are given by an exponential
 # fall off
-def exp_falloff(n_features = 60, L = 1):
+def exp_falloff(n_features = 60, block_size = None, L = 1):
     indices = np.arange(n_features)
     distances = np.abs(np.subtract.outer(indices, indices))
     sigma = np.exp(-distances/L)
     return sigma
+
+def interpolate_covariance(cov_type1, cov_type2, interp_coeffs = np.linspace(0, 1, 11),
+    n_features = 60, block_size = 6, cov_type1_args = {}, cov_type2_args = {}):
+    # Start from covariance matrix 1
+    cov_type1 = globals()[cov_type1]
+    cov_type2 = globals()[cov_type2]
+    cov_0 = cov_type1(n_features, block_size, **cov_type1_args)
+    cov_n = cov_type2(n_features, block_size, **cov_type2_args)
+    cov = []
+    
+    for t in interp_coeffs:
+        sigma = (1 - t) * cov_0 + t * cov_n
+        sigma = sigma.tolist()
+        cov.append({'t': t, 'sigma': sigma})
+    # Return as nested lists to be saved as .json
+
+    return cov
 
 # Sample from 1/Exp[-Abs|x|], properly normalized
 def invexp_dist(low, high, n_samples):
