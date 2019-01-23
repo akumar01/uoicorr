@@ -34,13 +34,11 @@ def postprocess(data_file, params):
 		except:
 			data_dict['betas'] = data_file['beta'][:]
 
-
 		data_dict['r2_true'] = data_file['r2_true'][:, covidx]
 		data_dict['r2'] = data_file['r2'][:, covidx]
 		data_dict['fn'] = data_file['fn'][:, covidx]
 		data_dict['fp'] = data_file['fp'][:, covidx]
 		data_dict['beta_hats'] = data_file['beta_hats'][:, covidx, :]
-		data_dict['betadist'] = params['betadist']
 
 		# For est comparison experiments
 		# data_dict['betas'] = data_file['betas'][:]
