@@ -21,9 +21,11 @@ def postprocess(data_file, params):
 
 	data_list = []
 
+	if not list(data_file.keys()):
+		pdb.set_trace()
+
 	for covidx, cov_param in enumerate(params['cov_params']):
 		data_dict = {} 
-
 
 		data_dict = params.copy()
 		data_dict['cov_params'] = cov_param
@@ -32,7 +34,10 @@ def postprocess(data_file, params):
 		try:
 			data_dict['betas'] = data_file['betas'][:]
 		except:
-			data_dict['betas'] = data_file['beta'][:]
+			try:
+				data_dict['betas'] = data_file['beta'][:]
+			except:
+				pass
 
 		data_dict['r2_true'] = data_file['r2_true'][:, covidx]
 		data_dict['r2'] = data_file['r2'][:, covidx]
