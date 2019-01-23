@@ -96,7 +96,7 @@ for rep in range(reps):
 		if cov_type == 'interpolate':
 			sigma = np.array(cov_param['sigma'])
 		else:
-			sigma = gen_covariance(cov_type, n_features, block_size, **cov_params)
+			sigma = gen_covariance(cov_type, n_features, block_size, **cov_param)
 		X, X_test, y, y_test = gen_data(n_samples = n_samples, 
 		n_features= n_features,	kappa = kappa, covariance = sigma, beta = beta)
 

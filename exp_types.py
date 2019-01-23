@@ -13,8 +13,8 @@ class UoILasso():
 	def run(self, X, y, args):
 		uoi = UoI_Lasso(
 			normalize=True,
-			n_boots_sel=48,
-			n_boots_est=48,
+			n_boots_sel=int(args['n_boots_sel']),
+			n_boots_est=int(args['n_boots_est']),
 			estimation_score=args['est_score']
 			)
 		uoi.fit(X, y.ravel())
@@ -36,8 +36,8 @@ class UoIElasticNet():
 
 		uoi = UoI_ElasticNet(
 			normalize=True,
-			n_boots_sel=48,
-			n_boots_est=48,
+			n_boots_sel=int(args['n_boots_sel']),
+			n_boots_est=int(args['n_boots_est']),
 			alphas = l1_ratios,
 			estimation_score=args['est_score'],
 			warm_start = False
