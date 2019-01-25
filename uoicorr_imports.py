@@ -17,14 +17,18 @@ p = os.path.join(parent_path, current_dir)
 if p not in sys.path:
 	sys.path.append(p)
 
-# And standard list of subdirectories
-if '%s\\pyuoi' % p not in sys.path:
-	sys.path.append('%s\\pyuoi' % p)
+import subprocess
+hname = subprocess.check_output('hostname')
 
-from pyuoi.linear_model.lasso import UoI_Lasso
-from pyuoi.linear_model.elasticnet import UoI_ElasticNet
+if 'ankitnse'.encode() in hname:
 
-if '%s\\uoicorr' % p not in sys.path:
-    sys.path.append('%s\\uoicorr' % p)
+	if '%s/uoicorr' % p not in sys.path:
+	    sys.path.append('%s/uoicorr' % p)
+else:
+	# And standard list of subdirectories
+	if '%s\\pyuoi' % p not in sys.path:
+		sys.path.append('%s\\pyuoi' % p)
+	if '%s\\uoicorr' % p not in sys.path:
+	    sys.path.append('%s\\uoicorr' % p)
 
 from postprocess import postprocess_file, postprocess_dir
