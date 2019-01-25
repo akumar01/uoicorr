@@ -49,7 +49,6 @@ block_size = args['block_size']
 kappa = args['kappa']
 est_score = args['est_score']
 reps = args['reps']
-selection_thres_mins = args['selection_thres_mins']
 sparsity = args['sparsity']
 results_file = args['results_file']
 betadist = args['betadist']
@@ -61,6 +60,12 @@ n_samples = args['n_samples']
 cov_type = args['cov_type']
 cov_params = args['cov_params']
 exp_type = args['exp_type']
+
+# Wrap dictionary in a list
+if cov_type == 'interpolate':
+	if cov_params != list:
+		cov_params = [cov_params]
+
 
 # Determines the type of experiment to do 
 # exp = importlib.import_module(exp_type, 'exp_types')
@@ -77,10 +82,6 @@ fn_results = np.zeros((reps, len(cov_params)))
 fp_results = np.zeros((reps, len(cov_params)))
 r2_results = np.zeros((reps, len(cov_params)))
 r2_true_results = np.zeros((reps, len(cov_params)))
-
-if cov_type == 'interpolate':
-	if cov_params != list:
-		cov_params = [cov_params]
 
 for rep in range(reps):
 

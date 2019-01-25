@@ -21,16 +21,20 @@ def postprocess(data_file, params):
 
 	data_list = []
 
-	if not list(data_file.keys()):
-		pdb.set_trace()
+	# Wrap dictionary in a list
+	if params['cov_type'] == 'interpolate':
+		if params['cov_params'] != list:
+			cov_params = [params['cov_params']]
+	else:
+		cov_params = params['cov_params']
 
-	for covidx, cov_param in enumerate(params['cov_params']):
+	for covidx, cov_param in enumerate(cov_params):
+
 		data_dict = {} 
 
 		data_dict = params.copy()
 		data_dict['cov_params'] = cov_param
 		# For standard uoicorr_base experiments
-
 		try:
 			data_dict['betas'] = data_file['betas'][:]
 		except:
