@@ -15,11 +15,11 @@ class UoILasso():
 			normalize=True,
 			n_boots_sel=int(args['n_boots_sel']),
 			n_boots_est=int(args['n_boots_est']),
-			estimation_score=args['est_score']
+			estimation_score=args['est_score'],
 			stability_selection = args['stability_selection']
 			)
-		uoi.fit(X, y.ravel())
-		return uoi	
+		selection_coefs = uoi.fit(X, y.ravel())
+		return uoi, selection_coefs	
 
 class UoIElasticNet():
 
@@ -44,8 +44,8 @@ class UoIElasticNet():
 			warm_start = False,
 			stability_selection=args['stability_selection']
 		)
-		uoi.fit(X, y.ravel())
-		return uoi	
+		selection_coefs = uoi.fit(X, y.ravel())
+		return uoi, selection_coefs	
 
 class EN():
 

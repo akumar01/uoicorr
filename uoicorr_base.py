@@ -82,6 +82,7 @@ fn_results = np.zeros((reps, len(cov_params)))
 fp_results = np.zeros((reps, len(cov_params)))
 r2_results = np.zeros((reps, len(cov_params)))
 r2_true_results = np.zeros((reps, len(cov_params)))
+selection_coefs = {}
 
 for rep in range(reps):
 
@@ -101,8 +102,8 @@ for rep in range(reps):
 		X, X_test, y, y_test = gen_data(n_samples = n_samples, 
 		n_features= n_features,	kappa = kappa, covariance = sigma, beta = beta)
 
-		model = exp.run(X, y, args)
-
+		model, sc = exp.run(X, y, args)
+		selection_coefs['%d' % cov_idx] = sc
 		beta_hat = model.coef_
 		beta_hats[rep, cov_idx, :] = beta_hat.ravel()
 		fn_results[rep, cov_idx] = np.count_nonzero(beta[beta_hat == 0, 0])
@@ -117,6 +118,11 @@ results['r2'] = r2_results
 results['r2_true'] = r2_true_results
 results['betas'] = betas
 results['beta_hats'] = beta_hats
+
+import pickle
+pickle_file = results_file.split('.h5')[0]
+with open('%s2' % pickle_file, 'wb') as f:
+	pickle.dump(selection_coefs, f)
 
 results.close()
 print('Total runtime: %f' %  (time.time() - total_start))

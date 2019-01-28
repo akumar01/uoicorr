@@ -26,7 +26,6 @@ def write_args_to_file(args, results_files, jobnames, jobdir):
 		arg['results_file'] = results_files[i]
 		arg_file = '%s/%s_params.json' % (jobdir, jobnames[i])
 		with open(arg_file, 'w') as f:
-			pdb.set_trace()
 			json.dump(arg, f)
 			f.close()
 		# Strip the .py from the end
@@ -115,7 +114,7 @@ if __name__ == '__main__':
 		jobs = [{'script': script, 'arg_file' : arg_file} for arg_file in arg_files]
 
 		# Ensure we aren't accidentally duplicating/overwriting existing jobs
-		validate_jobs(jobdir, jobnames)
+		# validate_jobs(jobdir, jobnames)
 
 		# Log all job details
 		log_file = open('%s/log.txt' % jobdir, 'w')

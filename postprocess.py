@@ -109,6 +109,8 @@ def postprocess_dir(dirname, old_format = False):
 			params = importlib.import_module('%s_params' % module_name)
 			params = dict_from_module(params)
 			params['cov_params'] = params.pop('correlations')
+			# Add necessary additional fields to parameter
+			params['cov_type'] = 'block'
 		else:
 			with open('%s_params.json' % data_file.split('.h5')[0], 'r') as f:
 				# Load the corresponding parameter file

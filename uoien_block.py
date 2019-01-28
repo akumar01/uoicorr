@@ -91,7 +91,7 @@ for rep in range(reps):
 				stability_selection = selection_thres_min,
 				warm_start = False
 			)
-			uoi.fit(X, y.ravel())
+			selection_coefs = uoi.fit(X, y.ravel())
 			beta_hat = uoi.coef_
 			beta_hats[rep, corr_idx, thres_idx, :] = beta_hat
 			fn_results[rep, corr_idx, thres_idx] = np.count_nonzero(beta[beta_hat == 0, 0])
