@@ -102,8 +102,8 @@ for rep in range(reps):
 		X, X_test, y, y_test = gen_data(n_samples = n_samples, 
 		n_features= n_features,	kappa = kappa, covariance = sigma, beta = beta)
 
-		model, sc = exp.run(X, y, args)
-		selection_coefs['%d' % cov_idx] = sc
+		model = exp.run(X, y, args)
+		selection_coefs['%d' % cov_idx] = model.selection_coefs
 		beta_hat = model.coef_
 		beta_hats[rep, cov_idx, :] = beta_hat.ravel()
 		fn_results[rep, cov_idx] = np.count_nonzero(beta[beta_hat == 0, 0])

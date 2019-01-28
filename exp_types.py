@@ -1,5 +1,5 @@
 import numpy as np
-
+import pdb
 from sklearn.linear_model.coordinate_descent import _alpha_grid
 from sklearn.linear_model import ElasticNet
 from sklearn.model_selection import KFold
@@ -18,8 +18,8 @@ class UoILasso():
 			estimation_score=args['est_score'],
 			stability_selection = args['stability_selection']
 			)
-		selection_coefs = uoi.fit(X, y.ravel())
-		return uoi, selection_coefs	
+		uoi.fit(X, y.ravel())
+		return uoi	
 
 class UoIElasticNet():
 
@@ -44,8 +44,8 @@ class UoIElasticNet():
 			warm_start = False,
 			stability_selection=args['stability_selection']
 		)
-		selection_coefs = uoi.fit(X, y.ravel())
-		return uoi, selection_coefs	
+		uoi.fit(X, y.ravel())
+		return uoi	
 
 class EN():
 
