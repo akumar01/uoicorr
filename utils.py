@@ -32,6 +32,67 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
 
     return beta
 
+def interpolated_dist(lmbda, t, sigma, n_features = 60, low = -5, high = 5):
+    # Return samples according to a mixture model of a Laplacian and Gaussian distribution. 
+    # (1 - t) * Exp[-Abs[x]/lmbda] + t * Exp[-x^2/sigma]
+
+    bad_sample =  lambda low, high, x: np.logical_or(x >= high, x <= low)
+
+    beta_dist = lambda t, lmbda, sigma, x: (1 - t) * np.exp(-np.abs(x)/lmbda) + t * np.exp(-x**2/sigma)
+    
+    # Pure Laplacian case
+    if t == 0:
+        betas = np.random.laplace(scale = lmbda, size = (n_features, 1))
+
+        # Check if any of the drawn betas lie outside the desired range:
+        bad_idxs = np.argwhere(bad_sample(low, high, betas))
+
+        # Switch out the samples that don't lie within the interval
+        if bad_idxs.size > 0:
+            for bad_idx in bad_idxs:
+                x = np.random.laplace(scale = lmbda)
+                while bad_sample(low, high, x):
+                    x = np.random.laplace(scale = lmbda)
+                betas[bad_idx] = x                
+
+    # Pure Gaussian case
+    elif t == 1:
+        betas = np.random.uniform(scale = np.sqrt(sigma/2), size = (n_features, 1))
+
+        # Check if any of the drawn betas lie outside the desired range:
+        bad_idxs = np.argwhere(bad_sample(low, high, betas))
+
+        # Switch out the samples that don't lie within the interval
+        if len(bad_idxs) > 0:
+            for bad_idx in bad_idxs:
+                x = np.random.uniform(scale = np.sqrt(sigma/2))
+                while bad_sample(low, high, x):
+                    x = np.random.laplace(scale = np.sqrt(sigma/2))
+                betas[bad_idx] = x                
+
+    # Mixture: use rejection sampling:
+    # Just use uniform distribution over the interval as the sampling function
+    else: 
+        betas = np.zeros(n_features)
+        
+        # Our desired distrbution will be bounded above by 1
+        scale_factor = np.abs(high - low)
+
+        for i in range(n_features):
+            x = np.random.uniform(low, high)
+            z = np.random.uniform(0, 1)
+            y = beta_dist(t, lmbda, sigma, x)
+            while z >= y:
+                x = np.random.uniform(low, high)
+                z = np.random.uniform(0, 1)
+                y = beta_dist(t, lmbda, sigma, x)
+
+            betas[i] = x
+    
+    return betas 
+
+
+
 # Generate toy data to fit given number of features, covariance structure, signal to noise, and sparsity
 # Note that sparsity is applied within blocks. When this is not desired, set the block size to equal n_features
 def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,

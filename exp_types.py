@@ -16,7 +16,8 @@ class UoILasso():
 			n_boots_sel=int(args['n_boots_sel']),
 			n_boots_est=int(args['n_boots_est']),
 			estimation_score=args['est_score'],
-			stability_selection = args['stability_selection']
+			stability_selection = args['stability_selection'],
+			est_reg = args['est_reg']
 			)
 		uoi.fit(X, y.ravel())
 		return uoi	
@@ -42,8 +43,10 @@ class UoIElasticNet():
 			alphas = l1_ratios,
 			estimation_score=args['est_score'],
 			warm_start = False,
-			stability_selection=args['stability_selection']
+			stability_selection=args['stability_selection'],
+			est_reg = args['est_reg']
 		)
+		
 		uoi.fit(X, y.ravel())
 		return uoi	
 
