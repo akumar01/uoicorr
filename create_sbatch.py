@@ -121,6 +121,9 @@ if __name__ == '__main__':
 		log_file.write('Jobs submitted at ' + "{:%H:%M:%S, %B %d, %Y}".format(datetime.now()) + '\n\n\n')
 		log_file.write(fcontents)
 
+		# Set this environment variable to prevent crashses
+		os.system('export HDF5_USE_FILE_LOCKING=FALSE')
+
 		# Write an sbatch script for each job
 		for i, job in enumerate(jobs):
 

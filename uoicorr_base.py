@@ -54,6 +54,10 @@ results_file = args['results_file']
 betadist = args['betadist']
 n_samples = args['n_samples']
 
+if 'const_beta' in list(args.keys()):
+	const_beta = args['const_beta']
+else:
+	const_beta = False
 
 # Specify type of covariance matrix and which
 # fitting procedure to use
@@ -65,7 +69,6 @@ exp_type = args['exp_type']
 if cov_type == 'interpolate':
 	if cov_params != list:
 		cov_params = [cov_params]
-
 
 # Determines the type of experiment to do 
 # exp = importlib.import_module(exp_type, 'exp_types')
@@ -82,12 +85,16 @@ fn_results = np.zeros((reps, len(cov_params)))
 fp_results = np.zeros((reps, len(cov_params)))
 r2_results = np.zeros((reps, len(cov_params)))
 r2_true_results = np.zeros((reps, len(cov_params)))
-selection_coefs = {}
+
+# Keep model coefficients fixed across repititions
+if const_beta:
+	beta = gen_beta(n_features, block_size, sparsity, betadist = betadist)	
 
 for rep in range(reps):
 
-	# Generate model coefficients
-	beta = gen_beta(n_features, block_size, sparsity, betadist = betadist)
+	# Generate new model coefficients for each repitition
+	if not const_beta:
+		beta = gen_beta(n_features, block_size, sparsity, betadist = betadist)
 	betas[rep, :] = beta.ravel()
 
 	for cov_idx, cov_param in enumerate(cov_params):
@@ -103,7 +110,6 @@ for rep in range(reps):
 		n_features= n_features,	kappa = kappa, covariance = sigma, beta = beta)
 
 		model = exp.run(X, y, args)
-		selection_coefs['%d' % cov_idx] = model.selection_coefs
 		beta_hat = model.coef_
 		beta_hats[rep, cov_idx, :] = beta_hat.ravel()
 		fn_results[rep, cov_idx] = np.count_nonzero(beta[beta_hat == 0, 0])
@@ -119,10 +125,10 @@ results['r2_true'] = r2_true_results
 results['betas'] = betas
 results['beta_hats'] = beta_hats
 
-import pickle
-pickle_file = results_file.split('.h5')[0]
-with open('%s2' % pickle_file, 'wb') as f:
-	pickle.dump(selection_coefs, f)
+# import pickle
+# pickle_file = results_file.split('.h5')[0]
+# with open('%s2' % pickle_file, 'wb') as f:
+# 	pickle.dump(selection_coefs, f)
 
 results.close()
 print('Total runtime: %f' %  (time.time() - total_start))
