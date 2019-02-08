@@ -200,9 +200,31 @@ def cluster_dist(low, high, n_clusters, cluster_width, size):
         # Randomly choose cluster center
         center = np.random.choice(cluster_centers)
         # Sample from uniform distribution centered on cluster with width
-        # given by cluster_width 
+        # given by cluster_width                                                
         x[idx] = np.random.uniform(low = center - cluster_width/2, 
             high = center + cluster_width/2)
 
     return x
+
+# Standardize calculation of FNR, FPR, and Selection Accuracy
+def FNR(beta, beta_hat):
+    false_negative_rate = np.zeros(beta_hat.shape[0])
+    for i in range(beta_hat.shape[0]):
+        false_negative_rate[i] = np.count_nonzero(beta[beta_hat == 0, 0])\
+                                    /(np.count_nonzero(beta))
+    return false_negatives_rate
+
+def FPR(beta, beta_hats):
+    false_positive_rate = np.zeros(beta_hat.shape[0])
+    for i in range(beta_hat.shape[0]):
+        false_positive_rate[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])\
+                                /(np.where(beta == 0).size)
+    return false_positive_rate
+
+
+def selection_accuracy(beta, beta_hats):
+    selection_accuracy = np.zeros(beta_hat.shape[0])
+    for i in range(beta_hat.shape[0]):
+        selection_accuracy[i] = 1 - beta_hats.symmetric_difference(beta)/(beta_hats.size[1] + beta.size)
+    return selection_accuracy
 
