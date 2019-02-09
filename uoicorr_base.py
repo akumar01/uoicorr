@@ -8,7 +8,7 @@ import json
 
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
-
+from pyuoi.utils import BIC, AIC, AICc
 from pydoc import locate
 
 from utils import gen_beta, gen_data, gen_covariance
@@ -67,7 +67,7 @@ exp_type = args['exp_type']
 
 # Wrap dictionary in a list
 if cov_type == 'interpolate':
-	if cov_params != list:
+	if type(cov_params) != list:
 		cov_params = [cov_params]
 
 # Determines the type of experiment to do 
@@ -85,6 +85,10 @@ fn_results = np.zeros((reps, len(cov_params)))
 fp_results = np.zeros((reps, len(cov_params)))
 r2_results = np.zeros((reps, len(cov_params)))
 r2_true_results = np.zeros((reps, len(cov_params)))
+
+BIC_results = np.zeros((reps, len(cov_params)))
+AIC_results = np.zeros((reps, len(cov_params)))
+AICc_results = np.zeros((reps, len(cov_params)))
 
 # Keep model coefficients fixed across repititions
 if const_beta:
@@ -116,6 +120,10 @@ for rep in range(reps):
 		fp_results[rep, cov_idx] = np.count_nonzero(beta_hat[beta.ravel() == 0])
 		r2_results[rep, cov_idx] = r2_score(y_test, model.predict(X_test))
 		r2_true_results[rep, cov_idx] = r2_score(y_test, np.dot(X_test, beta))
+		BIC_results[rep, cov_idx] = BIC(y_test, np.dot(X_test, beta), np.count_nonzero(beta_hat))
+		AIC_results[rep, cov_idx] = AIC(y_test, np.dot(X_test, beta), np.count_nonzero(beta_hat))
+		AICc_results[rep, cov_idx] = AICc(y_test, np.dot(X_test, beta), np.count_nonzero(beta_hat))
+
 		print(time.time() - start)
 
 results['fn'] = fn_results
@@ -124,7 +132,9 @@ results['r2'] = r2_results
 results['r2_true'] = r2_true_results
 results['betas'] = betas
 results['beta_hats'] = beta_hats
-
+results['BIC'] = BIC_results
+results['AIC'] = AIC_results
+results['AICc'] = AICc_results
 # import pickle
 # pickle_file = results_file.split('.h5')[0]
 # with open('%s2' % pickle_file, 'wb') as f:

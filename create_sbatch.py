@@ -51,6 +51,10 @@ if __name__ == '__main__':
 	# Edit the 'reps' parameter to equal 1
 	parser.add_argument('-s', '--single_rep', action='store_true')
 
+	# Run the job specified by iidx interactively instead of submitting to sbatch
+	parser.add_argument('-i', '--interactive', action='store_true')
+	parser.add_argument('--iidx', default = 0)
+
 	cmd_args = parser.parse_args()
 
 	# Load param file
@@ -115,6 +119,12 @@ if __name__ == '__main__':
 
 		# Ensure we aren't accidentally duplicating/overwriting existing jobs
 		# validate_jobs(jobdir, jobnames)
+
+		# Run the job interactively to verify things are working ok
+		if cmd_args.interactive:
+			iidx = int(cmd_args.iidx)
+			os.system('python %s/%s %s' % (script_dir, jobs[iidx]['script'], jobs[iidx]['arg_file']))
+			sys.exit()
 
 		# Log all job details
 		log_file = open('%s/log.txt' % jobdir, 'w')

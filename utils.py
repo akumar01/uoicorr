@@ -208,23 +208,52 @@ def cluster_dist(low, high, n_clusters, cluster_width, size):
 
 # Standardize calculation of FNR, FPR, and Selection Accuracy
 def FNR(beta, beta_hat):
+
+    beta = tile_beta(beta, beta_hat)
     false_negative_rate = np.zeros(beta_hat.shape[0])
     for i in range(beta_hat.shape[0]):
-        false_negative_rate[i] = np.count_nonzero(beta[beta_hat == 0, 0])\
-                                    /(np.count_nonzero(beta))
-    return false_negatives_rate
+        b = beta[i, :].squeeze()
+        bhat = beta_hat[i, :].squeeze()
+        try:
+            false_negative_rate[i] = np.count_nonzero(b[(bhat == 0).ravel()])\
+            /(np.count_nonzero(b))
+        except ZeroDivisionError:
+            pdb.set_trace()
 
-def FPR(beta, beta_hats):
+    return false_negative_rate
+
+def FPR(beta, beta_hat):
+
+    beta = tile_beta(beta, beta_hat)
     false_positive_rate = np.zeros(beta_hat.shape[0])
     for i in range(beta_hat.shape[0]):
-        false_positive_rate[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])\
-                                /(np.where(beta == 0).size)
+        b = beta[i, :].squeeze()
+        bhat = beta_hat[i, :].squeeze()
+        try:
+            false_positive_rate[i] = np.count_nonzero(bhat[(b == 0).ravel()])\
+                                /(np.where(b == 0)[0].size)
+        except ZeroDivisionError:
+            # No sparsity case
+            false_positive_rate[i] = 0
+
     return false_positive_rate
 
 
-def selection_accuracy(beta, beta_hats):
+def selection_accuracy(beta, beta_hat):
+
+    beta = tile_beta(beta, beta_hat)
+
     selection_accuracy = np.zeros(beta_hat.shape[0])
     for i in range(beta_hat.shape[0]):
-        selection_accuracy[i] = 1 - beta_hats.symmetric_difference(beta)/(beta_hats.size[1] + beta.size)
+        b = beta[i, :].squeeze()
+        bhat = beta_hat[i, :].squeeze()
+        selection_accuracy[i] = 1 - \
+        np.count_nonzero(1 * np.logical_xor(bhat != 0, b != 0))\
+        /(bhat.size + b.size)
     return selection_accuracy
 
+def tile_beta(beta, beta_hat):
+
+    if beta.shape != beta_hat.shape: 
+        beta = np.tile(beta, [int(beta_hat.shape[0]/beta.shape[0]), 1])
+    return beta
