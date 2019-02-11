@@ -23,8 +23,10 @@ def postprocess(data_file, params):
 
 	# Wrap dictionary in a list
 	if params['cov_type'] == 'interpolate':
-		if params['cov_params'] != list:
+		if type(params['cov_params']) != list:
 			cov_params = [params['cov_params']]
+		else:
+			cov_params = params['cov_params']
 	else:
 		cov_params = params['cov_params']
 
@@ -49,6 +51,13 @@ def postprocess(data_file, params):
 		data_dict['fp'] = data_file['fp'][:, covidx]
 		data_dict['beta_hats'] = data_file['beta_hats'][:, covidx, :]
 
+		if 'BIC' in list(data_file.keys()):
+			data_dict['BIC'] = data_file['BIC'][:, covidx]
+		if 'AIC' in list(data_file.keys()):
+			data_dict['AIC'] = data_file['AIC'][:, covidx]
+		if 'AICc' in list(data_file.keys()):
+			data_dict['AICc'] = data_file['AICc'][:, covidx]
+
 		# For est comparison experiments
 		# data_dict['betas'] = data_file['betas'][:]
 		# data_dict['r2_scores'] = data_file['r2_scores'][:]
@@ -68,8 +77,8 @@ def postprocess(data_file, params):
 		# data_dict['AICc_fn'] = data_file['AICc_fn'][:]
 
 		data_list.append(data_dict)
-
 	return data_list
+
 
 
 # Postprocess a single file and parameter file pair
@@ -94,7 +103,7 @@ def postprocess_file(data_file, param_file):
 # Postprocess an entire directory of data, will assume standard nomenclature of
 # associated parameter files
 # old_format: back when we were using the .py param files
-def postprocess_dir(dirname, old_format = False):
+def postprocess_dir(dirname, old_format = False, skip_bad = False):
 	# Collect all .h5 files
 	data_files = glob.glob('%s/*.h5' % dirname)
 	# List to store all data
@@ -121,10 +130,15 @@ def postprocess_dir(dirname, old_format = False):
 		except:
 			continue
 		
-		try:
+		# Choose whether to ignore errors:		
+		if skip_bad:
+			try:
+				data_list.extend(postprocess(file, params))
+			except:
+				continue
+		else:
 			data_list.extend(postprocess(file, params))
-		except:
-			continue
+
 	# Copy to dataframe
 	dataframe = pd.DataFrame(data_list)
 

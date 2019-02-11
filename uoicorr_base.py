@@ -92,7 +92,7 @@ AICc_results = np.zeros((reps, len(cov_params)))
 
 # Keep model coefficients fixed across repititions
 if const_beta:
-	beta = gen_beta(n_features, block_size, sparsity, betadist = betadist)	
+	betas = gen_beta(n_features, block_size, sparsity, betadist = betadist)	
 
 for rep in range(reps):
 
