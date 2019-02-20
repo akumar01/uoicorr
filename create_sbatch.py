@@ -151,7 +151,11 @@ if __name__ == '__main__':
 				sb.write('#SBATCH --mail-user=ankit_kumar@berkeley.edu\n')
 				sb.write('#SBATCH --mail-type=FAIL\n')
 				# Load python and any other necessary modules
-				sb.write('module load python/3.6-anaconda-4.4\n')
+				# sb.write('module load python/3.6-anaconda-4.4\n')
+				
+				# Work with out own Anaconda environment
+				sb.write('source activate ~/.conda/envs/nse')
+
 				# script(s) to actually run
 				if 'cori'.encode() in hostname:
 					sb.write('srun -C haswell python3  %s/%s %s' 

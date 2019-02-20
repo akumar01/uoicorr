@@ -6,20 +6,20 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score
 from pyuoi.linear_model.lasso import UoI_Lasso
 from pyuoi.linear_model.elasticnet import UoI_ElasticNet
+from pyuoi.linear_model.gtv import GraphTotalVariance
+
 
 class UoILasso():
 
 	@classmethod
 	def run(self, X, y, args):
 
-
 		uoi = UoI_Lasso(
 			normalize=True,
 			n_boots_sel=int(args['n_boots_sel']),
 			n_boots_est=int(args['n_boots_est']),
 			estimation_score=args['est_score'],
-			stability_selection = args['stability_selection'],
-			est_reg = args['est_reg']
+			stability_selection = args['stability_selection']
 			)
 		uoi.fit(X, y.ravel())
 		return uoi	
@@ -45,8 +45,7 @@ class UoIElasticNet():
 			alphas = l1_ratios,
 			estimation_score=args['est_score'],
 			warm_start = False,
-			stability_selection=args['stability_selection'],
-			est_reg = args['est_reg']
+			stability_selection=args['stability_selection']
 		)
 		
 		uoi.fit(X, y.ravel())
@@ -99,3 +98,61 @@ class EN():
 		en.set_params(l1_ratio = l1_ratios[max_score_idxs[0]], alpha = alphas[max_score_idxs[0], max_score_idxs[1]])
 		en.fit(X, y.ravel())
 		return en
+
+class GTV():
+
+	@classmethod
+	def run(self, X, y, args):
+
+		cv_splits = 5
+		lambda_S = args['lambda_S']
+		lambda_TV = args['lambda_TV']
+		lambda_1 = args['lambda_1']
+
+		cov = args['cov']
+
+		if not isinstance(lambda_S, np.ndarray):
+			if np.isscalar(lambda_S):
+				lambda_S = np.array([lambda_S])
+			else:
+				lambda_S = np.array(lambda_S)
+
+		if not isinstance(lambda_TV, np.ndarray):
+			if np.isscalar(lambda_TV):
+				lambda_TV = np.array([lambda_TV])
+			else:
+				lambda_TV = np.array(lambda_TV)
+
+		if not isinstance(lambda_1, np.ndarray):
+			if np.isscalar(lambda_1):
+				lambda_1 = np.array([lambda_1])
+			else:
+				lambda_1 = np.array(lambda_1)
+
+		scores = np.zeros((lambda_S.size, lambda_TV.size, lambda_1.size))
+
+		gtv = GraphTotalVariance(normalize=True, warm_start = False)
+
+		# Use k-fold cross_validation
+		kfold = KFold(n_splits = cv_splits, shuffle = True)
+
+		for i1, l1 in enumerate(lambda_S):
+			for i2, l2 in enumerate(lambda_TV):
+				for i3, l3 in enumerate(lambda_1):
+
+					gtv.set_params(lambda_S = l1, lambda_TV = l2, lambda_1 = l3)
+
+					cv_scores = np.zeros(cv_splits)
+					for i, cv_idxs in enumerate(kfold.split(X, y)):
+						gtv.fit(X[cv_idxs[0], :], y[cv_idxs[0]], cov)
+						cv_scores[i] = r2_score(y[cv_idxs[1]], gtv.coef_ @ X[cv_idxs[1], :].T)
+
+					# Average together cross-validation scores
+					scores[i1, i2, i3] = np.mean(cv_scores)
+
+							# Select the model with the maximum score
+		max_score_idx = np.argmax(scores.ravel())
+		max_score_idxs = np.unravel_index(max_score_idx, (lambda_S.size, lambda_TV.size, lambda_1.size))
+		gtv.set_params(lambda_S = lambda_S[max_score_idxs[0]], lambda_TV = lambda_TV[max_score_idxs[1]], lambda_1 = lambda_1[max_score_idxs[2]])
+		gtv.fit(X, y.ravel(), cov)
+		return gtv
