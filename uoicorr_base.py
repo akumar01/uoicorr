@@ -13,6 +13,8 @@ from pydoc import locate
 
 from utils import gen_beta, gen_data, gen_covariance
 
+print('Finished imports\n')
+
 total_start = time.time()
 
 ### parse arguments ###
@@ -75,19 +77,26 @@ exp = locate('exp_types.%s' % exp_type)
 
 results = h5py.File(results_file, 'w')
 
-# betas will be be changed only every repetition
+
+
+# Use the n_models flags to allow experiments to return
+# multiple models over multiple parameters
+shape = (reps, len(cov_params), args['n_models'])
+
 betas = np.zeros((reps, n_features))
-beta_hats = np.zeros((reps, len(cov_params), n_features))
+beta_hats = np.zeros(shape + (n_features,))
 
 # result arrays: scores
-fn_results = np.zeros((reps, len(cov_params)))
-fp_results = np.zeros((reps, len(cov_params)))
-r2_results = np.zeros((reps, len(cov_params)))
-r2_true_results = np.zeros((reps, len(cov_params)))
+fn_results = np.zeros(shape)
+fp_results = np.zeros(shape)
+r2_results = np.zeros(shape)
+r2_true_results = np.zeros(shape)
 
-BIC_results = np.zeros((reps, len(cov_params)))
-AIC_results = np.zeros((reps, len(cov_params)))
-AICc_results = np.zeros((reps, len(cov_params)))
+BIC_results = np.zeros(shape)
+AIC_results = np.zeros(shape)
+AICc_results = np.zeros(shape)
+
+print('Finished initialization\n')
 
 # Keep model coefficients fixed across repititions
 if const_beta:
@@ -114,21 +123,25 @@ for rep in range(reps):
 
 		if exp_type == 'GTV':
 			args['cov'] = sigma
-		model = exp.run(X, y, args)
+		models = exp.run(X, y, args)
 
-		beta_hat = model.coef_
-		beta_hats[rep, cov_idx, :] = beta_hat.ravel()
-		fn_results[rep, cov_idx] = np.count_nonzero(beta[beta_hat == 0, 0])
-		fp_results[rep, cov_idx] = np.count_nonzero(beta_hat[beta.ravel() == 0])
-		r2_results[rep, cov_idx] = r2_score(y_test, np.dot(X_test, beta_hat))
-		r2_true_results[rep, cov_idx] = r2_score(y_test, np.dot(X_test, beta))
+		for i, m in enumerate(models):
+			beta_hat = m.coef_
+			beta_hats[rep, cov_idx, i, :] = beta_hat.ravel()
+			fn_results[rep, cov_idx, i] = np.count_nonzero(beta[beta_hat == 0, 0])
+			fp_results[rep, cov_idx, i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
+			try:
+				r2_results[rep, cov_idx, i] = r2_score(y_test, np.dot(X_test, beta_hat))
+				r2_true_results[rep, cov_idx, i] = r2_score(y_test, np.dot(X_test, beta))
 
-		# Score functions have been modified, requiring us to first calculate log-likelihood
-		llhood = log_likelihood_glm('normal', y_test, np.dot(X_test, beta))
+				# Score functions have been modified, requiring us to first calculate log-likelihood
+				llhood = log_likelihood_glm('normal', y_test, np.dot(X_test, beta))
 
-		BIC_results[rep, cov_idx] = BIC(llhood, np.count_nonzero(beta_hat), n_samples)
-		AIC_results[rep, cov_idx] = AIC(llhood, np.count_nonzero(beta_hat))
-		AICc_results[rep, cov_idx] = AICc(llhood, np.count_nonzero(beta_hat), n_samples)
+				BIC_results[rep, cov_idx, i] = BIC(llhood, np.count_nonzero(beta_hat), n_samples)
+				AIC_results[rep, cov_idx, i] = AIC(llhood, np.count_nonzero(beta_hat))
+				AICc_results[rep, cov_idx, i] = AICc(llhood, np.count_nonzero(beta_hat), n_samples)
+			except:
+				pass
 
 		print(time.time() - start)
 

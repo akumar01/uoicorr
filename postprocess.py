@@ -10,7 +10,7 @@ import pdb
 
 
 # Common postprocessing operations on a single data file
-def postprocess(data_file, params):
+def postprocess(data_file, params, arg_flags):
 
 	# beta and r2_true is already in correct format
 
@@ -29,6 +29,19 @@ def postprocess(data_file, params):
 			cov_params = params['cov_params']
 	else:
 		cov_params = params['cov_params']
+
+
+	if arg_flags is not None:
+		arg_found = False
+		for key, value in arg_flags.items():
+			if key in list(params.keys()):
+				if params[key] == value:
+					arg_found = True
+	else:
+		arg_found = True
+
+	if not arg_found:
+		return
 
 	for covidx, cov_param in enumerate(cov_params):
 
@@ -103,7 +116,9 @@ def postprocess_file(data_file, param_file):
 # Postprocess an entire directory of data, will assume standard nomenclature of
 # associated parameter files
 # old_format: back when we were using the .py param files
-def postprocess_dir(dirname, old_format = False, skip_bad = False):
+# skip_bad: Skip over files that cannot be processed without raising errors
+# arg_flag: Only return dataframes for data files that match arg_flag {key: value}
+def postprocess_dir(dirname, old_format = False, skip_bad = False, arg_flags = None):
 	# Collect all .h5 files
 	data_files = glob.glob('%s/*.h5' % dirname)
 	# List to store all data
@@ -133,11 +148,15 @@ def postprocess_dir(dirname, old_format = False, skip_bad = False):
 		# Choose whether to ignore errors:		
 		if skip_bad:
 			try:
-				data_list.extend(postprocess(file, params))
+				d = postprocess(file, params, arg_flags)
+				if d is not None:
+					data_list.extend(d)
 			except:
 				continue
 		else:
-			data_list.extend(postprocess(file, params))
+			d = postprocess(file, params, arg_flags)
+			if d is not None:
+				data_list.extend(d)
 
 	# Copy to dataframe
 	dataframe = pd.DataFrame(data_list)

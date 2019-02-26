@@ -209,7 +209,7 @@ def cluster_dist(low, high, n_clusters, cluster_width, size):
 # Standardize calculation of FNR, FPR, and Selection Accuracy
 def FNR(beta, beta_hat):
 
-    beta = tile_beta(beta, beta_hat)
+    beta, beta_hat = tile_beta(beta, beta_hat)
     false_negative_rate = np.zeros(beta_hat.shape[0])
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
@@ -224,7 +224,7 @@ def FNR(beta, beta_hat):
 
 def FPR(beta, beta_hat):
 
-    beta = tile_beta(beta, beta_hat)
+    beta, beta_hat = tile_beta(beta, beta_hat)
     false_positive_rate = np.zeros(beta_hat.shape[0])
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
@@ -241,8 +241,7 @@ def FPR(beta, beta_hat):
 
 def selection_accuracy(beta, beta_hat):
 
-    beta = tile_beta(beta, beta_hat)
-
+    beta, beta_hat = tile_beta(beta, beta_hat)
     selection_accuracy = np.zeros(beta_hat.shape[0])
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
@@ -252,8 +251,24 @@ def selection_accuracy(beta, beta_hat):
         /(bhat.size + b.size)
     return selection_accuracy
 
+def estimation_error(beta, beta_hat):
+    beta, beta_hat = tile_beta(beta, beta_hat)
+    ee = np.zeros(beta_hat.shape[0])
+    for i in range(beta_hat.shape[0]):
+        p = beta_hat.shape[1]
+        ee[i] = 1/p * np.sqrt(np.sum(np.power(beta - beta_hat, 2)))
+    return ee
+
+
 def tile_beta(beta, beta_hat):
+
+    if np.ndim(beta_hat) == 1:
+        beta_hat = beta_hat[np.newaxis, :]
+
+    if np.ndim(beta) == 1:
+        beta = beta[np.newaxis, :]
 
     if beta.shape != beta_hat.shape: 
         beta = np.tile(beta, [int(beta_hat.shape[0]/beta.shape[0]), 1])
-    return beta
+
+    return beta, beta_hat
