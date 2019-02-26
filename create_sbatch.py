@@ -153,8 +153,12 @@ if __name__ == '__main__':
 				# Load python and any other necessary modules
 				# sb.write('module load python/3.6-anaconda-4.4\n')
 				
+				# Failsafe in case we have alerady loaded python. Loading two
+				# different python modules will cause an error
+
 				# Work with out own Anaconda environment
-				sb.write('source activate ~/.conda/envs/nse')
+				# To make this work, we had to add some paths to our .bash_profile.ext
+				sb.write('source activate nse\n')
 
 				# script(s) to actually run
 				if 'cori'.encode() in hostname:
