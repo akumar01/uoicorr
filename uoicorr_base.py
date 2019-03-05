@@ -77,8 +77,6 @@ exp = locate('exp_types.%s' % exp_type)
 
 results = h5py.File(results_file, 'w')
 
-
-
 # Use the n_models flags to allow experiments to return
 # multiple models over multiple parameters
 shape = (reps, len(cov_params), args['n_models'])
@@ -100,7 +98,7 @@ print('Finished initialization\n')
 
 # Keep model coefficients fixed across repititions
 if const_beta:
-	beta = gen_beta(n_features, block_size, sparsity, betadist = betadist)	
+	beta = gen_beta(n_features, block_size, sparsity, betadist = betadist, betavals = )	
 
 for rep in range(reps):
 
