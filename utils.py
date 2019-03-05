@@ -1,9 +1,7 @@
 import numpy as np
 from scipy.linalg import block_diag
 import pdb
-
-
-
+        
 def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'uniform'):
     n_blocks = int(np.floor(n_features/block_size))
     
@@ -20,6 +18,8 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
     elif betadist == 'clustered':
         beta = cluster_dist(low = 0, high = 25, n_clusters = 5, 
             cluster_width = 1, size = (n_features, 1))
+    elif betadist == 'equal':
+        beta = np.ones((n_features, 1))
     # Apply sparsity separately to each block
     mask = np.array([])
     for block in range(n_blocks):
@@ -29,7 +29,18 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
         mask = np.concatenate((mask, block_mask))
     mask = mask[..., np.newaxis]
     beta = beta * mask
+    return beta
 
+# Generate coefficients that are of the same magnitude within each block
+def equal_beta(low = 0, high = 10, n_features = 60, block_size = 6):
+
+    n_blocks = int(np.floor(n_features/block_size))
+
+    block_values = np.random.uniform(low, high, n_blocks)
+
+    beta = np.zeros((n_features, 1))
+    for i, block_value in enumerate(block_values):
+        beta[block_size * i: block_size * (i + 1), 0] = block_value
     return beta
 
 def interpolated_dist(lmbda, t, sigma, n_features = 60, low = -5, high = 5):
