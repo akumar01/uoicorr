@@ -13,8 +13,6 @@ from pydoc import locate
 
 from utils import gen_beta, gen_data, gen_covariance
 
-print('Finished imports\n')
-
 total_start = time.time()
 
 ### parse arguments ###
@@ -77,6 +75,8 @@ exp = locate('exp_types.%s' % exp_type)
 
 results = h5py.File(results_file, 'w')
 
+
+
 # Use the n_models flags to allow experiments to return
 # multiple models over multiple parameters
 shape = (reps, len(cov_params), args['n_models'])
@@ -94,11 +94,9 @@ BIC_results = np.zeros(shape)
 AIC_results = np.zeros(shape)
 AICc_results = np.zeros(shape)
 
-print('Finished initialization\n')
-
 # Keep model coefficients fixed across repititions
 if const_beta:
-	beta = gen_beta(n_features, block_size, sparsity, betadist = betadist, betavals = )	
+	beta = gen_beta(n_features, block_size, sparsity, betadist = betadist)	
 
 for rep in range(reps):
 

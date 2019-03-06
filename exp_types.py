@@ -1,13 +1,51 @@
 import numpy as np
 import pdb
 from sklearn.linear_model.coordinate_descent import _alpha_grid
-from sklearn.linear_model import ElasticNet
+from sklearn.linear_model import Lasso, ElasticNet
 from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score
 from pyuoi.linear_model.lasso import UoI_Lasso
 from pyuoi.linear_model.elasticnet import UoI_ElasticNet
 from pyuoi.linear_model.gtv import GraphTotalVariance
 import time
+
+class CV_Lasso():
+
+	@classmethod
+	def run(self, X, y, args):
+
+		n_alphas = args['n_alphas']
+		cv_splits = 10
+
+		scores = np.zeros(n_alphas)
+
+		lasso = Lasso(normalize=True, warm_start = False)
+
+		# Use 10 fold cross validation. Do this in a manual way to enable use of warm_start and custom parameter sweeps
+		kfold = KFold(n_splits = cv_splits, shuffle = True)
+
+		# Generate alphas to use
+		alphas = _alpha_grid(X = X, y = y.ravel(), l1_ratio = 1, normalize = True, n_alphas = n_alphas)
+
+		for a_idx, alpha in enumerate(alphas):
+
+			lasso.set_params(alpha = alpha)
+
+			cv_scores = np.zeros(cv_splits)
+			# Cross validation splits into training and test sets
+			for i, cv_idxs in enumerate(kfold.split(X, y)):
+				lasso.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
+				cv_scores[i] = r2_score(y[cv_idxs[1]], lasso.coef_ @ X[cv_idxs[1], :].T)
+
+			# Average together cross-validation scores
+			scores[a_idx] = np.mean(cv_scores)
+
+		# Select the model with the maximum score
+		max_score_idx = np.argmax(scores.ravel())
+		lasso.set_params(alpha = alphas[max_score_idx])
+		lasso.fit(X, y.ravel())
+		return [lasso]
+
 
 class UoILasso():
 
@@ -139,12 +177,11 @@ class GTV():
 		for i1, l1 in enumerate(lambda_S):
 			for i2, l2 in enumerate(lambda_TV):
 				for i3, l3 in enumerate(lambda_1):
-					start = time.time()
+
 					gtv = GraphTotalVariance(normalize=True, warm_start = False)
 					gtv.set_params(lambda_S = l1, lambda_TV = l2, lambda_1 = l3)
-
 					gtv.fit(X, y, cov)
 
 					models.append(gtv)
-					print('Inner Loop: %f seconds' % (start - time.time()))
+
 		return models
