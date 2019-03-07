@@ -218,9 +218,11 @@ def cluster_dist(low, high, n_clusters, cluster_width, size):
     return x
 
 # Standardize calculation of FNR, FPR, and Selection Accuracy
-def FNR(beta, beta_hat):
-
+# threshold : Set things smaller than 1e-6 explicitly to 0 in beta_hat
+def FNR(beta, beta_hat, threshold = False):
     beta, beta_hat = tile_beta(beta, beta_hat)
+    if threshold:
+        beta_hat[beta_hat < 1e-6] = 0
     false_negative_rate = np.zeros(beta_hat.shape[0])
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
@@ -233,9 +235,13 @@ def FNR(beta, beta_hat):
 
     return false_negative_rate
 
-def FPR(beta, beta_hat):
+def FPR(beta, beta_hat, threshold = False):
 
     beta, beta_hat = tile_beta(beta, beta_hat)
+
+    if threshold:
+        beta_hat[beta_hat < 1e-6] = 0
+
     false_positive_rate = np.zeros(beta_hat.shape[0])
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
@@ -250,9 +256,13 @@ def FPR(beta, beta_hat):
     return false_positive_rate
 
 
-def selection_accuracy(beta, beta_hat):
+def selection_accuracy(beta, beta_hat, threshold = False):
 
     beta, beta_hat = tile_beta(beta, beta_hat)
+
+    if threshold:
+        beta_hat[beta_hat < 1e-6] = 0
+
     selection_accuracy = np.zeros(beta_hat.shape[0])
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
@@ -262,12 +272,18 @@ def selection_accuracy(beta, beta_hat):
         /(bhat.size + b.size)
     return selection_accuracy
 
-def estimation_error(beta, beta_hat):
+def estimation_error(beta, beta_hat, threshold = False):        
     beta, beta_hat = tile_beta(beta, beta_hat)
+
+    if threshold:
+        beta_hat[beta_hat < 1e-6] = 0
+
     ee = np.zeros(beta_hat.shape[0])
     for i in range(beta_hat.shape[0]):
-        p = beta_hat.shape[1]
-        ee[i] = 1/p * np.sqrt(np.sum(np.power(beta - beta_hat, 2)))
+        b = beta[i, :].squeeze()
+        bhat = beta_hat[i, :].squeeze()
+        p = b.size
+        ee[i] = 1/p * np.sqrt(np.sum(np.power(b - bhat, 2)))
     return ee
 
 
