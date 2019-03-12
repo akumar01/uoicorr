@@ -9,6 +9,7 @@ import argparse
 import json
 import importlib
 import subprocess
+import numpy as np
 
 # Make sure we aren't mistakenly submitting jobs with incorrect parameters
 def validate_jobs(jobdir, jobnames):
@@ -56,6 +57,7 @@ if __name__ == '__main__':
 	parser.add_argument('--iidx', default = 0)
 
 	cmd_args = parser.parse_args()
+
 
 	# Load param file
 	
@@ -120,10 +122,14 @@ if __name__ == '__main__':
 		# Ensure we aren't accidentally duplicating/overwriting existing jobs
 		# validate_jobs(jobdir, jobnames)
 
-		# Run the job interactively to verify things are working ok
 		if cmd_args.interactive:
-			iidx = int(cmd_args.iidx)
-			os.system('python %s/%s %s' % (script_dir, jobs[iidx]['script'], jobs[iidx]['arg_file']))
+			# Run the job interactively to verify things are working ok
+			if cmd_args.iidx == 'all':
+				iidx = np.arange(len(jobs), dtype = np.int_)
+			else:
+				iidx = [int(cmd_args.iidx)]
+			for idx in iidx:
+				os.system('python %s/%s %s' % (script_dir, jobs[idx]['script'], jobs[idx]['arg_file']))
 			sys.exit()
 
 		# Log all job details
