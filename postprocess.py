@@ -30,7 +30,6 @@ def postprocess(data_file, params, arg_flags):
 	else:
 		cov_params = params['cov_params']
 
-
 	if arg_flags is not None:
 		arg_found = False
 		for key, value in arg_flags.items():

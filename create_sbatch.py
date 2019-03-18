@@ -168,10 +168,10 @@ if __name__ == '__main__':
 
 				# script(s) to actually run
 				if 'cori'.encode() in hostname:
-					sb.write('srun -C haswell python3  %s/%s %s' 
+					sb.write('srun -C haswell python3 -u  %s/%s %s' 
 						% (script_dir, job['script'], job['arg_file']))
 				else:
-					sb.write('srun python3  %s/%s %s' 
+					sb.write('srun python3 -u %s/%s %s' 
 						% (script_dir, job['script'], job['arg_file']))
 				sb.close()
 				

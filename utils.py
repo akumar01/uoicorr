@@ -279,12 +279,15 @@ def estimation_error(beta, beta_hat, threshold = False):
         beta_hat[beta_hat < 1e-6] = 0
 
     ee = np.zeros(beta_hat.shape[0])
+    median_ee = np.zeros(beta_hat.shape[0])
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
         bhat = beta_hat[i, :].squeeze()
         p = b.size
+        median_ee[i] = np.median(np.sqrt(np.power(b - bhat, 2)))
         ee[i] = 1/p * np.sqrt(np.sum(np.power(b - bhat, 2)))
-    return ee
+
+    return ee, median_ee
 
 
 def tile_beta(beta, beta_hat):

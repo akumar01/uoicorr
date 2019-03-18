@@ -52,12 +52,18 @@ class UoILasso():
 	@classmethod
 	def run(self, X, y, args):
 
+		if 'comm' in list(args.keys()):
+			comm = args['comm']
+		else:
+			comm = None
+
 		uoi = UoI_Lasso(
 			normalize=True,
 			n_boots_sel=int(args['n_boots_sel']),
 			n_boots_est=int(args['n_boots_est']),
 			estimation_score=args['est_score'],
-			stability_selection = args['stability_selection']
+			stability_selection = args['stability_selection'],
+			comm = comm
 			)
 		uoi.fit(X, y.ravel())
 		return [uoi]	
@@ -76,6 +82,11 @@ class UoIElasticNet():
 			else:
 				l1_ratios = np.array(l1_ratios)
 
+		if 'comm' in list(args.keys()):
+			comm = args['comm']
+		else:
+			comm = None
+
 		uoi = UoI_ElasticNet(
 			normalize=True,
 			n_boots_sel=int(args['n_boots_sel']),
@@ -83,7 +94,8 @@ class UoIElasticNet():
 			alphas = l1_ratios,
 			estimation_score=args['est_score'],
 			warm_start = False,
-			stability_selection=args['stability_selection']
+			stability_selection=args['stability_selection'],
+			comm = comm
 		)
 		
 		uoi.fit(X, y.ravel())
@@ -178,8 +190,9 @@ class GTV():
 			for i2, l2 in enumerate(lambda_TV):
 				for i3, l3 in enumerate(lambda_1):
 
-					gtv = GraphTotalVariance(normalize=True, warm_start = False)
-					gtv.set_params(lambda_S = l1, lambda_TV = l2, lambda_1 = l3)
+					gtv = GraphTotalVariance(lambda_S = l1, lambda_TV = l2, lambda_1 = l3, normalize=True, 
+											 warm_start = False, use_skeleton = args['use_skeleton'],
+											threshold = args['threshold'])
 					gtv.fit(X, y, cov)
 
 					models.append(gtv)

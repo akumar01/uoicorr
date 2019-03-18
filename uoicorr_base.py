@@ -12,6 +12,7 @@ from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
 from pydoc import locate
 
 from utils import gen_beta, gen_data, gen_covariance
+from utils import FNR, FPR, selection_accuracy, estimation_error
 
 total_start = time.time()
 
@@ -75,8 +76,6 @@ exp = locate('exp_types.%s' % exp_type)
 
 results = h5py.File(results_file, 'w')
 
-
-
 # Use the n_models flags to allow experiments to return
 # multiple models over multiple parameters
 shape = (reps, len(cov_params), args['n_models'])
@@ -93,6 +92,12 @@ r2_true_results = np.zeros(shape)
 BIC_results = np.zeros(shape)
 AIC_results = np.zeros(shape)
 AICc_results = np.zeros(shape)
+
+FNR_results = np.zeros(shape)
+FPR_results = np.zeros(shape)
+sa_results = np.zeros(shape)
+ee_results = np.zeros(shape)
+median_ee_results = np.zeros(shape)
 
 # Keep model coefficients fixed across repititions
 if const_beta:
@@ -136,6 +141,16 @@ for rep in range(reps):
 				BIC_results[rep, cov_idx, i] = BIC(llhood, np.count_nonzero(beta_hat), n_samples)
 				AIC_results[rep, cov_idx, i] = AIC(llhood, np.count_nonzero(beta_hat))
 				AICc_results[rep, cov_idx, i] = AICc(llhood, np.count_nonzero(beta_hat), n_samples)
+
+				# Perform calculation of FNR, FPR, selection accuracy, and estimation error
+				# here:
+				FNR_results[rep, cov_idx, i] = FNR(beta, beta_hat)
+				FPR_results[rep, cov_idx, i] = FPR(beta, beta_hat)
+				sa_results[rep, cov_idx, i] = selection_accuracy(beta, beta_hat)
+				ee, median_ee = estimation_error(beta, beta_hat)
+				ee_results[rep, cov_idx, i] = ee
+				median_ee_results[rep, cov_idx, i] = median_ee
+
 			except:
 				pass
 
@@ -150,10 +165,18 @@ results['beta_hats'] = beta_hats
 results['BIC'] = BIC_results
 results['AIC'] = AIC_results
 results['AICc'] = AICc_results
+
+results['FNR'] = FNR_results
+results['FPR'] = FPR_results
+results['sa'] = sa_results
+results['ee'] = ee_results
+results['median_ee'] = median_ee_results
+
 # import pickle
 # pickle_file = results_file.split('.h5')[0]
 # with open('%s2' % pickle_file, 'wb') as f:
 # 	pickle.dump(selection_coefs, f)
 
 results.close()
-print('Total runtime: %f' %  (time.time() - total_start))
+print('Total runtime: %f\n' %  (time.time() - total_start))
+print('Job completed!')
