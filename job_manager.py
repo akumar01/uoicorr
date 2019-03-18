@@ -2,6 +2,9 @@ import numpy as np
 import itertools
 
 
+###### Algorithms to run ###################################
+'exp_types': ['UoILasso', 'UoIElasticNet', 'EN', 'CV_Lasso']
+
 ###### Master list of parameters to be iterated over #######
 
 # Upon each run, the status of completed jobs will be compared
@@ -29,7 +32,6 @@ iter_params = {
 # n/p ratio #
 'np_ratio': [0.5, 1, 2, 3, 5],
 
-'exp_types': ['UoILasso', 'UoIElasticNet', 'EN', 'CV_Lasso']
 
 }
 
