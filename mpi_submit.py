@@ -12,11 +12,27 @@ import subprocess
 import numpy as np
 from mpi4py import MPI
 
+from pydoc import locate
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
+
+# Need to add pyuoi to path
+parent_path, current_dir = os.path.split(os.path.abspath('.'))
+
+# Crawl up to the repos folder
+while current_dir not in ['repos']:
+	parent_path, current_dir = os.path.split(parent_path)
+
+p = os.path.join(parent_path, current_dir)
+
+# Add uoicorr and pyuoi to the path
+if '%s/uoicor' % p not in sys.path:
+	sys.path.append('%s/uoicorr' % p)
+if '%s/PyUoI' % p not in sys.path:
+	sys.path.append('%s/PyUoI' % p)
+
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
 from pyuioi.mpi_utils import Bcast_from_root
-from pydoc import locate
 
 from utils import gen_beta, gen_data, gen_covariance
 from utils import FNR, FPR, selection_accuracy, estimation_error
@@ -29,11 +45,6 @@ if __name__ == '__main__':
 	# Param file from which to create job scripts
 	parser.add_argument('arg_file', default=None)
 
-	# Edit the 'reps' parameter to equal 1
-	parser.add_argument('-s', '--single_rep', action='store_true')
-
-	# Run the job on interactive nodes
-	parser.add_argument('-i', '--interactive', action='store_true')
 	#######################################
 
 	# Load param file
