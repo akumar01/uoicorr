@@ -39,6 +39,7 @@ from utils import gen_beta, gen_data, gen_covariance
 from utils import FNR, FPR, selection_accuracy, estimation_error
 
 if __name__ == '__main__':
+	total_start = time.time()
 	
 	###### Command line arguments #######
 	parser = argparse.ArgumentParser()
@@ -206,5 +207,5 @@ if __name__ == '__main__':
 			results['ee'] = ee_results
 			results['median_ee'] = median_ee_results
 
-
+		print('Total time: %f' % (time.time() - total_start))
 
