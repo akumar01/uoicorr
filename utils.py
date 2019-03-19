@@ -231,7 +231,7 @@ def FNR(beta, beta_hat, threshold = False):
             false_negative_rate[i] = np.count_nonzero(b[(bhat == 0).ravel()])\
             /(np.count_nonzero(b))
         except ZeroDivisionError:
-            pdb.set_trace()
+            print('Shit!')
 
     return false_negative_rate
 

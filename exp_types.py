@@ -6,7 +6,6 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score
 from pyuoi.linear_model.lasso import UoI_Lasso
 from pyuoi.linear_model.elasticnet import UoI_ElasticNet
-from pyuoi.linear_model.gtv import GraphTotalVariance
 import time
 
 class CV_Lasso():
