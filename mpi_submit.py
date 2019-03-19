@@ -11,7 +11,8 @@ import importlib
 import subprocess
 import numpy as np
 from mpi4py import MPI
-
+import h5py
+import time
 from pydoc import locate
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
@@ -32,7 +33,7 @@ if '%s/PyUoI' % p not in sys.path:
 	sys.path.append('%s/PyUoI' % p)
 
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
-from pyuioi.mpi_utils import Bcast_from_root
+from pyuoi.mpi_utils import Bcast_from_root
 
 from utils import gen_beta, gen_data, gen_covariance
 from utils import FNR, FPR, selection_accuracy, estimation_error
@@ -44,8 +45,9 @@ if __name__ == '__main__':
 	
 	# Param file from which to create job scripts
 	parser.add_argument('arg_file', default=None)
-
+	args = parser.parse_args()
 	#######################################
+
 
 	# Load param file
 	with open(args.arg_file, 'r') as f: 
@@ -83,7 +85,7 @@ if __name__ == '__main__':
 	# exp = importlib.import_module(exp_type, 'exp_types')
 	exp = locate('exp_types.%s' % exp_type)
 
-	results = h5py.File(results_file, 'w')
+
 
 	# Use the n_models flags to allow experiments to return
 	# multiple models over multiple parameters
@@ -151,7 +153,7 @@ if __name__ == '__main__':
 			model = exp.run(X, y, args)
 			if rank == 0:
 				#### Calculate and log results
-				beta_hat = model[0].coef_
+				beta_hat = model[0].coef_.ravel()
 				beta_hats[rep, cov_idx, :] = beta_hat.ravel()
 				fn_results[rep, cov_idx] = np.count_nonzero(beta[beta_hat == 0, 0])
 				fp_results[rep, cov_idx] = np.count_nonzero(beta_hat[beta.ravel() == 0])
@@ -174,30 +176,35 @@ if __name__ == '__main__':
 
 				# Perform calculation of FNR, FPR, selection accuracy, and estimation error
 				# here:
+
 				FNR_results[rep, cov_idx] = FNR(beta.ravel(), beta_hat.ravel())
 				FPR_results[rep, cov_idx] = FPR(beta.ravel(), beta_hat.ravel())
 				sa_results[rep, cov_idx] = selection_accuracy(beta.ravel(), beta_hat.ravel())
 				ee, median_ee = estimation_error(beta.ravel(), beta_hat.ravel())
+						
 				ee_results[rep, cov_idx] = ee
 				median_ee_results[rep, cov_idx] = median_ee
+				print(time.time() - start)
 
 	if rank == 0:
 		# Save results
-		results = h5py.File(results_file, 'w')
-		results['fn'] = fn_results
-		results['fp'] = fp_results
-		results['r2'] = r2_results
-		results['r2_true'] = r2_true_results
-		results['betas'] = betas
-		results['beta_hats'] = beta_hats
-		results['BIC'] = BIC_results
-		results['AIC'] = AIC_results
-		results['AICc'] = AICc_results
+		with h5py.File(results_file, 'w') as results:
 
-		results['FNR'] = FNR_results
-		results['FPR'] = FPR_results
-		results['sa'] = sa_results
-		results['ee'] = ee_results
-		results['median_ee'] = median_ee_results
+			results['fn'] = fn_results
+			results['fp'] = fp_results
+			results['r2'] = r2_results
+			results['r2_true'] = r2_true_results
+			results['betas'] = betas
+			results['beta_hats'] = beta_hats
+			results['BIC'] = BIC_results
+			results['AIC'] = AIC_results
+			results['AICc'] = AICc_results
 
-		results.close()
+			results['FNR'] = FNR_results
+			results['FPR'] = FPR_results
+			results['sa'] = sa_results
+			results['ee'] = ee_results
+			results['median_ee'] = median_ee_results
+
+
+
