@@ -174,15 +174,30 @@ if __name__ == '__main__':
 
 				# Perform calculation of FNR, FPR, selection accuracy, and estimation error
 				# here:
-				FNR_results[rep, cov_idx] = FNR(beta, beta_hat)
-				FPR_results[rep, cov_idx] = FPR(beta, beta_hat)
-				sa_results[rep, cov_idx] = selection_accuracy(beta, beta_hat)
-				ee, median_ee = estimation_error(beta, beta_hat)
+				FNR_results[rep, cov_idx] = FNR(beta.ravel(), beta_hat.ravel())
+				FPR_results[rep, cov_idx] = FPR(beta.ravel(), beta_hat.ravel())
+				sa_results[rep, cov_idx] = selection_accuracy(beta.ravel(), beta_hat.ravel())
+				ee, median_ee = estimation_error(beta.ravel(), beta_hat.ravel())
 				ee_results[rep, cov_idx] = ee
 				median_ee_results[rep, cov_idx] = median_ee
 
 	if rank == 0:
 		# Save results
 		results = h5py.File(results_file, 'w')
-		results['beta_hat'] = beta_hat
+		results['fn'] = fn_results
+		results['fp'] = fp_results
+		results['r2'] = r2_results
+		results['r2_true'] = r2_true_results
+		results['betas'] = betas
+		results['beta_hats'] = beta_hats
+		results['BIC'] = BIC_results
+		results['AIC'] = AIC_results
+		results['AICc'] = AICc_results
+
+		results['FNR'] = FNR_results
+		results['FPR'] = FPR_results
+		results['sa'] = sa_results
+		results['ee'] = ee_results
+		results['median_ee'] = median_ee_results
+
 		results.close()
