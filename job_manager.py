@@ -51,6 +51,12 @@ def generate_sbatch_scripts(job_array, script_dir):
         sbname = '%s/sbatch%d.sh' % (jobdir, i)
         jobname = '%s_%s_job%d' % (job['exp_type'], job['chunk_id'], i)
 
+        # Use MPI to accelerate UoI
+        if job['exp_type'] in ['UoILasso' or 'UoIElasticNet']:
+            script = 'mpi_submit.py'
+        else:
+            script = 'uoicorr_base.py'
+
         with open(sbname, 'w') as sb:
             # Arguments common across jobs
             sb.write('#!/bin/bash\n')
@@ -72,13 +78,12 @@ def generate_sbatch_scripts(job_array, script_dir):
             sb.write('if [[hostname == *"cori"* ]]; then\n')
             sb.write('  #SBATCH -C haswell\n')       
             sb.write('fi\n') 
-            sb.write('srun python3  %s/uoicorr_base.py %s' 
-                    % (script_dir, job['arg_file']))
-
+            sb.write('srun python3  %s/%s %s' 
+                    % (script_dir, script, job['arg_file']))
 
 def create_job_structure(data_dir = 'uoicorr/dense'):
 
-    script_dir = '/global/homes/a/akumar25'
+    script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
     ###### Master list of parameters to be iterated over #######
 
@@ -192,9 +197,6 @@ def create_job_structure(data_dir = 'uoicorr/dense'):
             job_array_chunks[i][j] = generate_arg_files(job_array_chunks[i][j], results_files, jobdir)
             generate_sbatch_scripts(job_array_chunks[i][j], script_dir)
 
-
-
-    
     # Initialize arrays that keep track of whether particular jobs have run and whether they have
     # succesfully completed            
     run_status = np.zeros((len(job_array_chunks), len(job_array_chunks[0], len(job_array_chunks[0][0]))))
