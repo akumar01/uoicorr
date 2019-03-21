@@ -94,7 +94,7 @@ def create_job_structure(data_dir = 'uoicorr/dense'):
 
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
-    
+
     script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
     ###### Master list of parameters to be iterated over #######

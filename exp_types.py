@@ -19,7 +19,7 @@ class CV_Lasso():
 		scores = np.zeros(n_alphas)
 
 		lasso = Lasso(normalize=True, warm_start = False)
-
+		
 		# Use 10 fold cross validation. Do this in a manual way to enable use of warm_start and custom parameter sweeps
 		kfold = KFold(n_splits = cv_splits, shuffle = True)
 
