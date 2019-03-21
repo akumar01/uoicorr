@@ -3,6 +3,7 @@ import itertools
 import pdb
 import os
 import pickle
+import json
 
 def chunk_list(l, n):
     # For item i in a range that is a length of l,
@@ -20,6 +21,14 @@ def generate_arg_files(job_array, results_files, jobdir):
         jobname = '%s_%s_job%d' % (arg['exp_type'], arg['chunk_id'], i)
 
         arg_file = '%s/%s_params.json' % (jobdir, jobname)
+
+        # Numpy datatypes are not JSON-serializable
+        for key, value in arg.items():
+            if type(value) == np.int_:
+                arg[key] = int(value)
+            if type(value) == np.float_:
+                arg[key] = float(value)
+
         with open(arg_file, 'w') as f:
             json.dump(arg, f)
             f.close()
@@ -83,6 +92,9 @@ def generate_sbatch_scripts(job_array, script_dir):
 
 def create_job_structure(data_dir = 'uoicorr/dense'):
 
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+    
     script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
     ###### Master list of parameters to be iterated over #######
@@ -139,7 +151,7 @@ def create_job_structure(data_dir = 'uoicorr/dense'):
     total_jobs = np.prod(len(val) for val in iter_params.values())
 
     # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-    algorithm_times = []
+    algorithm_times = ['10:00:00', '10:00:00', '10:00:00', '10:00:00']
 
     # Master list of job parameters
     job_array = []
@@ -172,7 +184,8 @@ def create_job_structure(data_dir = 'uoicorr/dense'):
     # Generate the directory structure
     for i, exp_type in enumerate(exp_types):
         
-#        os.mkdir('%s/%s' % (data_dir, exp_type))
+        if not os.path.exists('%s/%s' % (data_dir, exp_type)):
+            os.mkdir('%s/%s' % (data_dir, exp_type))
 
         # For each exp_type directory, generate a subdiretory for 
         # each chunk of jobs
@@ -181,13 +194,11 @@ def create_job_structure(data_dir = 'uoicorr/dense'):
             # Set the job time according to the worst-case runtime of the particular algorithm
             for job in job_array_chunks[i][j]:
                 job['job_time'] = algorithm_times[i]
-
-            # Mark the chunk id of each job
-            for job in job_array[chunks][i][j]:
                 job['chunk_id'] = j
 
             jobdir = '%s/%s/%s' % (data_dir, exp_type, j)
-#            os.mkdir(jobdir)
+            if not os.path.exists(jobdir):
+                os.mkdir(jobdir)
             # Generate a human-readable log file, sbatch 
             # script, and job param files for this directory
 
@@ -199,11 +210,11 @@ def create_job_structure(data_dir = 'uoicorr/dense'):
 
     # Initialize arrays that keep track of whether particular jobs have run and whether they have
     # succesfully completed            
-    run_status = np.zeros((len(job_array_chunks), len(job_array_chunks[0], len(job_array_chunks[0][0]))))
+    run_status = np.zeros((len(job_array_chunks), len(job_array_chunks[0]), len(job_array_chunks[0][0])))
     completion_status = np.zeros(run_status.shape)
 
     # Store away:
-    with open('%s/log.dat' % , 'wb') as f:
+    with open('%s/log.dat' % data_dir, 'wb') as f:
         pickle.dump(f, [job_array_chunks, run_status, completion_status])
 
 # Upon running this command, check which jobs have been successfully completed, and 
@@ -242,7 +253,7 @@ def evaluate_job_structure(root_dir):
     # Directories that have not yet been run
     # Directories that have been run, are not currently running, and have jobs that
     # were not successfully completed
-
+    
         
 
 # Read through all the out files 
