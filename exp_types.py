@@ -6,7 +6,9 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score
 from pyuoi.linear_model.lasso import UoI_Lasso
 from pyuoi.linear_model.elasticnet import UoI_ElasticNet
+import itertools
 import time
+from pyuoi.mpi_utils import Gatherv_rows
 
 class CV_Lasso():
 
@@ -115,37 +117,53 @@ class EN():
 			else:
 				l1_ratios = np.array(l1_ratios)
 
+		if 'comm' in list(arg.keys()):
+			comm = args['comm']
+			numproc = comm.Get_size()
+			rank = comm.Get_rank()
+		else:
+			comm = None
+			numproc = 1
+			rank = 0
 
 		alphas = np.zeros((l1_ratios.size, n_alphas))
 		scores = np.zeros((l1_ratios.size, n_alphas))
 
 		en = ElasticNet(normalize=True, warm_start = False)
 
-		# Use 10 fold cross validation. Do this in a manual way to enable use of warm_start and custom parameter sweeps
+		# Use 10 fold cross validation. Do this in a manual way to enable use of warm_start 
+		# and custom parameter sweeps
 		kfold = KFold(n_splits = cv_splits, shuffle = True)
+
+		reg_params = []
 
 		for l1_idx, l1_ratio in enumerate(l1_ratios):
 			# Generate alphas to use
-			alphas[l1_idx, :] = _alpha_grid(X = X, y = y.ravel(), l1_ratio = l1_ratio, normalize = True, n_alphas = n_alphas)
+			alphas = _alpha_grid(X = X, y = y.ravel(), l1_ratio = l1_ratio, normalize = True, n_alphas = n_alphas)
+			reg_params.extend([{'l1_ratio': l1_ratio, 'alpha': alpha} for alpha in alphas])
 
-			for a_idx, alpha in enumerate(alphas[l1_idx, :]):
+		chunked_reg_params = np.array_split(np.arange(len(reg_params)), numproc)
+		scores = []
+		for reg_param in reg_params[chunked_reg_params[rank]]:
+			en.set_params(*reg_param)
+			cv_scores = np.zeros(cv_splits)
+			# Cross validation splits into training and test sets
+			for i, cv_idxs in enumerate(kfold.split(X, y)):
+				en.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
+				cv_scores[i] = r2_score(y[cv_idxs[1]], en.coef_ @ X[cv_idxs[1], :].T)
 
-				en.set_params(alpha = alpha, l1_ratio = l1_ratio)
+			scores.append(np.mean(cv_scores))
 
-				cv_scores = np.zeros(cv_splits)
-				# Cross validation splits into training and test sets
-				for i, cv_idxs in enumerate(kfold.split(X, y)):
-					en.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
-					cv_scores[i] = r2_score(y[cv_idxs[1]], en.coef_ @ X[cv_idxs[1], :].T)
+		if comm is not None:
+			# Gather scores
+			scores = Gatherv_rows(np.array(scores), comm)
 
-				# Average together cross-validation scores
-				scores[l1_idx, a_idx] = np.mean(cv_scores)
-
-		# Select the model with the maximum score
-		max_score_idx = np.argmax(scores.ravel())
-		max_score_idxs = np.unravel_index(max_score_idx, (l1_ratios.size, n_alphas))
-		en.set_params(l1_ratio = l1_ratios[max_score_idxs[0]], alpha = alphas[max_score_idxs[0], max_score_idxs[1]])
-		en.fit(X, y.ravel())
+		if rank == 0:
+			# Select the model with the maximum score
+			max_score_idx = np.argmax(scores.ravel())
+			max_score_idxs = np.unravel_index(max_score_idx, (l1_ratios.size, n_alphas))
+			en.set_params(l1_ratio = l1_ratios[max_score_idxs[0]], alpha = alphas[max_score_idxs[0], max_score_idxs[1]])
+			en.fit(X, y.ravel())
 		return [en]
 
 class GTV():

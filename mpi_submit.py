@@ -86,8 +86,6 @@ if __name__ == '__main__':
 	# exp = importlib.import_module(exp_type, 'exp_types')
 	exp = locate('exp_types.%s' % exp_type)
 
-
-
 	# Use the n_models flags to allow experiments to return
 	# multiple models over multiple parameters
 	shape = (reps, len(cov_params))
@@ -146,10 +144,12 @@ if __name__ == '__main__':
 			else:
 				X = None
 				y = None
-
+				sigma = None 
 			X = Bcast_from_root(X, comm, root = 0)
 			y = Bcast_from_root(y, comm, root = 0)
-
+			sigma = Bcast_from_root(sigma, comm, root = 0)
+			args['cov'] = sigma
+			
 			# Call to UoI
 			model = exp.run(X, y, args)
 			if rank == 0:
