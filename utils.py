@@ -37,9 +37,9 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
 def gen_beta2(n_features = 60, block_size = 6, sparsity = 0.6, betwidth = np.inf):
 
     # Handle 0 and np.inf as special cases
-    if betawidth = np.inf:
+    if betawidth == np.inf:
         beta = np.random.uniform(low = 0, high = 10, size = (n_features, 1))
-    elif betawidth = 0:
+    elif betawidth == 0:
         beta = 5 * np.ones((n_features, 1))
     else:
         beta = np.random.laplace(scale = betawidth, loc = 5, size = (n_features, 1))
