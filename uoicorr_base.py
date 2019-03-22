@@ -122,8 +122,7 @@ for rep in range(reps):
 		X, X_test, y, y_test = gen_data(n_samples = n_samples, 
 		n_features= n_features,	kappa = kappa, covariance = sigma, beta = beta)
 
-		if exp_type == 'GTV':
-			args['cov'] = sigma
+		args['cov'] = sigma
 		models = exp.run(X, y, args)
 
 		for i, m in enumerate(models):
