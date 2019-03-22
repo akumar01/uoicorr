@@ -110,6 +110,7 @@ class EN():
 
     @classmethod
     def run(self, X, y, args):
+        start = time.time()
         print('Started run method')
         l1_ratios = args['l1_ratios']
         n_alphas = args['n_alphas']
@@ -121,8 +122,6 @@ class EN():
             else:
                 l1_ratios = np.array(l1_ratios)
 
-        alphas = np.zeros((l1_ratios.size, n_alphas))
-        scores = np.zeros((l1_ratios.size, n_alphas))
 
         en = ElasticNet(normalize=True, warm_start = True)
 
@@ -131,7 +130,7 @@ class EN():
         kfold = KFold(n_splits = cv_splits, shuffle = True)
 
         reg_params = []
-
+        scores = []
         for l1_idx, l1_ratio in enumerate(l1_ratios):
             # Generate alphas to use
             alphas = _alpha_grid(X = X, y = y.ravel(), l1_ratio = l1_ratio, normalize = True, n_alphas = n_alphas)
@@ -147,12 +146,12 @@ class EN():
                 cv_scores[i] = r2_score(y[cv_idxs[1]], en.coef_ @ X[cv_idxs[1], :].T)
 
             scores.append(np.mean(cv_scores))
-
+        scores = np.array(scores)
         # Select the model with the maximum score
         max_score_idx = np.argmax(scores.ravel())
         en.set_params(**reg_params[max_score_idx])
         en.fit(X, y.ravel())
-            
+        print('EN call time: %f' % (time.time() - start))
         return [en]
 
 class GTV():
