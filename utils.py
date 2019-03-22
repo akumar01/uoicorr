@@ -31,6 +31,30 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
     beta = beta * mask
     return beta
 
+# New version of gen_beta that uses the betawidth parameter:
+# A betawidth of 0 gives features that take on the same value
+# A betawidth of inf is a uniform distribution on the range 0-10
+def gen_beta2(n_features = 60, block_size = 6, sparsity = 0.6, betwidth = np.inf):
+
+    # Handle 0 and np.inf as special cases
+    if betawidth == np.inf:
+        beta = np.random.uniform(low = 0, high = 10, size = (n_features, 1))
+    elif betawidth == 0:
+        beta = 5 * np.ones((n_features, 1))
+    else:
+        beta = np.random.laplace(scale = betawidth, loc = 5, size = (n_features, 1))
+
+    # Apply sparsity separately to each block
+    mask = np.array([])
+    for block in range(n_blocks):
+        block_mask = np.zeros(block_size)
+        block_mask[:n_nonzero_beta] = np.ones(n_nonzero_beta)
+        np.random.shuffle(block_mask)
+        mask = np.concatenate((mask, block_mask))
+    mask = mask[..., np.newaxis]
+    beta = beta * mask
+    return beta
+
 # Generate coefficients that are of the same magnitude within each block
 def equal_beta(low = 0, high = 10, n_features = 60, block_size = 6):
 

@@ -246,7 +246,7 @@ def evaluate_job_structure(root_dir):
                 check_outout(run_status[i, j, :], completion_status[i, j, :], out_files)
 
     ## TO-DO: mark jobs that are currently running
-
+8
     # Everytime this script is called, submit an additional 1000 jobs to the queue
 
     # In order of priority:
@@ -260,7 +260,7 @@ def evaluate_job_structure(root_dir):
 # and determine whether a given job
 # has finished successfully
 def check_output(rstatus, cstatus, out_files):
-
+    
     for i in range(rstatus.size):
         # Trust that if the job has been marked completed, it has been:
         if cstatus[i]:
