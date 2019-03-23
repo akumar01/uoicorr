@@ -48,7 +48,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     #######################################
 
-
     # Load param file
     with open(args.arg_file, 'r') as f: 
         args = json.load(f)
@@ -112,8 +111,11 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    # This will be fed into call to UoI 
     args['comm'] = comm
+
+    # Parallelization types:
+    # 'reps' : parallelize repetitions and parameter iterations
+    # 'uoi' : leave the parallelization to built in uoi support
 
     # Keep beta fixed across repetitions
     if const_beta:
