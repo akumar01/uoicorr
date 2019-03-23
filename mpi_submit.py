@@ -134,6 +134,7 @@ if __name__ == '__main__':
                 # Return covariance matrix
                 # If the type of covariance is interpolate, then the matricies have been
                 # pre-generated
+
                 if cov_type == 'interpolate':
                     sigma = np.array(cov_param['sigma'])
                 else:
