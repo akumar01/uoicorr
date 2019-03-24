@@ -59,7 +59,8 @@ else:
 
 # Type of parallelization. 'reps' breaks up the outer loop in this file, 
 # whereas 'uoi' delegates to built-in uoi functionality
-partype = args['partype']
+od 
+
 
 # Keys that will be iterated over in the outer loop of this function
 sub_iter_params = args['sub_iter_params']
@@ -82,21 +83,11 @@ iter_param_list = args['reps']\
 iter_idx_list = args['reps']\
                      * list(itertools.product(*[np.arange(len(args[key])) 
                                         for key in args['sub_iter_params']]))
-# Specify type of covariance matrix and which
-# fitting procedure to use
 cov_type = args['cov_type']
 exp_type = args['exp_type']
 
 # Unpack other args
-n_features = args['n_features']
-block_size = args['block_size']
-kappa = args['kappa']
-est_score = args['est_score']
-reps = args['reps']
-sparsity = args['sparsity']
 results_file = args['results_file']
-betadist = args['betadist']
-n_samples = args['n_samples']
 
 # Determines the type of experiment to do 
 # exp = importlib.import_module(exp_type, 'exp_types')
@@ -259,4 +250,5 @@ if rank == 0:
         results['sa'] = sa_results
         results['ee'] = ee_results
         results['median_ee'] = median_ee_results
+        results['iter_idx'] = iter_idx_list
     print('Total time: %f' % (time.time() - total_start))
