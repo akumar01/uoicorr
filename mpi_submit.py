@@ -93,6 +93,11 @@ results_file = args['results_file']
 # exp = importlib.import_module(exp_type, 'exp_types')
 exp = locate('exp_types.%s' % exp_type)
 
+if exp in ['UoILasso', 'UoIElasticNet']:
+    partype = 'uoi'
+else:
+    partype = 'reps'
+
 # Create an MPI comm object
 comm = MPI.COMM_WORLD
 rank = comm.rank
