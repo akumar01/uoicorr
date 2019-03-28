@@ -21,7 +21,7 @@ from sklearn.metrics import r2_score
 parent_path, current_dir = os.path.split(os.path.abspath('.'))
 
 # Crawl up to the repos folder
-while current_dir not in ['repos']:
+while current_dir not in ['nse']:
     parent_path, current_dir = os.path.split(parent_path)
 
 p = os.path.join(parent_path, current_dir)
@@ -59,7 +59,6 @@ else:
 
 # Type of parallelization. 'reps' breaks up the outer loop in this file, 
 # whereas 'uoi' delegates to built-in uoi functionality
-od 
 
 
 # Keys that will be iterated over in the outer loop of this function
@@ -103,18 +102,19 @@ comm = MPI.COMM_WORLD
 rank = comm.rank
 numproc = comm.Get_size()
 
-args['comm'] = comm
+args['comm'] = None
 
 # Keep beta fixed across repetitions
 if const_beta:
     if partype == 'reps':
         if rank == 0:
-            beta = gen_beta(n_features, block_size, sparsity, betadist = betadist)
+            beta = gen_beta(args['n_features'], args['block_size'],
+                            args['sparsity'], betadist = args['betadist'])
         else:
             beta = None
-        beta = Bcast_from_root(beta, comm, root = 0)
+        beta = Bcast_from_root(fbeta, comm, root = 0)
     else:
-        beta = gen_beta(n_features, block_size, sparsity, betadist = betadist)
+        beta = gen_beta(args['n_features'], args['block_size'], args['sparsity'], betadist = betadist)
 
 # Chunk up iter_param_list to distribute across iterations
 chunk_param_list = np.array_split(iter_param_list, numproc)
@@ -122,8 +122,8 @@ chunk_param_list = np.array_split(iter_param_list, numproc)
 # Initialize arrays to store data in
 if (partype == 'uoi' and rank == 0) or partype == 'reps':
     shape = int(len(iter_param_list)/numproc)
-    betas = np.zeros((shape, n_features))
-    beta_hats = np.zeros(shape + (n_features,))
+    betas = np.zeros((shape, args['n_features']))
+    beta_hats = np.zeros((shape, args['n_features']))
 
     # result arrays: scores
     fn_results = np.zeros(shape)
@@ -142,8 +142,8 @@ if (partype == 'uoi' and rank == 0) or partype == 'reps':
     median_ee_results = np.zeros(shape)
 
 
-for i, iter_param in enumerate(iter_param_list)
-
+for i, iter_param in enumerate(iter_param_list):
+    print('New loop!')
     # Merge iter_param and constant_paramss
     params = {**iter_param, **const_args}
 
@@ -154,7 +154,7 @@ for i, iter_param in enumerate(iter_param_list)
 
     betas[i, :] = beta.ravel()
 
-    if (partype == 'uoi' and rank == 0) or partype == 'reps'
+    if (partype == 'uoi' and rank == 0) or partype == 'reps':
         # Return covariance matrix
         # If the type of covariance is interpolate, then the matricies have been
         # pre-generated

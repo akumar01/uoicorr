@@ -8,7 +8,11 @@ import json
 
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
-from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
+try:
+	from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
+except:
+	sys.path.append('../PyUoI')
+	from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm	
 from pydoc import locate
 
 from utils import gen_beta, gen_data, gen_covariance
@@ -131,28 +135,26 @@ for rep in range(reps):
 			beta_hats[rep, cov_idx, i, :] = beta_hat.ravel()
 			fn_results[rep, cov_idx, i] = np.count_nonzero(beta[beta_hat == 0, 0])
 			fp_results[rep, cov_idx, i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
-			try:
-				r2_results[rep, cov_idx, i] = r2_score(y_test, np.dot(X_test, beta_hat))
-				r2_true_results[rep, cov_idx, i] = r2_score(y_test, np.dot(X_test, beta))
+			r2_results[rep, cov_idx, i] = r2_score(y_test, np.dot(X_test, beta_hat))
+			r2_true_results[rep, cov_idx, i] = r2_score(y_test, np.dot(X_test, beta))
 
-				# Score functions have been modified, requiring us to first calculate log-likelihood
-				llhood = log_likelihood_glm('normal', y_test, np.dot(X_test, beta))
+			# Score functions have been modified, requiring us to first calculate log-likelihood
+			llhood = log_likelihood_glm('normal', y_test, np.dot(X_test, beta))
 
-				BIC_results[rep, cov_idx, i] = BIC(llhood, np.count_nonzero(beta_hat), n_samples)
-				AIC_results[rep, cov_idx, i] = AIC(llhood, np.count_nonzero(beta_hat))
-				AICc_results[rep, cov_idx, i] = AICc(llhood, np.count_nonzero(beta_hat), n_samples)
+			BIC_results[rep, cov_idx, i] = BIC(llhood, np.count_nonzero(beta_hat), n_samples)
+			AIC_results[rep, cov_idx, i] = AIC(llhood, np.count_nonzero(beta_hat))
+			AICc_results[rep, cov_idx, i] = AICc(llhood, np.count_nonzero(beta_hat), n_samples)
 
-				# Perform calculation of FNR, FPR, selection accuracy, and estimation error
-				# here:
-				FNR_results[rep, cov_idx, i] = FNR(beta, beta_hat)
-				FPR_results[rep, cov_idx, i] = FPR(beta, beta_hat)
-				sa_results[rep, cov_idx, i] = selection_accuracy(beta, beta_hat)
-				ee, median_ee = estimation_error(beta, beta_hat)
-				ee_results[rep, cov_idx, i] = ee
-				median_ee_results[rep, cov_idx, i] = median_ee
+			# Perform calculation of FNR, FPR, selection accuracy, and estimation error
+			# here:
 
-			except:
-				pass
+			FNR_results[rep, cov_idx, i] = FNR(beta.ravel(), beta_hat)
+			FPR_results[rep, cov_idx, i] = FPR(beta.ravel(), beta_hat)
+			sa_results[rep, cov_idx, i] = selection_accuracy(beta.ravel(), beta_hat)
+			ee, median_ee = estimation_error(beta.ravel(), beta_hat)
+			ee_results[rep, cov_idx, i] = ee
+			median_ee_results[rep, cov_idx, i] = median_ee
+
 
 		print(time.time() - start)
 
