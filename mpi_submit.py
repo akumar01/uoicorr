@@ -11,19 +11,19 @@ import importlib
 import subprocess
 import numpy as np
 from mpi4py import MPI
+print('Hello!')
 import h5py
 import time
 from pydoc import locate
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
-
 total_start = time.time()
 
 # Need to add pyuoi to path
 parent_path, current_dir = os.path.split(os.path.abspath('.'))
 
 # Crawl up to the repos folder
-while current_dir not in ['nse']:
+while current_dir not in ['repos', 'nse']:
     parent_path, current_dir = os.path.split(parent_path)
 
 p = os.path.join(parent_path, current_dir)
@@ -166,12 +166,8 @@ else:
     chunk_idx = 0
 
 print('Nprocs: %d, rank %d' % (numproc, rank))
-for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
-    print('inner loop')
-    start = time.time()
-    
 
-for i, iter_param in enumerate(iter_param_list):
+for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
     print('New loop!')
     # Merge iter_param and constant_paramss
     params = {**iter_param, **const_args}
@@ -180,7 +176,6 @@ for i, iter_param in enumerate(iter_param_list):
     if not const_beta:
         beta = gen_beta(params['n_features'], params['block_size'],
                         params['sparsity'], betadist = params['betadist'])
-
     betas[i, :] = beta.ravel()
 
     if (partype == 'uoi' and rank == 0) or partype == 'reps':
