@@ -17,6 +17,8 @@ from pydoc import locate
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
 
+total_start = time.time()
+
 # Need to add pyuoi to path
 parent_path, current_dir = os.path.split(os.path.abspath('.'))
 
@@ -33,12 +35,11 @@ if '%s/PyUoI' % p not in sys.path:
     sys.path.append('%s/PyUoI' % p)
 
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
-from pyuoi.mpi_utils import Bcast_from_root
+from pyuoi.mpi_utils import Bcast_from_root, Gatherv_rows
 
 from utils import gen_beta, gen_data, gen_covariance
 from utils import FNR, FPR, selection_accuracy, estimation_error
 
-total_start = time.time()
 ###### Command line arguments #######
 parser = argparse.ArgumentParser()
 
@@ -57,11 +58,12 @@ if 'const_beta' in list(args.keys()):
 else:
     const_beta = False
 
-# Type of parallelization. 'reps' breaks up the outer loop in this file, 
-# whereas 'uoi' delegates to built-in uoi functionality
-od 
+# Create an MPI comm object
+comm = MPI.COMM_WORLD
+rank = comm.rank
+numproc = comm.Get_size()
 
-
+    
 # Keys that will be iterated over in the outer loop of this function
 sub_iter_params = args['sub_iter_params']
 
@@ -78,8 +80,12 @@ const_args = {k: args[k] for k in const_keys}
 # Combine reps and parameters to be cycled through into a single iterable. Store
 # the indices pointing to the corresponding rep/parameter list for easy unpacking
 # later on
-iter_param_list = args['reps']\
+arg_comb = args['reps']\
                     * list(itertools.product(*[args[key] for key in args['sub_iter_params']]))
+iter_param_list = []
+for i in range(len(arg_comb)):
+    iter_param_list.append({args['sub_iter_params'][j]: arg_comb[i][j] for j in range(len(args['sub_iter_params']))})
+
 iter_idx_list = args['reps']\
                      * list(itertools.product(*[np.arange(len(args[key])) 
                                         for key in args['sub_iter_params']]))
@@ -98,32 +104,30 @@ if exp in ['UoILasso', 'UoIElasticNet']:
 else:
     partype = 'reps'
 
-# Create an MPI comm object
-comm = MPI.COMM_WORLD
-rank = comm.rank
-numproc = comm.Get_size()
-
 args['comm'] = comm
 
 # Keep beta fixed across repetitions
 if const_beta:
-    if partype == 'reps':
-        if rank == 0:
-            beta = gen_beta(n_features, block_size, sparsity, betadist = betadist)
+    try:
+        if partype == 'reps':
+            if rank == 0:
+                beta = gen_beta(args['n_features'], args['block_size'], 
+                                args['sparsity'], betadist = args['betadist'])
+            else:
+                beta = None
+            beta = Bcast_from_root(beta, comm, root = 0)
         else:
-            beta = None
-        beta = Bcast_from_root(beta, comm, root = 0)
-    else:
-        beta = gen_beta(n_features, block_size, sparsity, betadist = betadist)
-
-# Chunk up iter_param_list to distribute across iterations
-chunk_param_list = np.array_split(iter_param_list, numproc)
+            beta = gen_beta(args['n_features'], args['block_size'], 
+                            args['sparsity'], betadist = args['betadist'])
+    except:
+        print('Warning: Parameters provided are not compatible with const_beta')
+        const_beta = False
 
 # Initialize arrays to store data in
 if (partype == 'uoi' and rank == 0) or partype == 'reps':
     shape = int(len(iter_param_list)/numproc)
-    betas = np.zeros((shape, n_features))
-    beta_hats = np.zeros(shape + (n_features,))
+    betas = np.zeros((shape, args['n_features']))
+    beta_hats = np.zeros((shape, args['n_features']))
 
     # result arrays: scores
     fn_results = np.zeros(shape)
@@ -141,9 +145,19 @@ if (partype == 'uoi' and rank == 0) or partype == 'reps':
     ee_results = np.zeros(shape)
     median_ee_results = np.zeros(shape)
 
+if partype == 'reps':
+    # Chunk up iter_param_list to distribute across iterations
+    chunk_param_list = np.array_split(iter_param_list, numproc)
+    chunk_idx = rank
+else:
+    chunk_param_list = [iter_param_list]
+    chunk_idx = 0
 
-for i, iter_param in enumerate(iter_param_list)
-
+print('Nprocs: %d, rank %d' % (numproc, rank))
+for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
+    print('inner loop')
+    start = time.time()
+    
     # Merge iter_param and constant_paramss
     params = {**iter_param, **const_args}
 
@@ -154,16 +168,16 @@ for i, iter_param in enumerate(iter_param_list)
 
     betas[i, :] = beta.ravel()
 
-    if (partype == 'uoi' and rank == 0) or partype == 'reps'
+    if (partype == 'uoi' and rank == 0) or partype == 'reps':
         # Return covariance matrix
         # If the type of covariance is interpolate, then the matricies have been
         # pre-generated
 
         if cov_type == 'interpolate':
-            sigma = np.array(cov_param['sigma'])
+            sigma = np.array(param['cov_params']['sigma'])
         else:
             sigma = gen_covariance(params['cov_type'], params['n_features'],
-                                params['block_size'], **params['cov_param'])
+                                params['block_size'], **params['cov_params'])
         X, X_test, y, y_test = gen_data(n_samples = params['n_samples'], 
         n_features= params['n_features'], kappa = params['kappa'],
         covariance = sigma, beta = beta)
@@ -216,7 +230,7 @@ for i, iter_param in enumerate(iter_param_list)
         ee_results[i] = ee
         median_ee_results[i] = median_ee
         print(time.time() - start)
-
+       
 # Save results. If parallelizing over reps, concatenate all arrays together first
 if partype == 'reps' and rank == 0:
 
@@ -234,7 +248,7 @@ if partype == 'reps' and rank == 0:
     FPR_results = Gatherv_rows(FPR_results, comm, root = 0)
     sa_results = Gatherv_rows(sa_results, comm, root = 0)
     ee_results = Gatherv_rows(ee_results, comm, root = 0)
-    median_ee_results = Gatherv_rows(median_ee_results, root = 0)
+    median_ee_results = Gatherv_rows(median_ee_results, comm, root = 0)
 
 if rank == 0:
     # Save results

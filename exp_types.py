@@ -20,7 +20,7 @@ class CV_Lasso():
 
         scores = np.zeros(n_alphas)
 
-       lasso = Lasso(normalize=True, warm_start = False)
+        lasso = Lasso(normalize=True, warm_start = False)
 
         # Use 10 fold cross validation. Do this in a manual way to enable use of warm_start and custom parameter sweeps
         kfold = KFold(n_splits = cv_splits, shuffle = True)
@@ -66,7 +66,7 @@ class UoILasso():
             stability_selection = args['stability_selection'],
             comm = comm
             )
-        uoi.fit(X, y.ravel())
+        uoi.fit(X, y.ravel(), forward_selection = True)
         return [uoi]    
 
 class UoIElasticNet():
@@ -116,19 +116,7 @@ class EN():
                 l1_ratios = np.array([l1_ratios])
             else:
                 l1_ratios = np.array(l1_ratios)
-
-        if 'comm' in list(args.keys()):
-            comm = args['comm']
-            numproc = comm.Get_size()
-            rank = comm.Get_rank()
-        else:
-            comm = None
-            numproc = 1
-            rank = 0
-
-        alphas = np.zeros((l1_ratios.size, n_alphas))
-        scores = np.zeros((l1_ratios.size, n_alphas))
-
+                
         en = ElasticNet(normalize=True, warm_start = True)
 
         # Use 10 fold cross validation. Do this in a manual way to enable use of warm_start 
@@ -136,16 +124,16 @@ class EN():
         kfold = KFold(n_splits = cv_splits, shuffle = True)
 
         reg_params = []
-
+        
         for l1_idx, l1_ratio in enumerate(l1_ratios):
             # Generate alphas to use
             alphas = _alpha_grid(X = X, y = y.ravel(), l1_ratio = l1_ratio, normalize = True, n_alphas = n_alphas)
             reg_params.extend([{'l1_ratio': l1_ratio, 'alpha': alpha} for alpha in alphas])
         reg_params = np.array(reg_params)
-        chunked_reg_params = np.array_split(np.arange(len(reg_params)), numproc)
+
         scores = []
-       
-        for reg_param in reg_params[chunked_reg_params[rank]]:
+
+        for reg_param in reg_params:
             en.set_params(**reg_param)
             cv_scores = np.zeros(cv_splits)
             # Cross validation splits into training and test sets
@@ -154,16 +142,11 @@ class EN():
                 cv_scores[i] = r2_score(y[cv_idxs[1]], en.coef_ @ X[cv_idxs[1], :].T)
 
             scores.append(np.mean(cv_scores))
-        print(len(scores))
-        if comm is not None:
-            # Gather scores
-            scores = Gatherv_rows(np.array(scores), comm)
 
-        if rank == 0:
-            # Select the model with the maximum score
-            max_score_idx = np.argmax(scores.ravel())
-            en.set_params(**reg_params[max_score_idx])
-            en.fit(X, y.ravel())
+        # Select the model with the maximum score
+        max_score_idx = np.argmax(np.array(scores).ravel())
+        en.set_params(**reg_params[max_score_idx])
+        en.fit(X, y.ravel())
             
         return [en]
 
