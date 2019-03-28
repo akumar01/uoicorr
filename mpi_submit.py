@@ -122,19 +122,6 @@ numproc = comm.Get_size()
 
 args['comm'] = comm
 
-# Keep beta fixed across repetitions
-if const_beta:
-    if partype == 'reps':
-        if rank == 0:
-            beta = gen_beta(args['n_features'], args['block_size'],
-                            args['sparsity'], betadist = args['betadist'])
-        else:
-            beta = None
-        beta = Bcast_from_root(fbeta, comm, root = 0)
-    else:
-        beta = gen_beta(args['n_features'], args['block_size'], args['sparsity'], betadist = betadist)
-
-
 # Initialize arrays to store data in
 if (partype == 'uoi' and rank == 0) or partype == 'reps':
     shape = int(len(iter_param_list)/numproc)
