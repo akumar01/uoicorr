@@ -56,7 +56,12 @@ class UoILasso():
         if 'comm' in list(args.keys()):
             comm = args['comm']
         else:
-            comm = None
+            comm = None 
+
+        if 'forward_selection' in list(args.keys()):
+        	forward_selection = args['forward_selection']
+        else:
+        	forward_selection = False
 
         uoi = UoI_Lasso(
             normalize=True,
@@ -66,7 +71,10 @@ class UoILasso():
             stability_selection = args['stability_selection'],
             comm = comm
             )
-        uoi.fit(X, y.ravel(), forward_selection = True)
+
+        uoi.fit(X, y.ravel(),
+        forward_selection = forward_selection)
+
         return [uoi]    
 
 class UoIElasticNet():

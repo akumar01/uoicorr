@@ -23,7 +23,7 @@ total_start = time.time()
 parent_path, current_dir = os.path.split(os.path.abspath('.'))
 
 # Crawl up to the repos folder
-while current_dir not in ['repos']:
+while current_dir not in ['nse']:
     parent_path, current_dir = os.path.split(parent_path)
 
 p = os.path.join(parent_path, current_dir)
@@ -57,13 +57,7 @@ if 'const_beta' in list(args.keys()):
     const_beta = args['const_beta']
 else:
     const_beta = False
-
-# Create an MPI comm object
-comm = MPI.COMM_WORLD
-rank = comm.rank
-numproc = comm.Get_size()
-
-    
+   
 # Keys that will be iterated over in the outer loop of this function
 sub_iter_params = args['sub_iter_params']
 
@@ -104,8 +98,6 @@ if exp in ['UoILasso', 'UoIElasticNet']:
 else:
     partype = 'reps'
 
-args['comm'] = comm
-
 # Keep beta fixed across repetitions
 if const_beta:
     try:
@@ -122,6 +114,26 @@ if const_beta:
     except:
         print('Warning: Parameters provided are not compatible with const_beta')
         const_beta = False
+
+# Create an MPI comm object
+comm = MPI.COMM_WORLD
+rank = comm.rank
+numproc = comm.Get_size()
+
+args['comm'] = comm
+
+# Keep beta fixed across repetitions
+if const_beta:
+    if partype == 'reps':
+        if rank == 0:
+            beta = gen_beta(args['n_features'], args['block_size'],
+                            args['sparsity'], betadist = args['betadist'])
+        else:
+            beta = None
+        beta = Bcast_from_root(fbeta, comm, root = 0)
+    else:
+        beta = gen_beta(args['n_features'], args['block_size'], args['sparsity'], betadist = betadist)
+
 
 # Initialize arrays to store data in
 if (partype == 'uoi' and rank == 0) or partype == 'reps':
@@ -158,6 +170,9 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
     print('inner loop')
     start = time.time()
     
+
+for i, iter_param in enumerate(iter_param_list):
+    print('New loop!')
     # Merge iter_param and constant_paramss
     params = {**iter_param, **const_args}
 

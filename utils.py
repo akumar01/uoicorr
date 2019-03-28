@@ -34,7 +34,10 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
 # New version of gen_beta that uses the betawidth parameter:
 # A betawidth of 0 gives features that take on the same value
 # A betawidth of inf is a uniform distribution on the range 0-10
-def gen_beta2(n_features = 60, block_size = 6, sparsity = 0.6, betwidth = np.inf):
+def gen_beta2(n_features = 60, block_size = 6, sparsity = 0.6, betawidth = np.inf):
+    n_blocks = int(np.floor(n_features/block_size))
+
+    n_nonzero_beta = int(sparsity * block_size)
 
     # Handle 0 and np.inf as special cases
     if betawidth == np.inf:
@@ -245,9 +248,11 @@ def cluster_dist(low, high, n_clusters, cluster_width, size):
 # threshold : Set things smaller than 1e-6 explicitly to 0 in beta_hat
 def FNR(beta, beta_hat, threshold = False):
     beta, beta_hat = tile_beta(beta, beta_hat)
+
     if threshold:
         beta_hat[beta_hat < 1e-6] = 0
     false_negative_rate = np.zeros(beta_hat.shape[0])
+
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
         bhat = beta_hat[i, :].squeeze()
@@ -296,6 +301,8 @@ def selection_accuracy(beta, beta_hat, threshold = False):
         /(bhat.size + b.size)
     return selection_accuracy
 
+# Calculate estimation error
+# Do so using only the overlap of the estimated and true support sets
 def estimation_error(beta, beta_hat, threshold = False):        
     beta, beta_hat = tile_beta(beta, beta_hat)
 
@@ -304,15 +311,19 @@ def estimation_error(beta, beta_hat, threshold = False):
 
     ee = np.zeros(beta_hat.shape[0])
     median_ee = np.zeros(beta_hat.shape[0])
+
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
         bhat = beta_hat[i, :].squeeze()
-        p = b.size
-        median_ee[i] = np.median(np.sqrt(np.power(b - bhat, 2)))
-        ee[i] = 1/p * np.sqrt(np.sum(np.power(b - bhat, 2)))
+
+        common_support = np.bitwise_and(b != 0, bhat != 0)
+        p = bhat[common_support].size
+        median_ee[i] = np.median(np.sqrt(np.power(b[common_support] - \
+                                        bhat[common_support], 2)))
+        ee[i] = 1/p * np.sqrt(np.sum(np.power(b[common_support] - \
+                                    bhat[common_support], 2)))
 
     return ee, median_ee
-
 
 def tile_beta(beta, beta_hat):
 
