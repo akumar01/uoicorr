@@ -15,7 +15,6 @@ import time
 from pydoc import locate
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
-
 total_start = time.time()
 
 # Need to add pyuoi to path
@@ -34,10 +33,9 @@ if '%s/PyUoI' % p not in sys.path:
     sys.path.append('%s/PyUoI' % p)
 
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
-
+print('Hello')
 from utils import gen_beta, gen_data, gen_covariance
 from utils import FNR, FPR, selection_accuracy, estimation_error
-
 ###### Command line arguments #######
 parser = argparse.ArgumentParser()
 
@@ -151,7 +149,7 @@ for i, iter_param in enumerate(iter_param_list):
     covariance = sigma, beta = beta)
 
     params['cov'] = sigma
-
+    print(params['forward_selection'])
     # Call to UoI
     model = exp.run(X, y, params)
 
