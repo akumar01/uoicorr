@@ -11,7 +11,6 @@ import importlib
 import subprocess
 import numpy as np
 from mpi4py import MPI
-print('Hello!')
 import h5py
 import time
 from pydoc import locate
@@ -93,10 +92,12 @@ results_file = args['results_file']
 # exp = importlib.import_module(exp_type, 'exp_types')
 exp = locate('exp_types.%s' % exp_type)
 
-if exp in ['UoILasso', 'UoIElasticNet']:
+if exp_type in ['UoILasso', 'UoIElasticNet']:
     partype = 'uoi'
 else:
     partype = 'reps'
+
+print(partype)
 
 # Keep beta fixed across repetitions
 if const_beta:
@@ -120,11 +121,14 @@ comm = MPI.COMM_WORLD
 rank = comm.rank
 numproc = comm.Get_size()
 
-args['comm'] = comm
+const_args['comm'] = comm
 
 # Initialize arrays to store data in
 if (partype == 'uoi' and rank == 0) or partype == 'reps':
-    shape = int(len(iter_param_list)/numproc)
+    if partype == 'uoi':
+        shape = len(iter_param_list)
+    else:
+        shape = int(len(iter_param_list)/numproc)
     betas = np.zeros((shape, args['n_features']))
     beta_hats = np.zeros((shape, args['n_features']))
 
@@ -156,19 +160,20 @@ print('Nprocs: %d, rank %d' % (numproc, rank))
 
 for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
     print('New loop!')
+    start = time.time()
     # Merge iter_param and constant_paramss
     params = {**iter_param, **const_args}
-
-    # Generate new model coefficients for each repetition
-    if not const_beta:
-        beta = gen_beta(params['n_features'], params['block_size'],
-                        params['sparsity'], betadist = params['betadist'])
-    betas[i, :] = beta.ravel()
 
     if (partype == 'uoi' and rank == 0) or partype == 'reps':
         # Return covariance matrix
         # If the type of covariance is interpolate, then the matricies have been
         # pre-generated
+
+        if not const_beta:
+            beta = gen_beta(params['n_features'], params['block_size'],
+                        params['sparsity'], betadist = params['betadist'])
+
+        betas[i, :] = beta.ravel()  
 
         if cov_type == 'interpolate':
             sigma = np.array(param['cov_params']['sigma'])
@@ -179,17 +184,21 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
         n_features= params['n_features'], kappa = params['kappa'],
         covariance = sigma, beta = beta)
     else:
-        X = None
-        y = None
-        sigma = None 
+        if not const_beta:
+            beta = None
+            X = None
+            y = None
+            sigma = None 
 
     if partype == 'uoi':
-        X = Bcast_from_root(X, comm, root = 0)
-        y = Bcast_from_root(y, comm, root = 0)
-        sigma = Bcast_from_root(sigma, comm, root = 0)
+        if not const_beta:
+            beta = Bcast_from_root(beta, comm, root = 0)
+            X = Bcast_from_root(X, comm, root = 0)
+            y = Bcast_from_root(y, comm, root = 0)
+            sigma = Bcast_from_root(sigma, comm, root = 0)
 
     params['cov'] = sigma
-
+   
     # Call to UoI
     model = exp.run(X, y, params)
 
