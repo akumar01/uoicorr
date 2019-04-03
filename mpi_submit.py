@@ -210,7 +210,8 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
         fp_results[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
         r2_results[i] = r2_score(y_test, np.dot(X_test, beta_hat))
         r2_true_results[i] = r2_score(y_test, np.dot(X_test, beta))
-        # Score functions have been modified, requiring us to first calculate log-likelihood
+        print('Basic results logged')
+    # Score functions have been modified, requiring us to first calculate log-likelihood
         llhood = log_likelihood_glm('normal', y_test, np.dot(X_test, beta))
         try:
             BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), n_samples)
@@ -224,7 +225,7 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
             AICc_results[i] = AICc(llhood, np.count_nonzero(beta_hat), n_samples)
         except:
             AICc_results[i] = np.nan
-
+        print('Scores calculated and logged')
         # Perform calculation of FNR, FPR, selection accuracy, and estimation error
         # here:
 
@@ -235,27 +236,70 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
                 
         ee_results[i] = ee
         median_ee_results[i] = median_ee
-        print(time.time() - start)
+        print('Process %d completed iteration %d/%d' % (rank, i, len(chunk_param_list[chunk_idx])))
+    print(time.time() - start)
        
 # Save results. If parallelizing over reps, concatenate all arrays together first
-if partype == 'reps' and rank == 0:
-
+if partype == 'reps':
+    print('Starting final gather')
+    t0 = time.time()
+    fn_results = np.array(fn_results)
+    print(fn_results)
     fn_results = Gatherv_rows(fn_results, comm, root = 0)
+    print('Gathered fn in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    fp_results = np.array(fp_results)
     fp_results = Gatherv_rows(fp_results, comm, root = 0)
+    print('Gathered fp in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    r2_results = np.array(r2_results)
     r2_results = Gatherv_rows(r2_results, comm, root = 0)
+    print('Gathered r2 in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    r2_true_results = np.array(r2_true_results)
     r2_true_results = Gatherv_rows(r2_true_results, comm, root = 0)
+    print('Gathered r2_true in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    betas = np.array(betas)
     betas = Gatherv_rows(betas, comm, root = 0)
+    print('Gathered betas in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    beta_hats = np.array(beta_hats)
     beta_hats = Gatherv_rows(beta_hats, comm, root = 0)
+    print('Gathered beta_hats in %f seconds' % (time.time() - t0))    
+    t0 = time.time()
+    BIC_results = np.array(BIC_results)
     BIC_results = Gatherv_rows(BIC_results, comm, root = 0)
+    print('Gathered BIC in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    AIC_results = np.array(AIC_results)
     AIC_results = Gatherv_rows(AIC_results, comm, root = 0)
+    print('Gathered AIC in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    AICc_results = np.array(AICc_results)
     AICc_results = Gatherv_rows(AICc_results, comm, root = 0)
-
+    print('Gathered AICc in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    FNR_results = np.array(FNR_results)
     FNR_results = Gatherv_rows(FNR_results, comm, root = 0)
+    print('Gathered FNR in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    FPR_results = np.array(FPR_results)
     FPR_results = Gatherv_rows(FPR_results, comm, root = 0)
+    print('Gathered FPR in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    sa_results = np.array(sa_results)
     sa_results = Gatherv_rows(sa_results, comm, root = 0)
+    print('Gathered sa in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    ee_results = np.array(ee_results)
     ee_results = Gatherv_rows(ee_results, comm, root = 0)
+    print('Gathered ee in %f seconds' % (time.time() - t0))
+    t0 = time.time()
+    median_ee_results = np.array(median_ee_results)
     median_ee_results = Gatherv_rows(median_ee_results, comm, root = 0)
-
+    print('Gathered median ee in %f seconds' % (time.time() - t0))
+    print('Finished gathering')
 if rank == 0:
     # Save results
     with h5py.File(results_file, 'w') as results:

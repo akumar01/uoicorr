@@ -1,9 +1,14 @@
 import sys, os
 from mpi4py import MPI
+import numpy as np
+parent_path, current_dir = os.path.split(os.path.abspath('.'))
 
 # Crawl up to the repos folder
 while current_dir not in ['repos', 'nse']:
+    print('In loop!')
     parent_path, current_dir = os.path.split(parent_path)
+
+
 
 p = os.path.join(parent_path, current_dir)
 
@@ -21,9 +26,11 @@ rank = comm.rank
 numproc = comm.Get_size()
 
 # Generate some random data
-data = np.random.random_integers(size = (1000))
+data = np.random.random_integers(0, 100, size = (1000))
+
+print('Starting gather')
 
 # Gather data
-data = Gatherv_rows(send = data, comm, root = 0)
+data = Gatherv_rows(data, comm, root = 0)
 
 print('Data gathered!')
