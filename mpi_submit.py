@@ -82,6 +82,16 @@ for i in range(len(arg_comb)):
 iter_idx_list = args['reps']\
                      * list(itertools.product(*[np.arange(len(args[key])) 
                                         for key in args['sub_iter_params']]))
+
+if partype == 'reps':
+    # Chunk up iter_param_list to distribute across iterations
+    chunk_param_list = np.array_split(iter_param_list, numproc)
+    chunk_idx = rank
+    num_tasks = len(chunk_param_list[chunk_idx])
+else:
+    chunk_param_list = [iter_param_list]
+    chunk_idx = 0
+
 cov_type = args['cov_type']
 exp_type = args['exp_type']
 
@@ -96,8 +106,6 @@ if exp_type in ['UoILasso', 'UoIElasticNet']:
     partype = 'uoi'
 else:
     partype = 'reps'
-
-print(partype)
 
 # Keep beta fixed across repetitions
 if const_beta:
@@ -125,41 +133,28 @@ const_args['comm'] = comm
 
 # Initialize arrays to store data in
 if (partype == 'uoi' and rank == 0) or partype == 'reps':
-    if partype == 'uoi':
-        shape = len(iter_param_list)
-    else:
-        shape = int(len(iter_param_list)/numproc)
-    betas = np.zeros((shape, args['n_features']))
-    beta_hats = np.zeros((shape, args['n_features']))
+    betas = np.zeros((num_tasks, args['n_features']))
+    beta_hats = np.zeros((num_tasks, args['n_features']))
 
     # result arrays: scores
-    fn_results = np.zeros(shape)
-    fp_results = np.zeros(shape)
-    r2_results = np.zeros(shape)
-    r2_true_results = np.zeros(shape)
+    fn_results = np.zeros(num_tasks)
+    fp_results = np.zeros(num_tasks)
+    r2_results = np.zeros(num_tasks)
+    r2_true_results = np.zeros(num_tasks)
 
-    BIC_results = np.zeros(shape)
-    AIC_results = np.zeros(shape)
-    AICc_results = np.zeros(shape)
+    BIC_results = np.zeros(num_tasks)
+    AIC_results = np.zeros(num_tasks)
+    AICc_results = np.zeros(num_tasks)
 
-    FNR_results = np.zeros(shape)
-    FPR_results = np.zeros(shape)
-    sa_results = np.zeros(shape)
-    ee_results = np.zeros(shape)
-    median_ee_results = np.zeros(shape)
-
-if partype == 'reps':
-    # Chunk up iter_param_list to distribute across iterations
-    chunk_param_list = np.array_split(iter_param_list, numproc)
-    chunk_idx = rank
-else:
-    chunk_param_list = [iter_param_list]
-    chunk_idx = 0
+    FNR_results = np.zeros(num_tasks)
+    FPR_results = np.zeros(num_tasks)
+    sa_results = np.zeros(num_tasks)
+    ee_results = np.zeros(num_tasks)
+    median_ee_results = np.zeros(num_tasks)
 
 print('Nprocs: %d, rank %d' % (numproc, rank))
 
 for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
-    print('New loop!')
     start = time.time()
     # Merge iter_param and constant_paramss
     params = {**iter_param, **const_args}
@@ -210,7 +205,6 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
         fp_results[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
         r2_results[i] = r2_score(y_test, np.dot(X_test, beta_hat))
         r2_true_results[i] = r2_score(y_test, np.dot(X_test, beta))
-        print('Basic results logged')
     # Score functions have been modified, requiring us to first calculate log-likelihood
         llhood = log_likelihood_glm('normal', y_test, np.dot(X_test, beta))
         try:
@@ -225,7 +219,6 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
             AICc_results[i] = AICc(llhood, np.count_nonzero(beta_hat), n_samples)
         except:
             AICc_results[i] = np.nan
-        print('Scores calculated and logged')
         # Perform calculation of FNR, FPR, selection accuracy, and estimation error
         # here:
 
@@ -241,65 +234,47 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
        
 # Save results. If parallelizing over reps, concatenate all arrays together first
 if partype == 'reps':
-    print('Starting final gather')
-    t0 = time.time()
     fn_results = np.array(fn_results)
-    print(fn_results)
     fn_results = Gatherv_rows(fn_results, comm, root = 0)
-    print('Gathered fn in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+    print(fn_results.num_tasks)
     fp_results = np.array(fp_results)
     fp_results = Gatherv_rows(fp_results, comm, root = 0)
-    print('Gathered fp in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+
     r2_results = np.array(r2_results)
     r2_results = Gatherv_rows(r2_results, comm, root = 0)
-    print('Gathered r2 in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+
     r2_true_results = np.array(r2_true_results)
     r2_true_results = Gatherv_rows(r2_true_results, comm, root = 0)
-    print('Gathered r2_true in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+
     betas = np.array(betas)
     betas = Gatherv_rows(betas, comm, root = 0)
-    print('Gathered betas in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+
     beta_hats = np.array(beta_hats)
     beta_hats = Gatherv_rows(beta_hats, comm, root = 0)
-    print('Gathered beta_hats in %f seconds' % (time.time() - t0))    
-    t0 = time.time()
+
     BIC_results = np.array(BIC_results)
     BIC_results = Gatherv_rows(BIC_results, comm, root = 0)
-    print('Gathered BIC in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+
     AIC_results = np.array(AIC_results)
     AIC_results = Gatherv_rows(AIC_results, comm, root = 0)
-    print('Gathered AIC in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+
     AICc_results = np.array(AICc_results)
     AICc_results = Gatherv_rows(AICc_results, comm, root = 0)
-    print('Gathered AICc in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+
     FNR_results = np.array(FNR_results)
     FNR_results = Gatherv_rows(FNR_results, comm, root = 0)
-    print('Gathered FNR in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+
     FPR_results = np.array(FPR_results)
     FPR_results = Gatherv_rows(FPR_results, comm, root = 0)
-    print('Gathered FPR in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+
     sa_results = np.array(sa_results)
     sa_results = Gatherv_rows(sa_results, comm, root = 0)
-    print('Gathered sa in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+
     ee_results = np.array(ee_results)
     ee_results = Gatherv_rows(ee_results, comm, root = 0)
-    print('Gathered ee in %f seconds' % (time.time() - t0))
-    t0 = time.time()
+
     median_ee_results = np.array(median_ee_results)
     median_ee_results = Gatherv_rows(median_ee_results, comm, root = 0)
-    print('Gathered median ee in %f seconds' % (time.time() - t0))
-    print('Finished gathering')
 if rank == 0:
     # Save results
     with h5py.File(results_file, 'w') as results:
@@ -321,3 +296,4 @@ if rank == 0:
         results['median_ee'] = median_ee_results
         results['iter_idx'] = iter_idx_list
     print('Total time: %f' % (time.time() - total_start))
+    print('Job completed!')
