@@ -3,12 +3,13 @@ from mpi4py import MPI
 import numpy as np
 parent_path, current_dir = os.path.split(os.path.abspath('.'))
 
+
+
+##################### (just to handle my particular path structure) #####################
 # Crawl up to the repos folder
 while current_dir not in ['repos', 'nse']:
     print('In loop!')
     parent_path, current_dir = os.path.split(parent_path)
-
-
 
 p = os.path.join(parent_path, current_dir)
 
@@ -20,13 +21,16 @@ if '%s/PyUoI' % p not in sys.path:
 
 from pyuoi.mpi_utils import Gatherv_rows
 
+########################################################################################
+
 # Initialize comm object
 comm = MPI.COMM_WORLD
 rank = comm.rank
 numproc = comm.Get_size()
 
 # Generate some random data
-data = np.random.random_integers(0, 100, size = (1000))
+data = np.random.random_integers(0, 100, size = (np.random.randint(1, 10), 1000))
+print('Rank %d has size (%d, %d)' % (rank, data.shape[0], data.shape[1]))
 
 print('Starting gather')
 
