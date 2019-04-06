@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.linalg import block_diag
+from misc import invexp_dist, cluster_dist, solve_L, solve_t
 import pdb
         
 def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'uniform'):
@@ -159,6 +160,39 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
 
     return X, X_test, y, y_test
 
+# Return covariance matrix based on desired average correlation
+def gen_avg_covariance(cov_type, avg_cov = 0.1, n_features = 60, **kwargs):
+
+    if cov_type == 'block':
+        # Two free parameters here: Solve for whichever one is not
+        # specified
+        if 'block_size' in kwargs:
+            block_size = kwargs[block_size]
+            correlation = avg_cov * (block_size)**3/n_features
+        elif 'correlation' in kwargs:
+            correlation = kwargs[correlation]
+            block_size = np.power(n_features * correlation/avg_cov, 1/3)
+        return block_covariance(n_features, 
+            block_size = block_size, correlation = correlation)
+    elif cov_type == 'falloff':
+        L = solve_L(n_features, avg_cov)
+        return exp_fallof(n_features, L = L)
+    elif cov_type == 'interpolate':
+        cov_type1 = kwargs['cov_type1']
+        cov_type2 = kwargs['cov_type2']
+        cov_type_1_args = kwargs['cov_type1_args']
+        cov_type2_args = kwargs['cov_type2_args']
+        cov_1 = cov_type1(n_features, **cov_type1_args)
+        cov_2 = cov_type2(n_features, **cov_type2_args)
+
+        t = solve_t(avg_cov, cov_1, cov_2)
+
+        return interpolate_covariance(kwargs['cov_type1'], kwargs['cov_type2'],
+                                [t], n_features, cov_type1_args, cov_type2_args)
+
+    else:
+        error('invalid or missing cov_type')
+
 # Return covariance matrix based on covariance type:
 def gen_covariance(cov_type, n_features = 60, block_size = 6, **kwargs):
     if cov_type == 'block':
@@ -203,46 +237,6 @@ def interpolate_covariance(cov_type1, cov_type2, interp_coeffs = np.linspace(0, 
     # Return as nested lists to be saved as .json
 
     return cov
-
-# Sample from 1/Exp[-Abs|x|], properly normalized
-def invexp_dist(low, high, n_samples):
-
-    x = np.linspace(low, high, 10000)
-    fx = np.exp(np.abs(x))
-
-    # normalize
-    fx = fx/np.sum(fx)
-
-    # CDF
-    Fx = np.cumsum(fx)
-
-    # generate uniform random variables
-    u = np.random.uniform(size = n_samples)
-
-    # Apply the inverse CDF
-    y = np.array([])
-    for ux in u:
-            y = np.append(y, x[np.argwhere(Fx == min(Fx[(Fx - ux) > 0])).ravel()])
-
-    return y
-
-# Return samples clustered around a set of points
-def cluster_dist(low, high, n_clusters, cluster_width, size):
-
-    x = np.zeros(size)
-
-    # Evenly space clusters
-    cluster_centers = np.cumsum((high - low)//n_clusters * np.ones(n_clusters))
-
-    for idx in range(size[0]):
-        # Randomly choose cluster center
-        center = np.random.choice(cluster_centers)
-        # Sample from uniform distribution centered on cluster with width
-        # given by cluster_width                                                
-        x[idx] = np.random.uniform(low = center - cluster_width/2, 
-            high = center + cluster_width/2)
-
-    return x
 
 # Standardize calculation of FNR, FPR, and Selection Accuracy
 # threshold : Set things smaller than 1e-6 explicitly to 0 in beta_hat
