@@ -164,7 +164,8 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
 
 # Given a vector of desired average correlations, return a set of covariance
 # matrices from each of the block, exp, and interpolated classes
-def cov_spread(avg_covs, cov_type, n_features=1000):
+# num: number of entries (at most) to return per avg_cov
+def cov_spread(avg_covs, cov_type, num, n_features=1000):
     sigmas = []
     for i, avg_cov in enumerate(avg_covs):
         start = time.time()
@@ -261,7 +262,16 @@ def cov_spread(avg_covs, cov_type, n_features=1000):
 
         print('Iteration time: %f' % (time.time() - start))
 
-    return sigmas
+    # Return a (roughly) consistent number of covariance matrices for each avg_cov
+
+    filtered_sigmas = []
+    for i in range(len(avg_covs)):
+        num_take = min(len(sigmas[i]), num)
+        # Randomly select num_take out of the entries in sigma
+        take = np.random.choice(len(sigmas[i]), num_take, replace=False)
+        filtered_sigmas.append([sigmas[i][t] for t in take])
+
+    return filtered_sigmas
 
 
 # Return covariance matrix based on desired average correlation
