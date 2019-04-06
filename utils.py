@@ -2,6 +2,8 @@ import numpy as np
 from scipy.linalg import block_diag
 from misc import invexp_dist, cluster_dist, solve_L, solve_t
 import pdb
+import traceback
+
         
 def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'uniform'):
     n_blocks = int(np.floor(n_features/block_size))
@@ -160,6 +162,56 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
 
     return X, X_test, y, y_test
 
+# Given a vector of desired average correlations, return a set of covariance
+# matrices from each of the block, exp, and interpolated classes
+def cov_spread(avg_covs, n_features=1000):
+    sigmas = []
+    for i, avg_cov in enumerate(avg_covs):
+        sigmas.append([])        
+
+        # Block diagonal matrix, iterate block sizes
+        block_sizes = [5, 10, 20, 25, 40, 50, 100, 125, 200, 250, 500]
+
+        for block_size in block_sizes:
+            try:
+                sigmas[i].append(gen_avg_covariance('block', avg_cov, n_features, block_size=block_size))
+            except:
+                traceback.print_exc()
+
+        # Block diagonal matrix, iterate correlation strength
+        corr = np.linspace(0.05, 0.5, 50)
+        for c in corr:
+            try:
+                sigmas[i].append(gen_avg_covariance('block', avg_cov, n_features, correlation=c))
+            except:
+                traceback.print_exc()
+        # Exponential correlation matrix
+        try:
+            sigmas[i].append(gen_avg_covariance('exp_falloff', avg_cov, n_features))
+        except:
+            traceback.print_exc()
+        
+        # Interpolation
+        # Interpolate between a sets of block_diagonal and exponential matrices
+        L = np.linspace(0, 1000, 100)        
+
+        block_covs = []
+        for block_size in block_sizes:
+            for c in corr:
+                block_covs.append({'block_size': block_size, 'correlation': c})
+
+        exp_covs = [{'L': ll} for ll in L]
+
+        for bc in block_covs:
+            for ec in exp_covs:
+                try:
+                    sigmas[i].append(gen_avg_covariance('interpolate', cov_type1='block_covariance', 
+                        cov_type2='exp_falloff', cov_type1_args=bc, cov_type2_args=ec)) 
+                except:
+                    traceback.print_exc()
+    return sigmas
+
+
 # Return covariance matrix based on desired average correlation
 def gen_avg_covariance(cov_type, avg_cov = 0.1, n_features = 60, **kwargs):
 
@@ -167,20 +219,29 @@ def gen_avg_covariance(cov_type, avg_cov = 0.1, n_features = 60, **kwargs):
         # Two free parameters here: Solve for whichever one is not
         # specified
         if 'block_size' in kwargs:
-            block_size = kwargs[block_size]
-            correlation = avg_cov * (block_size)**3/n_features
+            block_size = kwargs['block_size']
+            correlation = avg_cov * n_features/block_size
+            if correlation >=1:
+                raise Exception('Desired average correlation is incompatible\
+                    with block structure')
         elif 'correlation' in kwargs:
-            correlation = kwargs[correlation]
-            block_size = np.power(n_features * correlation/avg_cov, 1/3)
+            correlation = kwargs['correlation']
+            block_size = int(n_features * avg_cov/correlation)
+            if block_size > n_features or block_size < 1:
+                raise Exception('Desired average correlation is incompatible with\
+                    block structure')
         return block_covariance(n_features, 
             block_size = block_size, correlation = correlation)
-    elif cov_type == 'falloff':
+    elif cov_type == 'exp_falloff':
         L = solve_L(n_features, avg_cov)
-        return exp_fallof(n_features, L = L)
+        print(L)
+        return exp_falloff(n_features, L = L)
     elif cov_type == 'interpolate':
         cov_type1 = kwargs['cov_type1']
         cov_type2 = kwargs['cov_type2']
-        cov_type_1_args = kwargs['cov_type1_args']
+        cov_type1 = globals()[cov_type1]
+        cov_type2 = globals()[cov_type2]
+        cov_type1_args = kwargs['cov_type1_args']
         cov_type2_args = kwargs['cov_type2_args']
         cov_1 = cov_type1(n_features, **cov_type1_args)
         cov_2 = cov_type2(n_features, **cov_type2_args)
@@ -191,12 +252,12 @@ def gen_avg_covariance(cov_type, avg_cov = 0.1, n_features = 60, **kwargs):
                                 [t], n_features, cov_type1_args, cov_type2_args)
 
     else:
-        error('invalid or missing cov_type')
+        raise Exception('invalid or missing cov_type')
 
 # Return covariance matrix based on covariance type:
-def gen_covariance(cov_type, n_features = 60, block_size = 6, **kwargs):
+def gen_covariance(cov_type, n_features = 60, **kwargs):
     if cov_type == 'block':
-        return block_covariance(n_features, block_size, **kwargs)
+        return block_covariance(n_features, **kwargs)
     elif cov_type == 'falloff':
         return exp_falloff(n_features, **kwargs)
 
@@ -222,12 +283,12 @@ def exp_falloff(n_features = 60, block_size = None, L = 1):
     return sigma
 
 def interpolate_covariance(cov_type1, cov_type2, interp_coeffs = np.linspace(0, 1, 11),
-    n_features = 60, block_size = 6, cov_type1_args = {}, cov_type2_args = {}):
+    n_features = 60, cov_type1_args = {}, cov_type2_args = {}):
     # Start from covariance matrix 1
     cov_type1 = globals()[cov_type1]
     cov_type2 = globals()[cov_type2]
-    cov_0 = cov_type1(n_features, block_size, **cov_type1_args)
-    cov_n = cov_type2(n_features, block_size, **cov_type2_args)
+    cov_0 = cov_type1(n_features, **cov_type1_args)
+    cov_n = cov_type2(n_features, **cov_type2_args)
     cov = []
     
     for t in interp_coeffs:
