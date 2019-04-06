@@ -105,7 +105,10 @@ def create_job_structure(arg_file, data_dir = 'uoicorr/dense'):
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
 
-    args = importlib.import_module(arg_file)
+    path, name = arg_file.split('/')
+    sys.path.append(path)
+    args = importlib.import_module(name)
+
     iter_params = args.iter_params
     comm_params = args.comm_params
     exp_types = args.exp_types
