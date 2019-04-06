@@ -97,8 +97,8 @@ def generate_sbatch_scripts(job_array, script_dir):
             else:
                 nprocs = 64
 
-            sb.write('srun -n 48 python3 -u %s/%s %s' 
-                    % (script_dir, script, job['arg_file']))
+            sb.write('srun -n %d python3 -u %s/%s %s' 
+                    % (nprocs, script_dir, script, job['arg_file']))
 
 def create_job_structure(arg_file, data_dir = 'uoicorr/dense'):
 

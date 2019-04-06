@@ -177,16 +177,18 @@ def cov_spread(avg_covs, cov_type, n_features=1000):
 
             for block_size in block_sizes:
                 try:
-                    sigmas[i].append(gen_avg_covariance('block', avg_cov, n_features, block_size=block_size))
+                    sigmas[i].append({'sigma': gen_avg_covariance('block', avg_cov, n_features, block_size=block_size),
+                                        'avg_cov': avg_cov, 'cov_type': cov_type})
                 except:
                     pass
                     #traceback.print_exc()
 
             # Block diagonal matrix, iterate correlation strength
-            corr = np.linspace(0.05, 0.5, 50)
+            corr = np.linspace(0.05, 0.5, 25)
             for c in corr:
                 try:
-                    sigmas[i].append(gen_avg_covariance('block', avg_cov, n_features, correlation=c))
+                    sigmas[i].append({'sigma': gen_avg_covariance('block', avg_cov, n_features, correlation=c),
+                                        'avg_cov': avg_cov, 'cov_type': cov_type})
                 except:
                     pass
                     #traceback.print_exc()
@@ -194,7 +196,8 @@ def cov_spread(avg_covs, cov_type, n_features=1000):
         elif cov_type == 'exp_falloff':
             # Exponential correlation matrix
             try:
-                sigmas[i].append(gen_avg_covariance('exp_falloff', avg_cov, n_features))
+                sigmas[i].append({'sigma': gen_avg_covariance('exp_falloff', avg_cov, n_features),
+                                    'avg_cov': avg_cov, 'cov_type': cov_type})
             except:
                 pass
                 #traceback.print_exc()
@@ -203,7 +206,7 @@ def cov_spread(avg_covs, cov_type, n_features=1000):
         
             # Interpolation
             # Interpolate between a sets of block_diagonal and exponential matrices
-            L = np.linspace(1, 1000, 10)        
+            L = np.linspace(1, n_features, 10)        
             corr = np.linspace(0.05, 0.5, 10)
             block_sizes = [5, 10, 20, 25, 40, 50, 100, 125, 200, 250, 500]
             block_covs = []
@@ -216,8 +219,9 @@ def cov_spread(avg_covs, cov_type, n_features=1000):
             for bc in block_covs:
                 for ec in exp_covs:
                     try:
-                        sigmas[i].append(gen_avg_covariance('interpolate', cov_type1='block_covariance', 
-                            cov_type2='exp_falloff', cov_type1_args=bc, cov_type2_args=ec)) 
+                        sigmas[i].append({'sigma': gen_avg_covariance('interpolate', cov_type1='block_covariance', 
+                            cov_type2='exp_falloff', cov_type1_args=bc, cov_type2_args=ec),
+                            'avg_cov': avg_cov, 'cov_type': cov_type}) 
                     except:
                         pass
 
@@ -225,15 +229,15 @@ def cov_spread(avg_covs, cov_type, n_features=1000):
             # Random covariance matrix with varying degrees of sparsity
 
             # Subtract off diagonal contribution
-            residual_correlation = avg_cov - 1/n_features
+            residual_correlation = n_features**2 * avg_cov - n_features 
+            if residual_correlation < 0:
+                raise Exception('The desired avg_cov cannot be achieved by a random matrix of this feature size')
 
-            sparsities = np.logspace(0.005, 0.25, 50)
-
+            sparsities = np.logspace(-2, 0, 25)
             # For each sparsity, generate random numbers bounded between
             # 0 and 1 and rescale them uniformly so that they give the
             # desired average correlation
             for sidx, s in enumerate(sparsities):
-                
                 num_nonzero = int(s * ( n_features**2 - n_features))
 
                 entries = np.random.uniform(size = num_nonzero)
@@ -245,14 +249,14 @@ def cov_spread(avg_covs, cov_type, n_features=1000):
                                     for ii in np.arange(n_features**2)])
 
                 offdiagidx = idx[[ii[0] != ii[1] for ii in idx]]
-
+                # Where to put the entries off-diagonal
+                locs = np.random.choice(len(offdiagidx), len(entries), replace=False)
+                locsidx = (np.array(offdiagidx[locs])[:, 0], np.array(offdiagidx[locs])[:, 1])
                 Sigma = np.identity(n_features)
-                Sigma[offdiagidx] = entries
 
-                # for ii, oidx in enumerate(offdiagidx):
-                #     Sigma[oidx] = entries[ii]
+                Sigma[locsidx[0], locsidx[1]] = entries
 
-                sigmas[i].append(Sigma)
+                sigmas[i].append({'sigma': Sigma, 'avg_cov': avg_cov, 'cov_type': cov_type})
                 print('sidx = %d' % sidx)
 
         print('Iteration time: %f' % (time.time() - start))

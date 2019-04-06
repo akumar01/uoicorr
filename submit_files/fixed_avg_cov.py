@@ -1,5 +1,7 @@
 import numpy as np
-from utils import cov_sweep
+import sys
+sys.path.append('..')
+from utils import cov_spread
 
 script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
@@ -10,22 +12,24 @@ exp_types =  ['UoILasso', 'UoIElasticNet', 'EN', 'CV_Lasso']
 # Time to request 
 algorithm_times = ['10:00:00', '10:00:00', '10:00:00', '10:00:00']
 
-# Upon each run, the status of completed jobs will be compared
-# to that required by this list.
+# Generate sigma matrices of fixed average correlation
+cov_set = [list(cov_spread(np.linspace(0.025, 0.35, 20), cov_type)) 
+				for cov_type in ['block', 'exp_falloff', 'interpolate', 'random']]
+
+# Flatten the list
+flattened_cov_set = [sigmas for sigma_type in cov_set for sigmas in sigma_type]
 
 iter_params = {
 
-# Iterate through each of 25 different average correlations
-# Need to flatten this list!!
-'cov_params' : [cov_sweep(np.linspace(0.025, 0.35, 25), cov_type) 
-				for cov_type in ['block', 'exp_falloff', 'interpolate', 'random']]
+'cov_params' :  flattened_cov_set
+
 }
 
 #############################################################
 
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
-'sparsity' : list(np.logspace(0.05, 0.4, num=5))
+'sparsity' : list(np.logspace(0.05, 0.4, num=5)),
 'cov_type' : 'fixed_avg',
 'n_features' : 1000,
 'n_samples' : 2000,
