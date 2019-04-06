@@ -72,8 +72,7 @@ class UoILasso():
             comm = comm
             )
 
-        uoi.fit(X, y.ravel(),
-        forward_selection = forward_selection)
+        uoi.fit(X, y.ravel())
 
         return [uoi]    
 

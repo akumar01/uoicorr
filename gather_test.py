@@ -30,6 +30,7 @@ numproc = comm.Get_size()
 
 # Generate some random data
 data = np.random.random_integers(0, 100, size = (np.random.randint(1, 10), 1000))
+#data = np.random.random_integers(0, 100, size = (10, 1000))
 print('Rank %d has size (%d, %d)' % (rank, data.shape[0], data.shape[1]))
 
 print('Starting gather')
