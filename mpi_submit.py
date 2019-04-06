@@ -162,9 +162,6 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
     # Generate beta
     if not const_beta:
         if (partype == 'uoi' and rank == 0) or partype == 'reps':
-            # Return covariance matrix
-            # If the type of covariance is interpolate, then the matricies have been
-            # pre-generated
 
             beta = gen_beta2(params['n_features'], params['block_size'],
                    params['sparsity'], betawidth = params['betawidth'])
@@ -176,14 +173,20 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
             
     # Generate covariance matrix and data
     if (partype == 'uoi' and rank == 0) or partype == 'reps':
-            if cov_type == 'interpolate':
-                sigma = np.array(param['cov_params']['sigma'])
-            else:
-                sigma = gen_covariance(params['cov_type'], params['n_features'],
-                                    params['block_size'], **params['cov_params'])
-            X, X_test, y, y_test = gen_data(n_samples = params['n_samples'], 
-            n_features= params['n_features'], kappa = params['kappa'],
-            covariance = sigma, beta = beta)
+        # Return covariance matrix
+        # If the type of covariance is interpolate, then the matricies have been
+        # pre-generated
+
+        if cov_type == 'interpolate' or cov_type == 'fixed_avg':
+            sigma = np.array(param['cov_params']['sigma'])
+        else:
+            sigma = gen_covariance(params['cov_type'], params['n_features'],
+                                params['block_size'], **params['cov_params'])
+
+        # Generate data
+        X, X_test, y, y_test = gen_data(n_samples = params['n_samples'], 
+        n_features= params['n_features'], kappa = params['kappa'],
+        covariance = sigma, beta = beta)
     else:
             X = None
             y = None

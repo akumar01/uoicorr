@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.optimize import root_scalar, broyden1
+from scipy.optimize import broyden1
 
 # Solve for the L needed to yield a desired average correlation
 # for exponential falloff design

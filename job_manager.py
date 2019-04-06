@@ -1,4 +1,5 @@
 import numpy as np
+import importlib
 import itertools
 import pdb
 import os
@@ -60,17 +61,13 @@ def generate_sbatch_scripts(job_array, script_dir):
         sbname = '%s/sbatch%d.sh' % (jobdir, i)
         jobname = '%s_%s_job%d' % (job['exp_type'], job['chunk_id'], i)
 
-        # Use MPI to accelerate UoI
-        if job['exp_type'] in ['UoILasso' or 'UoIElasticNet']:
-            script = 'mpi_submit.py'
-        else:
-            script = 'uoicorr_base.py'
+        script = 'mpi_submit.py'
 
         with open(sbname, 'w') as sb:
             # Arguments common across jobs
             sb.write('#!/bin/bash\n')
-            sb.write('#SBATCH -q shared\n')
-            sb.write('#SBATCH -n 1\n')
+            sb.write('#SBATCH -q regular\n')
+            sb.write('#SBATCH -N 1\n')
             sb.write('#SBATCH -t %s\n' % job['job_time'])
 
             sb.write('#SBATCH --job-name=%s\n' % jobname)
@@ -83,11 +80,24 @@ def generate_sbatch_scripts(job_array, script_dir):
             # To make this work, we had to add some paths to our .bash_profile.ext
             sb.write('source activate nse\n')
 
-            # Specify architecture 
-            sb.write('if [[hostname == *"cori"* ]]; then\n')
+            # Critical to prevent threads competing for resources
+            sb.write('export OMP_NUM_THREADS=1')
+            sb.write('export MKL_NUM_THREADS=1')
+
+            # Specify architecture on Cori
+            sb.write('if [ "$NERSC_HOST = cori" ]; then\n')
             sb.write('  #SBATCH -C haswell\n')       
-            sb.write('fi\n') 
-            sb.write('srun python3  %s/%s %s' 
+            sb.write('fi\n')
+
+            # If UoI, parallelize across bootstraps
+            # Otherwise, take the max of 64 and the number of reps required
+            # by this particular job
+            if job['exp_type'] in ['UoIElasticNet', 'UoILasso']:
+                nprocs = 48
+            else:
+                nprocs = 64
+
+            sb.write('srun -n 48 python3 -u %s/%s %s' 
                     % (script_dir, script, job['arg_file']))
 
 def create_job_structure(arg_file, data_dir = 'uoicorr/dense'):
@@ -95,11 +105,13 @@ def create_job_structure(arg_file, data_dir = 'uoicorr/dense'):
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
 
+    args = importlib.import_module(arg_file)
+    iter_params = args.iter_params
+    comm_params = args.comm_params
+    exp_types = args.exp_types
+    algorithm_times = args.algorithm_times
 
     total_jobs = np.prod(len(val) for val in iter_params.values())
-
-    # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-    algorithm_times = ['10:00:00', '10:00:00', '10:00:00', '10:00:00']
 
     # Master list of job parameters
     job_array = []
@@ -156,10 +168,12 @@ def create_job_structure(arg_file, data_dir = 'uoicorr/dense'):
             job_array_chunks[i][j] = generate_arg_files(job_array_chunks[i][j], results_files, jobdir)
             generate_sbatch_scripts(job_array_chunks[i][j], script_dir)
 
+
     # Initialize arrays that keep track of whether particular jobs have run and whether they have
     # succesfully completed            
     run_status = np.zeros((len(job_array_chunks), len(job_array_chunks[0]), len(job_array_chunks[0][0])))
     completion_status = np.zeros(run_status.shape)
+
 
     # Store away:
     with open('%s/log.dat' % data_dir, 'wb') as f:
@@ -194,7 +208,7 @@ def evaluate_job_structure(root_dir):
                 check_outout(run_status[i, j, :], completion_status[i, j, :], out_files)
 
     ## TO-DO: mark jobs that are currently running
-8
+
     # Everytime this script is called, submit an additional 1000 jobs to the queue
 
     # In order of priority:

@@ -5,6 +5,8 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 ###### Master list of parameters to be iterated over #######
 
 exp_types =  ['UoILasso', 'UoIElasticNet', 'EN', 'CV_Lasso']
+# Estimated worst case run-time for a single repitition for each algorithm in exp_types 
+algorithm_times = ['10:00:00', '10:00:00', '10:00:00', '10:00:00']
 
 # Upon each run, the status of completed jobs will be compared
 # to that required by this list.

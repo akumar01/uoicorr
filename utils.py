@@ -3,7 +3,7 @@ from scipy.linalg import block_diag
 from misc import invexp_dist, cluster_dist, solve_L, solve_t
 import pdb
 import traceback
-
+import time
         
 def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'uniform'):
     n_blocks = int(np.floor(n_features/block_size))
@@ -43,7 +43,7 @@ def gen_beta2(n_features = 60, block_size = 6, sparsity = 0.6, betawidth = np.in
     n_nonzero_beta = int(sparsity * block_size)
 
     # Handle 0 and np.inf as special cases
-    if betawidth == np.inf:
+    if betawidth == 'uniform':
         beta = np.random.uniform(low = 0, high = 10, size = (n_features, 1))
     elif betawidth == 0:
         beta = 5 * np.ones((n_features, 1))
@@ -164,51 +164,99 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
 
 # Given a vector of desired average correlations, return a set of covariance
 # matrices from each of the block, exp, and interpolated classes
-def cov_spread(avg_covs, n_features=1000):
+def cov_spread(avg_covs, cov_type, n_features=1000):
     sigmas = []
     for i, avg_cov in enumerate(avg_covs):
+        start = time.time()
         sigmas.append([])        
 
-        # Block diagonal matrix, iterate block sizes
-        block_sizes = [5, 10, 20, 25, 40, 50, 100, 125, 200, 250, 500]
+        if cov_type == 'block':
 
-        for block_size in block_sizes:
-            try:
-                sigmas[i].append(gen_avg_covariance('block', avg_cov, n_features, block_size=block_size))
-            except:
-                traceback.print_exc()
+            # Block diagonal matrix, iterate block sizes
+            block_sizes = [5, 10, 20, 25, 40, 50, 100, 125, 200, 250, 500]
 
-        # Block diagonal matrix, iterate correlation strength
-        corr = np.linspace(0.05, 0.5, 50)
-        for c in corr:
-            try:
-                sigmas[i].append(gen_avg_covariance('block', avg_cov, n_features, correlation=c))
-            except:
-                traceback.print_exc()
-        # Exponential correlation matrix
-        try:
-            sigmas[i].append(gen_avg_covariance('exp_falloff', avg_cov, n_features))
-        except:
-            traceback.print_exc()
-        
-        # Interpolation
-        # Interpolate between a sets of block_diagonal and exponential matrices
-        L = np.linspace(0, 1000, 100)        
-
-        block_covs = []
-        for block_size in block_sizes:
-            for c in corr:
-                block_covs.append({'block_size': block_size, 'correlation': c})
-
-        exp_covs = [{'L': ll} for ll in L]
-
-        for bc in block_covs:
-            for ec in exp_covs:
+            for block_size in block_sizes:
                 try:
-                    sigmas[i].append(gen_avg_covariance('interpolate', cov_type1='block_covariance', 
-                        cov_type2='exp_falloff', cov_type1_args=bc, cov_type2_args=ec)) 
+                    sigmas[i].append(gen_avg_covariance('block', avg_cov, n_features, block_size=block_size))
                 except:
-                    traceback.print_exc()
+                    pass
+                    #traceback.print_exc()
+
+            # Block diagonal matrix, iterate correlation strength
+            corr = np.linspace(0.05, 0.5, 50)
+            for c in corr:
+                try:
+                    sigmas[i].append(gen_avg_covariance('block', avg_cov, n_features, correlation=c))
+                except:
+                    pass
+                    #traceback.print_exc()
+
+        elif cov_type == 'exp_falloff':
+            # Exponential correlation matrix
+            try:
+                sigmas[i].append(gen_avg_covariance('exp_falloff', avg_cov, n_features))
+            except:
+                pass
+                #traceback.print_exc()
+
+        elif cov_type == 'interpolate':
+        
+            # Interpolation
+            # Interpolate between a sets of block_diagonal and exponential matrices
+            L = np.linspace(1, 1000, 10)        
+            corr = np.linspace(0.05, 0.5, 10)
+            block_sizes = [5, 10, 20, 25, 40, 50, 100, 125, 200, 250, 500]
+            block_covs = []
+            for block_size in block_sizes:
+                for c in corr:
+                    block_covs.append({'block_size': block_size, 'correlation': c})
+
+            exp_covs = [{'L': ll} for ll in L]
+
+            for bc in block_covs:
+                for ec in exp_covs:
+                    try:
+                        sigmas[i].append(gen_avg_covariance('interpolate', cov_type1='block_covariance', 
+                            cov_type2='exp_falloff', cov_type1_args=bc, cov_type2_args=ec)) 
+                    except:
+                        pass
+
+        elif cov_type == 'random':
+            # Random covariance matrix with varying degrees of sparsity
+
+            # Subtract off diagonal contribution
+            residual_correlation = avg_cov - 1/n_features
+
+            sparsities = np.logspace(0.005, 0.25, 50)
+
+            # For each sparsity, generate random numbers bounded between
+            # 0 and 1 and rescale them uniformly so that they give the
+            # desired average correlation
+            for sidx, s in enumerate(sparsities):
+                
+                num_nonzero = int(s * ( n_features**2 - n_features))
+
+                entries = np.random.uniform(size = num_nonzero)
+
+                entries *= residual_correlation/(sum(entries))
+
+                # Distribute the entries randomly in off-diagonal locations
+                idx = np.array([np.unravel_index(ii, (n_features, n_features)) 
+                                    for ii in np.arange(n_features**2)])
+
+                offdiagidx = idx[[ii[0] != ii[1] for ii in idx]]
+
+                Sigma = np.identity(n_features)
+                Sigma[offdiagidx] = entries
+
+                # for ii, oidx in enumerate(offdiagidx):
+                #     Sigma[oidx] = entries[ii]
+
+                sigmas[i].append(Sigma)
+                print('sidx = %d' % sidx)
+
+        print('Iteration time: %f' % (time.time() - start))
+
     return sigmas
 
 
