@@ -12,6 +12,33 @@ def chunk_list(l, n):
         # Create an index range for l of n items:
         yield l[i:i+n]
 
+# Convert all numpy datatypes to native python
+# datatypes
+def fix_datatypes(obj):
+
+    # If list, recursively search through it:
+    if type(obj) == list:
+        for idx, sub_obj in enumerate(obj):
+            obj[idx] = fix_datatypes(sub_obj)
+
+    # If ndarray, convert to list, and then
+    # recursively search through it:
+    if type(obj) == np.ndarray:
+        obj = obj.tolist()
+        for idx, sub_obj in enumerate(obj):
+            obj[idx] = fix_datatypes(sub_obj)
+
+    # If dictionary, iterate through its values:
+    if type(obj) == dict:
+        for key, value in obj.items():
+            obj[key] = fix_datatypes(value)
+
+    if type(obj) == np.int_:
+        obj = obj.item()
+    if type(value) == np.float_:
+        obj = obj.item()
+
+    return obj
 
 def generate_arg_files(job_array, results_files, jobdir):
 
@@ -23,12 +50,8 @@ def generate_arg_files(job_array, results_files, jobdir):
 
         arg_file = '%s/%s_params.json' % (jobdir, jobname)
 
-        # Numpy datatypes are not JSON-serializable
         for key, value in arg.items():
-            if type(value) == np.int_:
-                arg[key] = int(value)
-            if type(value) == np.float_:
-                arg[key] = float(value)
+            arg[key] = fix_datatypes(value)
 
         with open(arg_file, 'w') as f:
             json.dump(arg, f)
