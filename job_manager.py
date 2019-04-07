@@ -54,18 +54,17 @@ def generate_arg_files(job_array, results_files, jobdir):
 
         jobname = '%s_%s_job%d' % (arg['exp_type'], arg['chunk_id'], i)
 
-        arg_file = '%s/%s_params.json' % (jobdir, jobname)
+        arg_file = '%s/%s_params.npz' % (jobdir, jobname)
 
         for key, value in arg.items():
             arg[key] = fix_datatypes(value)
              
         with open(arg_file, 'w') as f:
             try:
-                json.dump(arg, f)
+                f.write(json.dumps(arg))
             except:
                 traceback.print_exc()
                 pdb.set_trace()
-            f.close()
 
         arg['arg_file'] = arg_file
         arg['jobdir'] = jobdir
