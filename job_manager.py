@@ -7,6 +7,7 @@ import pickle
 import json
 import time
 import traceback
+from glob import glob
 
 def chunk_list(l, n):
     # For item i in a range that is a length of l,
@@ -219,13 +220,20 @@ def create_job_structure(arg_file, data_dir = 'uoicorr/dense'):
 #     with open('%s/log.dat' % data_dir, 'wb') as f:
 #         pickle.dump(f, [job_array_chunks, run_status, completion_status])
 
-def run_all_jobs(jobdir):
+def run_jobs(jobdir):
     
     # Crawl through all subdirectories and 
     # (1) change permissions of sbatch file
     # (2) run sbatch file
-    pass
-    
+
+    run_files = []
+
+    for root, dirs, files in os.walk(jobdir):
+        for d in dirs:
+            p = os.path.join(root, d)
+            run_files.extend(glob('%s/*.sh' % p))
+
+    print(run_files)
 
 # Upon running this command, check which jobs have been successfully completed, and 
 # submit another batch of jobs to be run
