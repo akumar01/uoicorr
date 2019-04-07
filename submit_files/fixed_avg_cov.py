@@ -10,10 +10,10 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 exp_types =  ['UoILasso', 'UoIElasticNet', 'EN', 'CV_Lasso']
 
 # Time to request 
-algorithm_times = ['04:00:00', '04:00:00', '04:00:00', '04:00:00']
+algorithm_times = ['10:00:00', '10:00:00', '04:00:00', '04:00:00']
 
 # Generate sigma matrices of fixed average correlation
-cov_set = [list(cov_spread(np.linspace(0.025, 0.35, 2), cov_type)) 
+cov_set = [list(cov_spread(np.linspace(0.025, 0.35, 25), cov_type, num=25)) 
 				for cov_type in ['block', 'exp_falloff', 'interpolate', 'random']]
 
 # Flatten the list
@@ -39,7 +39,7 @@ comm_params = {
 'n_models': 1,
 'kappa' : 0.3, 
 'est_score': 'r2',
-'reps' : 1,
+'reps' : 5,
 'stability_selection' : [1.0],
 'n_boots_sel': 48,
 'n_boots_est' : 48}

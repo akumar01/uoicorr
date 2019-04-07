@@ -257,7 +257,7 @@ def cov_spread(avg_covs, cov_type, num, n_features=1000):
 
                 Sigma[locsidx[0], locsidx[1]] = entries
 
-                sigmas[i].append({'sigma': Sigma, 'avg_cov': avg_cov, 'cov_type': cov_type})
+                sigmas[i].append({'sigma': Sigma.tolist(), 'avg_cov': avg_cov, 'cov_type': cov_type})
                 print('sidx = %d' % sidx)
 
         print('Iteration time: %f' % (time.time() - start))
@@ -334,7 +334,7 @@ def block_covariance(n_features = 60, block_size = 6, correlation = 0):
     # populate entire covariance matrix
     rep_block_sigma = [block_sigma] * n_blocks
     sigma = block_diag(*rep_block_sigma)
-    return sigma
+    return sigma.tolist()
 
 # Create a covariance matrix where the correlations are given by an exponential
 # fall off
@@ -342,7 +342,7 @@ def exp_falloff(n_features = 60, block_size = None, L = 1):
     indices = np.arange(n_features)
     distances = np.abs(np.subtract.outer(indices, indices))
     sigma = np.exp(-distances/L)
-    return sigma
+    return sigma.tolist()
 
 def interpolate_covariance(cov_type1, cov_type2, interp_coeffs = np.linspace(0, 1, 11),
     n_features = 60, cov_type1_args = {}, cov_type2_args = {}):
@@ -354,7 +354,7 @@ def interpolate_covariance(cov_type1, cov_type2, interp_coeffs = np.linspace(0, 
     cov = []
     
     for t in interp_coeffs:
-        sigma = (1 - t) * cov_0 + t * cov_n
+        sigma = (1 - t) * np.array(cov_0) + t * np.array(cov_n)
         sigma = sigma.tolist()
         cov.append({'t': t, 'sigma': sigma})
     # Return as nested lists to be saved as .json

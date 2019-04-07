@@ -2,9 +2,11 @@ import numpy as np
 import importlib
 import itertools
 import pdb
-import os
+import sys, os
 import pickle
 import json
+import time
+import traceback
 
 def chunk_list(l, n):
     # For item i in a range that is a length of l,
@@ -31,19 +33,23 @@ def fix_datatypes(obj):
     # If dictionary, iterate through its values:
     if type(obj) == dict:
         for key, value in obj.items():
-            obj[key] = fix_datatypes(value)
+            # Skip this guy because it could be quite large
+            # and tedious to recursively go through
+            if key == 'sigma':
+                continue
+            else:
+                obj[key] = fix_datatypes(value)
 
     if type(obj) == np.int_:
         obj = obj.item()
-    if type(value) == np.float_:
+    if type(obj) == np.float_:
         obj = obj.item()
-
     return obj
 
 def generate_arg_files(job_array, results_files, jobdir):
 
     for i, arg in enumerate(job_array):
-
+        start = time.time()
         arg['results_file'] = results_files[i]
 
         jobname = '%s_%s_job%d' % (arg['exp_type'], arg['chunk_id'], i)
@@ -52,13 +58,21 @@ def generate_arg_files(job_array, results_files, jobdir):
 
         for key, value in arg.items():
             arg[key] = fix_datatypes(value)
-
+             
         with open(arg_file, 'w') as f:
-            json.dump(arg, f)
+            try:
+                json.dump(arg, f)
+            except:
+                traceback.print_exc()
+                pdb.set_trace()
             f.close()
 
         arg['arg_file'] = arg_file
         arg['jobdir'] = jobdir
+
+        job_array[i] = arg
+        print('arg_file iteration time: %f' % (time.time() - start))
+    
     return job_array
 
 def generate_log_file(job_array, jobdir):
@@ -67,6 +81,7 @@ def generate_log_file(job_array, jobdir):
     values = list(job_array[0].keys())
     unique_args = []
     for i, value in enumerate(values):
+        pdb.set_trace()
         unique_args.append(np.unique(np.array([jbarr[value] for jbarr in job_array])))
     
     # Write to file
@@ -136,7 +151,7 @@ def create_job_structure(arg_file, data_dir = 'uoicorr/dense'):
     comm_params = args.comm_params
     exp_types = args.exp_types
     algorithm_times = args.algorithm_times
-
+    script_dir = args.script_dir
     total_jobs = np.prod(len(val) for val in iter_params.values())
 
     # Master list of job parameters
@@ -190,20 +205,20 @@ def create_job_structure(arg_file, data_dir = 'uoicorr/dense'):
 
             results_files = ['job%d.h5' % i for i in range(len(job_array_chunks[i][j]))]
 
-            generate_log_file(job_array_chunks[i][j], jobdir)
+#            generate_log_file(job_array_chunks[i][j], jobdir)
             job_array_chunks[i][j] = generate_arg_files(job_array_chunks[i][j], results_files, jobdir)
             generate_sbatch_scripts(job_array_chunks[i][j], script_dir)
 
 
-    # Initialize arrays that keep track of whether particular jobs have run and whether they have
-    # succesfully completed            
-    run_status = np.zeros((len(job_array_chunks), len(job_array_chunks[0]), len(job_array_chunks[0][0])))
-    completion_status = np.zeros(run_status.shape)
+#     # Initialize arrays that keep track of whether particular jobs have run and whether they have
+#     # succesfully completed            
+#     run_status = np.zeros((len(job_array_chunks), len(job_array_chunks[0]), len(job_array_chunks[0][0])))
+#     completion_status = np.zeros(run_status.shape)
 
 
-    # Store away:
-    with open('%s/log.dat' % data_dir, 'wb') as f:
-        pickle.dump(f, [job_array_chunks, run_status, completion_status])
+#     # Store away:
+#     with open('%s/log.dat' % data_dir, 'wb') as f:
+#         pickle.dump(f, [job_array_chunks, run_status, completion_status])
 
 # Upon running this command, check which jobs have been successfully completed, and 
 # submit another batch of jobs to be run
