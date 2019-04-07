@@ -13,7 +13,7 @@ exp_types =  ['UoILasso', 'UoIElasticNet', 'EN', 'CV_Lasso']
 algorithm_times = ['10:00:00', '10:00:00', '04:00:00', '04:00:00']
 
 # Generate sigma matrices of fixed average correlation
-cov_set = [list(cov_spread(np.linspace(0.025, 0.35, 25), cov_type, num=25)) 
+cov_set = [cov_spread(np.linspace(0.025, 0.35, 25), cov_type, num=25)
 				for cov_type in ['block', 'exp_falloff', 'interpolate', 'random']]
 
 # Flatten the list
@@ -22,7 +22,7 @@ flattened_cov_set = [sigmas for sigma_type in cov_set for sigmas in sigma_type]
 iter_params = {
 
 'cov_params' :  flattened_cov_set,
-'sparsity' : list(np.logspace(0.05, 0.4, num=5)),
+'sparsity' : list(np.logspace(-2, 0, num=5)),
 
 }
 
@@ -31,9 +31,9 @@ iter_params = {
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
 'cov_type' : 'fixed_avg',
-'n_features' : 500,
+'n_features' : 1000,
 'n_samples' : 2000,
-'block_size' : 1000,
+'block_size' : 500,
 'betawidth' : 'uniform',
 'reg_params': [],
 'n_models': 1,

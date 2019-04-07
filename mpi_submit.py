@@ -6,7 +6,7 @@ import pdb
 import itertools
 import glob
 import argparse
-import json
+import pickle
 import importlib
 import subprocess
 import numpy as np
@@ -48,9 +48,8 @@ args = parser.parse_args()
 #######################################
 
 # Load param file
-with open(args.arg_file, 'r') as f: 
-    args = json.load(f)
-    f.close()
+with open(args.arg_file, 'rb') as f: 
+    args = pickle.load(f)
 
 # Create an MPI comm object
 comm = MPI.COMM_WORLD
@@ -158,7 +157,7 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
     start = time.time()
     # Merge iter_param and constant_paramss
     params = {**iter_param, **const_args}
-    
+   
     # Generate beta
     if not const_beta:
         if (partype == 'uoi' and rank == 0) or partype == 'reps':
@@ -178,7 +177,7 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
         # pre-generated
 
         if cov_type == 'interpolate' or cov_type == 'fixed_avg':
-            sigma = np.array(param['cov_params']['sigma'])
+            sigma = np.array(params['cov_params']['sigma'])
         else:
             sigma = gen_covariance(params['cov_type'], params['n_features'],
                                 params['block_size'], **params['cov_params'])
@@ -234,7 +233,7 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
                 
         ee_results[i] = ee
         median_ee_results[i] = median_ee
-        print('Process %d completed iteration %d/%d' % (rank, i, len(chunk_param_list[chunk_idx])))
+    print('Process %d completed iteration %d/%d' % (rank, i, len(chunk_param_list[chunk_idx])))
     print(time.time() - start)
        
 # Save results. If parallelizing over reps, concatenate all arrays together first

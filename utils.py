@@ -49,7 +49,7 @@ def gen_beta2(n_features = 60, block_size = 6, sparsity = 0.6, betawidth = np.in
         beta = 5 * np.ones((n_features, 1))
     else:
         beta = np.random.laplace(scale = betawidth, loc = 5, size = (n_features, 1))
-
+    
     # Apply sparsity separately to each block
     mask = np.array([])
     for block in range(n_blocks):
@@ -178,26 +178,32 @@ def cov_spread(avg_covs, cov_type, num, n_features=1000):
 
             for block_size in block_sizes:
                 try:
-                    sigmas[i].append({'sigma': gen_avg_covariance('block', avg_cov, n_features, block_size=block_size),
+                    ss = gen_avg_covariance('block', avg_cov, n_features, block_size=block_size)
+                    print(ss.shape)
+                    sigmas[i].append({'sigma': ss,
                                         'avg_cov': avg_cov, 'cov_type': cov_type})
                 except:
                     pass
                     #traceback.print_exc()
 
-            # Block diagonal matrix, iterate correlation strength
-            corr = np.linspace(0.05, 0.5, 25)
-            for c in corr:
-                try:
-                    sigmas[i].append({'sigma': gen_avg_covariance('block', avg_cov, n_features, correlation=c),
-                                        'avg_cov': avg_cov, 'cov_type': cov_type})
-                except:
-                    pass
-                    #traceback.print_exc()
+#             # Block diagonal matrix, iterate correlation strength
+#             corr = np.linspace(0.05, 0.5, 25)
+#             for c in corr:
+#                 try:
+#                     ss = gen_avg_covariance('block', avg_cov, n_features, correlation=c)
+#                     print(ss.shape)
+#                     sigmas[i].append({'sigma': ss,
+#                                         'avg_cov': avg_cov, 'cov_type': cov_type})
+#                 except:
+#                     pass
+#                     #traceback.print_exc()
 
         elif cov_type == 'exp_falloff':
             # Exponential correlation matrix
             try:
-                sigmas[i].append({'sigma': gen_avg_covariance('exp_falloff', avg_cov, n_features),
+                ss = gen_avg_covariance('exp_falloff', avg_cov, n_features) 
+                print(ss.shape)
+                sigmas[i].append({'sigma': ss,
                                     'avg_cov': avg_cov, 'cov_type': cov_type})
             except:
                 pass
@@ -220,8 +226,11 @@ def cov_spread(avg_covs, cov_type, num, n_features=1000):
             for bc in block_covs:
                 for ec in exp_covs:
                     try:
-                        sigmas[i].append({'sigma': gen_avg_covariance('interpolate', cov_type1='block_covariance', 
-                            cov_type2='exp_falloff', cov_type1_args=bc, cov_type2_args=ec),
+                        ss = gen_avg_covariance('interpolate', avg_cov = avg_cov, n_features = n_features,
+                            cov_type1='block_covariance', cov_type2='exp_falloff', cov_type1_args=bc, 
+                            cov_type2_args=ec)
+                        print(ss.shape)
+                        sigmas[i].append({'sigma': ss,
                             'avg_cov': avg_cov, 'cov_type': cov_type}) 
                     except:
                         pass
@@ -257,7 +266,7 @@ def cov_spread(avg_covs, cov_type, num, n_features=1000):
 
                 Sigma[locsidx[0], locsidx[1]] = entries
 
-                sigmas[i].append({'sigma': Sigma.tolist(), 'avg_cov': avg_cov, 'cov_type': cov_type})
+                sigmas[i].append({'sigma': Sigma, 'avg_cov': avg_cov, 'cov_type': cov_type})
                 print('sidx = %d' % sidx)
 
         print('Iteration time: %f' % (time.time() - start))
@@ -311,7 +320,7 @@ def gen_avg_covariance(cov_type, avg_cov = 0.1, n_features = 60, **kwargs):
         t = solve_t(avg_cov, cov_1, cov_2)
 
         return interpolate_covariance(kwargs['cov_type1'], kwargs['cov_type2'],
-                                [t], n_features, cov_type1_args, cov_type2_args)
+                                [t], n_features, cov_type1_args, cov_type2_args)[0]['sigma']
 
     else:
         raise Exception('invalid or missing cov_type')
@@ -334,7 +343,7 @@ def block_covariance(n_features = 60, block_size = 6, correlation = 0):
     # populate entire covariance matrix
     rep_block_sigma = [block_sigma] * n_blocks
     sigma = block_diag(*rep_block_sigma)
-    return sigma.tolist()
+    return sigma
 
 # Create a covariance matrix where the correlations are given by an exponential
 # fall off
@@ -342,7 +351,7 @@ def exp_falloff(n_features = 60, block_size = None, L = 1):
     indices = np.arange(n_features)
     distances = np.abs(np.subtract.outer(indices, indices))
     sigma = np.exp(-distances/L)
-    return sigma.tolist()
+    return sigma
 
 def interpolate_covariance(cov_type1, cov_type2, interp_coeffs = np.linspace(0, 1, 11),
     n_features = 60, cov_type1_args = {}, cov_type2_args = {}):
@@ -355,7 +364,7 @@ def interpolate_covariance(cov_type1, cov_type2, interp_coeffs = np.linspace(0, 
     
     for t in interp_coeffs:
         sigma = (1 - t) * np.array(cov_0) + t * np.array(cov_n)
-        sigma = sigma.tolist()
+    #    sigma = sigma.tolist()
         cov.append({'t': t, 'sigma': sigma})
     # Return as nested lists to be saved as .json
 

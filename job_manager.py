@@ -54,14 +54,14 @@ def generate_arg_files(job_array, results_files, jobdir):
 
         jobname = '%s_%s_job%d' % (arg['exp_type'], arg['chunk_id'], i)
 
-        arg_file = '%s/%s_params.npz' % (jobdir, jobname)
+        arg_file = '%s/%s_params.dat' % (jobdir, jobname)
 
-        for key, value in arg.items():
-            arg[key] = fix_datatypes(value)
+#         for key, value in arg.items():
+#             arg[key] = fix_datatypes(value)
              
-        with open(arg_file, 'w') as f:
+        with open(arg_file, 'wb') as f:
             try:
-                f.write(json.dumps(arg))
+                f.write(pickle.dumps(arg, pickle.HIGHEST_PROTOCOL))
             except:
                 traceback.print_exc()
                 pdb.set_trace()
@@ -202,7 +202,7 @@ def create_job_structure(arg_file, data_dir = 'uoicorr/dense'):
             # Generate a human-readable log file, sbatch 
             # script, and job param files for this directory
 
-            results_files = ['job%d.h5' % i for i in range(len(job_array_chunks[i][j]))]
+            results_files = ['%s/job%d.h5' % (jobdir, i) for i in range(len(job_array_chunks[i][j]))]
 
 #            generate_log_file(job_array_chunks[i][j], jobdir)
             job_array_chunks[i][j] = generate_arg_files(job_array_chunks[i][j], results_files, jobdir)
@@ -218,6 +218,14 @@ def create_job_structure(arg_file, data_dir = 'uoicorr/dense'):
 #     # Store away:
 #     with open('%s/log.dat' % data_dir, 'wb') as f:
 #         pickle.dump(f, [job_array_chunks, run_status, completion_status])
+
+def run_all_jobs(jobdir):
+    
+    # Crawl through all subdirectories and 
+    # (1) change permissions of sbatch file
+    # (2) run sbatch file
+    pass
+    
 
 # Upon running this command, check which jobs have been successfully completed, and 
 # submit another batch of jobs to be run
