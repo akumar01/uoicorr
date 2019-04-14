@@ -167,14 +167,16 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
 # num: number of entries (at most) to return per avg_cov
 def cov_spread(avg_covs, cov_type, num, n_features=1000):
     sigmas = []
+
+    # Filter possible block sizes given n_features
+    block_sizes = np.arange(5, int(n_features/2) + 2)
+    block_sizes = np.array([b for b in block_sizes if not np.mod(n_features, b)])
+    
     for i, avg_cov in enumerate(avg_covs):
         start = time.time()
         sigmas.append([])        
 
         if cov_type == 'block':
-
-            # Block diagonal matrix, iterate block sizes
-            block_sizes = [5, 10, 20, 25, 40, 50, 100, 125, 200, 250, 500]
 
             for block_size in block_sizes:
                 try:
@@ -215,7 +217,6 @@ def cov_spread(avg_covs, cov_type, num, n_features=1000):
             # Interpolate between a sets of block_diagonal and exponential matrices
             L = np.linspace(1, n_features, 10)        
             corr = np.linspace(0.05, 0.5, 10)
-            block_sizes = [5, 10, 20, 25, 40, 50, 100, 125, 200, 250, 500]
             block_covs = []
             for block_size in block_sizes:
                 for c in corr:
