@@ -14,6 +14,8 @@ from sklearn.utils import check_array, check_X_y
 # Importing from pip-installed PyUoI
 from pyuoi.lbfgs import fmin_lbfgs
 
+# Use pytorch to calculate numerical derivatives
+import torch
 
 # class UoI_GTV(AbstractUoILinearRegressor):
 
@@ -354,39 +356,32 @@ class GraphTotalVariance(ElasticNet):
 
 #         return QQ, cc, A, h
 
-    # For use in the lblgs solver included in PyUoI
-    def gtv_loss(self, beta, gradient, l1, ltv, ls, X, y, cov):
-        n = X.shape[0]
-        p = X.shape[1]
+    # Output scalar loss function and use pytorch to calculate its gradient
+    def gtv_loss(self, beta, gradient, l1, ltv, ls, Xt, yt, Gamma_t):
 
-        # Covariance weighted loss
-        cov_loss = 0
-        for j in range(p):
-            for k in range(p):
-                # Skip diagonal, just to be safe
-                if j == k:
-                    continue
+        n = Xt.shape[0]
 
-                cov_loss += ls * np.abs(cov[j, k]) * (beta[j] - np.sign(cov[j, k]) * beta[k])**2 +\
-                            ltv * l1 * np.sqrt(np.abs(cov[j, k])) * np.abs(beta[j] - np.sign(cov[j, k]) * beta[k])
+        if beta.ndim == 1:
+            beta = beta[:, np.newaxis]
 
-        lf = 1/n * norm(y - X @ beta, 2)**2 + cov_loss
+        # Convert beta to pytorch tensor
+        beta_t = torch.tensor(beta, requires_grad = True)
 
-        # Covariance weighted part of the gradient
-        cov_gradient = 0
-        for j in range(p):
-            for k in range(p):
-                # Skip diagonal, just to be safe
-                if j == k:
-                    continue
+        loss = 1/n * torch.norm(yt - torch.mm(Xt, beta_t))**2
+        loss += ls * torch.norm(torch.mm(Gamma_t, beta_t))**2
+        loss += l1 * ltv * torch.sum(torch.log(torch.cosh(torch.mm(Gamma_t, beta_t))))
+        #loss += l1 * ltv * torch.norm(torch.mm(Gamma_t, beta_t), 1)
 
-                cov_gradient += 2* ls * np.abs(cov[j, k]) * (beta[j] - np.sign(cov[j, k]) * beta[k]) +\
-                                ltv * l1 * np.sqrt(np.abs(cov[j, k])) * np.sign(beta[j])
+        # loss = 1/n * torch.norm(y - torch.mm(X, beta))**2 + ls * torch.norm(torch.mm(Gamma, beta))**2\
+        #         + l1 * ltv * torch.norm(torch.mm(Gamma, beta), 1)
 
-        gradient = 2/n * (X.T @ X @ beta - X.T @ y) + cov_gradient   
+        # Backpropagate gradient
+        loss.backward()
+        # Gradient of loss with respect to beta, making sure to detach from the pytorch graph
+        dlossdbeta = beta_t.grad
+        gradient[:] = dlossdbeta.detach().cpu().numpy().astype(float).ravel()
 
-        return lf
-
+        return loss.detach().cpu().numpy().astype(float)
 
     def minimize(self, lambda_S, lambda_TV, lambda_1, X, y, cov):
         # use quadratic programming to optimize the GTV loss function
@@ -401,23 +396,54 @@ class GraphTotalVariance(ElasticNet):
         if self.minimizer == 'quadprog':
            betas = self.gtv_quadprog(lambda_S, lambda_TV, lambda_1, X, y, cov)
         elif self.minimizer == 'lbfgs':
+            # Use random initialization of beta weights
+
+            n = X.shape[0]
+            p = X.shape[1]
+
+            # E: edge set of cov
+            E = []
+            for i in range(p):
+                for j in range(p):
+                    if i == j: 
+                        continue
+                    if cov[i, j] != 0:
+                        E.append([i, j])
+
+            # Gamma: Used to vectorize terms in the loss function involving the covariance matrix
+            Gamma = np.zeros((len(E), p))
+
+            for i in range(Gamma.shape[0]):
+                e_jl = np.zeros(p)
+                e_kl = np.zeros(p)
+                e_jl[E[i][0]] = 1
+                e_kl[E[i][1]] = 1
+                Gamma[i, :] = np.sqrt(cov[E[i][0], E[i][1]]) * (e_jl - np.sign(cov[E[i][0], E[i][1]]) * e_kl)
+
+            # Convert everything else to a torch tensor
+            yt = torch.tensor(y, requires_grad = False)
+            Xt = torch.tensor(X, requires_grad = False)
+            print(Xt.dtype)
+            Gamma_t = torch.tensor(Gamma, requires_grad = False)
+
             betas = fmin_lbfgs(self.gtv_loss, np.zeros(X.shape[1]), 
-                args = (lambda_1, lambda_TV, lambda_S, X, y, cov), orthantwise_c = lambda_1)
+                args = (lambda_1, lambda_TV, lambda_S, Xt, yt, Gamma_t), orthantwise_c = lambda_1,
+                max_linesearch = 40, epsilon = 1e-3, ftol = 1e-1)
         return betas
 
-    def cvx_minimize(self, lambda_S, lambda_TV, lambda_1, X, y, cov):
-        Q, c, A, h = self.lasso_quadprog(lambda_1, X, y)
+    # def cvx_minimize(self, lambda_S, lambda_TV, lambda_1, X, y, cov):
+    #     Q, c, A, h = self.lasso_quadprog(lambda_1, X, y)
 
-        # Put matrices in proprietary cvxopt format
-        Q = 1/2 * (Q + Q.T)
-        args = [cvxopt.matrix(Q), cvxopt.matrix(c), cvxopt.matrix(A), cvxopt.matrix(h)]
-        sol = cvxopt.solvers.qp(*args)
+    #     # Put matrices in proprietary cvxopt format
+    #     Q = 1/2 * (Q + Q.T)
+    #     args = [cvxopt.matrix(Q), cvxopt.matrix(c), cvxopt.matrix(A), cvxopt.matrix(h)]
+    #     sol = cvxopt.solvers.qp(*args)
 
 
-        coeffs_pm = np.array(sol['x']).reshape((Q.shape[1],))
-        coeffs = coeffs_pm[0:int(len(coeffs_pm)/2)] - coeffs_pm[int(len(coeffs_pm)/2)::]
+    #     coeffs_pm = np.array(sol['x']).reshape((Q.shape[1],))
+    #     coeffs = coeffs_pm[0:int(len(coeffs_pm)/2)] - coeffs_pm[int(len(coeffs_pm)/2)::]
 
-        return coeffs
+    #     return coeffs
 
 
     def fit(self, X, y, cov):
