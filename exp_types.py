@@ -161,7 +161,6 @@ class GTV():
 
     @classmethod
     def run(self, X, y, args):
-        print('Finished imports')
         cv_splits = 5
         lambda_S = args['reg_params']['lambda_S']
         lambda_TV = args['reg_params']['lambda_TV']
@@ -187,22 +186,64 @@ class GTV():
             else:
                 lambda_1 = np.array(lambda_1)
 
+        if 'comm' in list(args.keys()):
+            comm = args['comm']
+        else:
+            comm = None
+
+        if 'use_skeleton' in list(args.keys()):
+            use_skeleton = args['use_skeleton']
+        else:
+            use_skeleton = False
+
+        if 'threshold' in list(args.keys()):
+            threshold = args['threshold']
+        else:
+            thresholds = False 
 
         scores = np.zeros((lambda_S.size, lambda_TV.size, lambda_1.size))
 
-        # Use k-fold cross_validation
-        # kfold = KFold(n_splits = cv_splits, shuffle = True)
+#        Use k-fold cross_validation
+        kfold = KFold(n_splits = cv_splits, shuffle = True)
         models = []
 
-        for i1, l1 in enumerate(lambda_S):
-            for i2, l2 in enumerate(lambda_TV):
-                for i3, l3 in enumerate(lambda_1):
+        # Parallelize hyperparameter search
+        hparamlist = list(itertools.product(lambda_S, lambda_TV, lambda_1))
 
-                    gtv = GraphTotalVariance(lambda_S = l1, lambda_TV = l2, lambda_1 = l3, normalize=True, 
-                                             warm_start = False, use_skeleton = args['use_skeleton'],
-                                            threshold = args['threshold'])
-                    gtv.fit(X, y, cov)
+        if comm is not None:
+            numproc = comm.Get_size() 
+            rank = comm.rank
+            chunk_hparamlist = np.array_split(hparamlist, numproc)
+            chunk_idx = rank
+            num_tasks = len(chunk_param_list[chunk_idx])
+        else:
+            chunk_hparamlist = [hparamlist]
+            chunk_idx = 0
+            num_tasks = len(hparamlist)
 
-                    models.append(gtv)
+        cv_scores = np.zeros(len(hparamlist))
+        for i, hparam in enumerate(chunk_hparamlist[chunk_idx]):
+            gtv = GraphTotalVariance(lambda_S = hparam[0], lambda_TV = hparam[1], 
+                                     lambda_1 = hparam[2], normalize=True, 
+                                     warm_start = False, use_skeleton = use_skeleton,
+                                     threshold = threshold, method = 'lbfgs')
+            scores = np.zeros(cv_splits)
+            fold_idx = 0
+            for train_index, test_index in kfold.split(X)
+                # Fit
+                gtv.fit(X[train_index, :], y[train_index], cov)
+                # Score
+                scores[fold_idx] = r2_score(y[test_index], X[test_index] @ gtv.coef_)
+                fold_idx += 1
 
-        return models
+            cv_scores[i] = np.mean(scores)
+
+        best_hparam = np.argmax(cv_scores)
+        # Return GTV fit the best hparam
+        model = GraphTotalVariance(lambda_S = hparam[best_hparam[0]], 
+                                 lambda_TV = hparam[best_hparam[1]], 
+                                 lambda_1 = hparam[best_hparam[2]], normalize=True, 
+                                 warm_start = False, use_skeleton = use_skeleton,
+                                 threshold = threshold, method = 'lbfgs')
+        model.fit(X, y, cov)
+        return model

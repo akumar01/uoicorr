@@ -31,7 +31,7 @@ p = os.path.join(parent_path, current_dir)
 if '%s/uoicor' % p not in sys.path:
     sys.path.append('%s/uoicorr' % p)
 if '%s/PyUoI' % p not in sys.path:
-    sys.path.append('%s/PyUoI' % p)
+    sys.path.append('%s/PyUoI' % p)''
 
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
 from pyuoi.mpi_utils import Bcast_from_root, Gatherv_rows
@@ -69,7 +69,7 @@ results_file = args['results_file']
 # exp = importlib.import_module(exp_type, 'exp_types')
 exp = locate('exp_types.%s' % exp_type)
 
-if exp_type in ['UoILasso', 'UoIElasticNet']:
+if exp_type in ['UoILasso', 'UoIElasticNet', 'GTV']:
     partype = 'uoi'
 else:
     partype = 'reps'
