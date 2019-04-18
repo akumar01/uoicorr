@@ -7,7 +7,7 @@ import pickle
 # Generate a single short arg file from a submit_file
 def single_from_submit(submit_file, name,
                         exp_type = None, generate_sbatch = False):
-    path, name = arg_file.split('/')
+    path, name = submit_file.split('/')
     sys.path.append(path)
     args = importlib.import_module(name)
 
@@ -22,7 +22,7 @@ def single_from_submit(submit_file, name,
     if exp_type is None:
         exp_type = exp_types[0]
 
-    algorithm_time = algorithm_times[exp_types.index[]]
+    algorithm_time = algorithm_times[exp_types.index(exp_type)]
 
     iter_keys = list(iter_params.keys())
 
@@ -40,13 +40,13 @@ def single_from_submit(submit_file, name,
     # Pick one at random
     random_arg = np.random.choice(task_array)
 
-    result_file = name + '.h5'
-    random_arg['result_file'] = result_file
+    results_file = name + '.h5'
+    random_arg['results_file'] = results_file
     # Write it to file:
     arg_file = name + '_params.dat'
 
     with open(arg_file, 'wb') as f:
-        f.write(pickle.dumps)
+        f.write(pickle.dumps(random_arg))
 
 
     # Also generate a template sbatch file for batch submmission
@@ -88,20 +88,3 @@ def single_from_submit(submit_file, name,
 
             sb.write('srun -n %d -c 1 python3 -u %s %s' 
                     % (nprocs, script, arg_file))
-
-
-
-        #!/bin/bash
-#SBATCH -N 1
-#SBATCH -C knl
-#SBATCH -q regular
-#SBATCH -t 00:30:00
-
-#OpenMP settings:
-export OMP_NUM_THREADS=1
-export OMP_PLACES=threads
-export OMP_PROC_BIND=spread
-
-
-#run the application:
-srun -n 272 -c 1 --cpu_bind=threads myapp.x

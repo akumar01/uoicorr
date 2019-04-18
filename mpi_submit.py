@@ -21,18 +21,6 @@ total_start = time.time()
 # Need to add pyuoi to path
 parent_path, current_dir = os.path.split(os.path.abspath('.'))
 
-# Crawl up to the repos folder
-while current_dir not in ['repos', 'nse']:
-    parent_path, current_dir = os.path.split(parent_path)
-
-p = os.path.join(parent_path, current_dir)
-
-# Add uoicorr and pyuoi to the path
-if '%s/uoicor' % p not in sys.path:
-    sys.path.append('%s/uoicorr' % p)
-if '%s/PyUoI' % p not in sys.path:
-    sys.path.append('%s/PyUoI' % p)''
-
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
 from pyuoi.mpi_utils import Bcast_from_root, Gatherv_rows
 

@@ -161,7 +161,8 @@ class GTV():
 
     @classmethod
     def run(self, X, y, args):
-        cv_splits = 5
+        print('started run')
+	cv_splits = 5
         lambda_S = args['reg_params']['lambda_S']
         lambda_TV = args['reg_params']['lambda_TV']
         lambda_1 = args['reg_params']['lambda_1']
@@ -223,6 +224,7 @@ class GTV():
 
         cv_scores = np.zeros(len(hparamlist))
         for i, hparam in enumerate(chunk_hparamlist[chunk_idx]):
+	    t0 = time.time()
             gtv = GraphTotalVariance(lambda_S = hparam[0], lambda_TV = hparam[1], 
                                      lambda_1 = hparam[2], normalize=True, 
                                      warm_start = False, use_skeleton = use_skeleton,
@@ -235,15 +237,21 @@ class GTV():
                 # Score
                 scores[fold_idx] = r2_score(y[test_index], X[test_index] @ gtv.coef_)
                 fold_idx += 1
-
+	    print('Process %d has finished iteration %d/%d in %f s' % (rank, i, numtasks, time.time() - t0))
             cv_scores[i] = np.mean(scores)
-
-        best_hparam = np.argmax(cv_scores)
-        # Return GTV fit the best hparam
-        model = GraphTotalVariance(lambda_S = hparam[best_hparam[0]], 
-                                 lambda_TV = hparam[best_hparam[1]], 
-                                 lambda_1 = hparam[best_hparam[2]], normalize=True, 
+	# Gather scores across processes
+	cv_scores = Gatherv_rows(cv_scores, comm, root=0)
+	if rank == 0:
+	    print('finished iterating')
+	    best_idx = np.argmax(cv_scores)
+	    best_hparam = hparam_list[best_idx]
+            # Return GTV fit the best hparam
+            model = GraphTotalVariance(lambda_S = best_hparam[0], 
+                                 lambda_TV = best_hparam[1], 
+                                 lambda_1 = best_hparam[2], normalize=True, 
                                  warm_start = False, use_skeleton = use_skeleton,
                                  threshold = threshold, method = 'lbfgs')
-        model.fit(X, y, cov)
+        	model.fit(X, y, cov)
+	else:
+	    model = None
         return model
