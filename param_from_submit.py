@@ -6,10 +6,10 @@ import pickle
 
 # Generate a single short arg file from a submit_file
 def single_from_submit(submit_file, name,
-						exp_type = None, generate_sbatch = False):
-	path, name = arg_file.split('/')
-	sys.path.append(path)
-	args = importlib.import_module(name)
+                        exp_type = None, generate_sbatch = False):
+    path, name = arg_file.split('/')
+    sys.path.append(path)
+    args = importlib.import_module(name)
 
     iter_params = args.iter_params
     comm_params = args.comm_params
@@ -19,50 +19,50 @@ def single_from_submit(submit_file, name,
 
     # From the combination of exp_types and iter_params, select
     # only a single combination
- 	if exp_type is None:
- 		exp_type = exp_types[0]
+    if exp_type is None:
+        exp_type = exp_types[0]
 
- 	algorithm_time = algorithm_times[exp_types.index[]]
+    algorithm_time = algorithm_times[exp_types.index[]]
 
     iter_keys = list(iter_params.keys())
 
     task_array = []
-	for j, arg_comb in enumerate(itertools.product(*list(iter_params.values()))):
-		arg = {}
-		for j in range(len(arg_comb)):
-			arg[iter_keys[j]] = arg_comb[j]
-		for key, value in comm_params.items():
-			arg[key] = value
-		arg['exp_type'] = exp_type
+    for j, arg_comb in enumerate(itertools.product(*list(iter_params.values()))):
+        arg = {}
+        for j in range(len(arg_comb)):
+            arg[iter_keys[j]] = arg_comb[j]
+        for key, value in comm_params.items():
+            arg[key] = value
+        arg['exp_type'] = exp_type
 
-		task_array.append(arg)
+        task_array.append(arg)
 
-	# Pick one at random
-	random_arg = np.random.choice(task_array)
+    # Pick one at random
+    random_arg = np.random.choice(task_array)
 
-	result_file = name + '.h5'
-	random_arg['result_file'] = result_file
-	# Write it to file:
-	arg_file = name + '_params.dat'
+    result_file = name + '.h5'
+    random_arg['result_file'] = result_file
+    # Write it to file:
+    arg_file = name + '_params.dat'
 
-	with open(arg_file, 'wb') as f:
-		f.write(pickle.dumps)
+    with open(arg_file, 'wb') as f:
+        f.write(pickle.dumps)
 
 
-	# Also generate a template sbatch file for batch submmission
-	if generate_sbatch:
-		sbname = name + '.sh'
-		script = 'mpi_submit.py'
+    # Also generate a template sbatch file for batch submmission
+    if generate_sbatch:
+        sbname = name + '.sh'
+        script = 'mpi_submit.py'
 
-		if exp_type in ['UoIElasticNet', 'UoILasso']:
-			nprocs = 48
-		elif exp_type in ['GTV']:
-			nprocs = 272
-		else:
-			# Number of sub_iter tasks
-			nprocs = \
-			len(args['reps'] * list(itertools.product(*[args[key] for key in args['sub_iter_params']])))
-		with open(sbname, 'w') as sb:
+        if exp_type in ['UoIElasticNet', 'UoILasso']:
+            nprocs = 48
+        elif exp_type in ['GTV']:
+            nprocs = 272
+        else:
+            # Number of sub_iter tasks
+            nprocs = \
+            len(args['reps'] * list(itertools.product(*[args[key] for key in args['sub_iter_params']])))
+        with open(sbname, 'w') as sb:
             sb.write('#!/bin/bash\n')
             sb.write('#SBATCH -q regular\n')
             sb.write('#SBATCH -N 1\n')
@@ -91,7 +91,7 @@ def single_from_submit(submit_file, name,
 
 
 
-		#!/bin/bash
+        #!/bin/bash
 #SBATCH -N 1
 #SBATCH -C knl
 #SBATCH -q regular
