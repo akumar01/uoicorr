@@ -6,6 +6,7 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score
 from pyuoi.linear_model.lasso import UoI_Lasso
 from pyuoi.linear_model.elasticnet import UoI_ElasticNet
+from gtv import GraphTotalVariance
 import itertools
 import time
 from pyuoi.mpi_utils import Gatherv_rows
@@ -45,7 +46,7 @@ class CV_Lasso():
         max_score_idx = np.argmax(scores.ravel())
         lasso.set_params(alpha = alphas[max_score_idx])
         lasso.fit(X, y.ravel())
-        return [lasso]
+        return lasso
 
 
 class UoILasso():
@@ -74,7 +75,7 @@ class UoILasso():
 
         uoi.fit(X, y.ravel())
 
-        return [uoi]    
+        return uoi    
 
 class UoIElasticNet():
 
@@ -107,7 +108,7 @@ class UoIElasticNet():
         )
         
         uoi.fit(X, y.ravel())
-        return [uoi]    
+        return uoi    
 
 class EN():
 
@@ -155,7 +156,7 @@ class EN():
         en.set_params(**reg_params[max_score_idx])
         en.fit(X, y.ravel())
             
-        return [en]
+        return en
 
 class GTV():
 
@@ -195,18 +196,17 @@ class GTV():
         if 'use_skeleton' in list(args.keys()):
             use_skeleton = args['use_skeleton']
         else:
-            use_skeleton = False
+            use_skeleton = True
 
         if 'threshold' in list(args.keys()):
             threshold = args['threshold']
         else:
-            thresholds = False 
+            threshold = False 
 
         scores = np.zeros((lambda_S.size, lambda_TV.size, lambda_1.size))
 
 #        Use k-fold cross_validation
         kfold = KFold(n_splits = cv_splits, shuffle = True)
-        models = []
 
         # Parallelize hyperparameter search
         hparamlist = list(itertools.product(lambda_S, lambda_TV, lambda_1))
@@ -216,42 +216,45 @@ class GTV():
             rank = comm.rank
             chunk_hparamlist = np.array_split(hparamlist, numproc)
             chunk_idx = rank
-            num_tasks = len(chunk_param_list[chunk_idx])
+            num_tasks = len(chunk_hparamlist[chunk_idx])
         else:
+            numproc = 1
+            rank = 0
             chunk_hparamlist = [hparamlist]
             chunk_idx = 0
             num_tasks = len(hparamlist)
 
-        cv_scores = np.zeros(len(hparamlist))
+        cv_scores = np.zeros(len(chunk_hparamlist[chunk_idx]))
         for i, hparam in enumerate(chunk_hparamlist[chunk_idx]):
             t0 = time.time()
             gtv = GraphTotalVariance(lambda_S = hparam[0], lambda_TV = hparam[1], 
                                      lambda_1 = hparam[2], normalize=True, 
                                      warm_start = False, use_skeleton = use_skeleton,
-                                     threshold = threshold, method = 'lbfgs')
+                                     threshold = threshold, minimizer = 'lbfgs')
             scores = np.zeros(cv_splits)
             fold_idx = 0
-            for train_index, test_index in kfold.split(X)
+            for train_index, test_index in kfold.split(X):
                 # Fit
                 gtv.fit(X[train_index, :], y[train_index], cov)
                 # Score
                 scores[fold_idx] = r2_score(y[test_index], X[test_index] @ gtv.coef_)
                 fold_idx += 1
-            print('Process %d has finished iteration %d/%d in %f s' % (rank, i, numtasks, time.time() - t0))
-                cv_scores[i] = np.mean(scores)
+            print('Process %d has finished iteration %d/%d in %f s' % (rank, i, num_tasks, time.time() - t0))
+            cv_scores[i] = np.mean(scores)
         # Gather scores across processes
-        cv_scores = Gatherv_rows(cv_scores, comm, root=0)
-        if rank == 0:
+        if comm is not None:
+            cv_scores = Gatherv_rows(cv_scores, comm, root=0)
+        if rank == 0 or comm is None:
             print('finished iterating')
             best_idx = np.argmax(cv_scores)
-            best_hparam = hparam_list[best_idx]
-                # Return GTV fit the best hparam
-                model = GraphTotalVariance(lambda_S = best_hparam[0], 
+            best_hparam = hparamlist[best_idx]
+            # Return GTV fit the best hparam
+            model = GraphTotalVariance(lambda_S = best_hparam[0], 
                                      lambda_TV = best_hparam[1], 
                                      lambda_1 = best_hparam[2], normalize=True, 
                                      warm_start = False, use_skeleton = use_skeleton,
-                                     threshold = threshold, method = 'lbfgs')
-                model.fit(X, y, cov)
+                                     threshold = threshold, minimizer = 'lbfgs')
+            model.fit(X, y, cov)
         else:
             model = None
         return model

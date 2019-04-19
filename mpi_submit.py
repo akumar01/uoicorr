@@ -43,9 +43,7 @@ with open(args.arg_file, 'rb') as f:
 comm = MPI.COMM_WORLD
 rank = comm.rank
 numproc = comm.Get_size()    
-
-print('Nprocs: %d, rank %d' % (numproc, rank))
-    
+   
 # Keys that will be iterated over in the outer loop of this function
 sub_iter_params = args['sub_iter_params']
 
@@ -64,8 +62,8 @@ else:
         
 # If any of the specified parameters are not in the list/arrays, wrap them
 for key in sub_iter_params:
-    if type(args['sub_iter_params']) != list:
-        args['sub_iter_params'] = [args['sub_iter_params']]
+    if type(args[key]) != list:
+        args[key] = [args[key]]
 
 # Complement of the sub_iter_params:
 const_keys = list(set(args.keys()) - set(sub_iter_params))
@@ -118,8 +116,6 @@ if const_beta:
     
     beta = Bcast_from_root(beta, comm, root = 0)
         
-print(partype)
-
 # Initialize arrays to store data in
 if (partype == 'uoi' and rank == 0) or partype == 'reps':
     betas = np.zeros((num_tasks, args['n_features']))
@@ -168,7 +164,7 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
             sigma = np.array(params['cov_params']['sigma'])
         else:
             sigma = gen_covariance(params['cov_type'], params['n_features'],
-                                params['block_size'], **params['cov_params'])
+                                   **params['cov_params'])
 
         # Generate data
         X, X_test, y, y_test = gen_data(n_samples = params['n_samples'], 
@@ -191,7 +187,7 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
     if (partype == 'uoi' and rank == 0) or partype == 'reps':
         #### Calculate and log results
         betas[i, :] = beta.ravel()  
-        beta_hat = model[0].coef_.ravel()
+        beta_hat = model.coef_.ravel()
         beta_hats[i, :] = beta_hat.ravel()
         fn_results[i] = np.count_nonzero(beta[beta_hat == 0, 0])
         fp_results[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
@@ -221,7 +217,7 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
                 
         ee_results[i] = ee
         median_ee_results[i] = median_ee
-    print('Process %d completed iteration %d/%d' % (rank, i, len(chunk_param_list[chunk_idx])))
+    print('Process %d completed outer loop %d/%d' % (rank, i, len(chunk_param_list[chunk_idx])))
     print(time.time() - start)
        
 # Save results. If parallelizing over reps, concatenate all arrays together first
