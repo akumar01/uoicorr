@@ -4,6 +4,8 @@ import pdb
 from scipy.optimize import minimize
 import quadprog
 # import cvxopt
+import networkx as nx
+from networkx import minimum_spanning_tree
 
 from sklearn.linear_model import ElasticNet, LinearRegression
 from sklearn.linear_model.base import _pre_fit
@@ -136,75 +138,85 @@ class GraphTotalVariance(ElasticNet):
         self.threshold = threshold
         self.minimizer = minimizer
 
-    # Find the maximum spanning graph of the covariance matrix to speed up
-    # computation using Prim's algorithm.
+    # # Find the maximum spanning graph of the covariance matrix to speed up
+    # # computation using Prim's algorithm.
+    # def skeleton_graph(self, sigma):
+
+    #     p = sigma.shape[0]
+        
+    #     # Remove diagonal elements from sigma:
+    #     sigma = sigma - np.diag(np.diag(sigma))
+
+    #     # Following the terminology of the wikipedia page for Prim
+
+    #     # Deviate slightly from wikipedia here - what we ultimately want to 
+    #     # output is an adjacency matrix:
+    #     MST = np.identity(p)
+
+    #     # Set of vertices not yet associated with the MST
+    #     Q = np.arange(p)
+
+    #     # Candidate edge set
+    #     E = []
+    #     # Weights associated with candidate edge set
+    #     C = []
+
+    #     # Choose a vertex at random 
+    #     v = np.random.choice(Q)
+    #     Q = np.delete(Q, v)
+
+    #     while Q.size > 0:
+
+    #         # Add edge set of v to E. Edges are tuples. Ignore edges 
+    #         # that lead to vertices that have already been visited
+    #         edge_indices = np.arange(p)[sigma[v, :] != 0]
+
+    #         E.extend([(v, w) for w in edge_indices if w in Q])
+
+    #         # Add the associated weights to C
+    #         C.extend([sigma[v, w] for w in edge_indices if w in Q])
+
+    #         # Now select the edge in E that has the maximum edge weight
+    #         # associated with it
+
+    #         max_val = np.max(np.array(C))
+    #         max_idx = np.argmax(np.array(C))
+    #         try:
+    #             MST[E[max_idx][0], E[max_idx][1]] = max_val
+    #         except:
+    #             pdb.set_trace()
+
+    #         # Now, remove this edge from the list of edges and remove its edge weight
+    #         # from the list of edge weights
+    #         w = E[max_idx][1]
+
+    #         del E[max_idx]
+    #         del C[max_idx]
+            
+    #         # Remove the identified vertex from Q, and set v equal to it
+    #         try:
+    #             Q = np.delete(Q, np.where(Q == w))
+    #         except:
+    #             pdb.set_trace()
+    #         v = w
+
+    #     # Explicitly symmetrize:
+    #     MST = MST + MST.T
+
+    #     # Make the diagonal values half of what they are
+    #     MST = MST - np.identity(p)
+
+    #     return MST
+
     def skeleton_graph(self, sigma):
 
-        p = sigma.shape[0]
-        
-        # Remove diagonal elements from sigma:
-        sigma = sigma - np.diag(np.diag(sigma))
+        # Convert to networkx graph
+        G = nx.from_numpy_matrix(sigma)
 
-        # Following the terminology of the wikipedia page for Prim
+        # Calculate MST
+        MST = minimum_spanning_tree(G)
 
-        # Deviate slightly from wikipedia here - what we ultimately want to 
-        # output is an adjacency matrix:
-        MST = np.identity(p)
-
-        # Set of vertices not yet associated with the MST
-        Q = np.arange(p)
-
-        # Candidate edge set
-        E = []
-        # Weights associated with candidate edge set
-        C = []
-
-        # Choose a vertex at random 
-        v = np.random.choice(Q)
-        Q = np.delete(Q, v)
-
-        while Q.size > 0:
-
-            # Add edge set of v to E. Edges are tuples. Ignore edges 
-            # that lead to vertices that have already been visited
-            edge_indices = np.arange(p)[sigma[v, :] != 0]
-
-            E.extend([(v, w) for w in edge_indices if w in Q])
-
-            # Add the associated weights to C
-            C.extend([sigma[v, w] for w in edge_indices if w in Q])
-
-            # Now select the edge in E that has the maximum edge weight
-            # associated with it
-
-            max_val = np.max(np.array(C))
-            max_idx = np.argmax(np.array(C))
-            try:
-                MST[E[max_idx][0], E[max_idx][1]] = max_val
-            except:
-                pdb.set_trace()
-
-            # Now, remove this edge from the list of edges and remove its edge weight
-            # from the list of edge weights
-            w = E[max_idx][1]
-
-            del E[max_idx]
-            del C[max_idx]
-            
-            # Remove the identified vertex from Q, and set v equal to it
-            try:
-                Q = np.delete(Q, np.where(Q == w))
-            except:
-                pdb.set_trace()
-            v = w
-
-        # Explicitly symmetrize:
-        MST = MST + MST.T
-
-        # Make the diagonal values half of what they are
-        MST = MST - np.identity(p)
-
-        return MST
+        return nx.convert_matrix.to_numpy_matrix(MST)
 
     # Transform the GTV objective into a quadratic programming problem
     # of the form 1/2 X^T Q X + a^T X subject to C X >= b where the first
@@ -357,7 +369,7 @@ class GraphTotalVariance(ElasticNet):
 #         return QQ, cc, A, h
 
     # Output scalar loss function and use pytorch to calculate its gradient
-    def gtv_loss(self, beta, gradient, l1, ltv, ls, Xt, yt, Gamma_t):
+    def gtv_loss(self, beta, gradient, l1, ltv, ls, Xt, yt):
 
         n = Xt.shape[0]
 
@@ -367,9 +379,9 @@ class GraphTotalVariance(ElasticNet):
         # Convert beta to pytorch tensor
         beta_t = torch.tensor(beta, requires_grad = True)
 
+
+
         loss = 1/n * torch.norm(yt - torch.mm(Xt, beta_t))**2
-        loss += ls * torch.norm(torch.mm(Gamma_t, beta_t))**2
-        loss += l1 * ltv * torch.sum(torch.log(torch.cosh(torch.mm(Gamma_t, beta_t))))
         #loss += l1 * ltv * torch.norm(torch.mm(Gamma_t, beta_t), 1)
 
         # loss = 1/n * torch.norm(y - torch.mm(X, beta))**2 + ls * torch.norm(torch.mm(Gamma, beta))**2\
@@ -410,8 +422,11 @@ class GraphTotalVariance(ElasticNet):
                     if cov[i, j] != 0:
                         E.append([i, j])
 
+            # m: size of edge set
+            m = len(E)
+
             # Gamma: Used to vectorize terms in the loss function involving the covariance matrix
-            Gamma = np.zeros((len(E), p))
+            Gamma = np.zeros((m, p))
 
             for i in range(Gamma.shape[0]):
                 e_jl = np.zeros(p)
@@ -420,15 +435,24 @@ class GraphTotalVariance(ElasticNet):
                 e_kl[E[i][1]] = 1
                 Gamma[i, :] = np.sqrt(cov[E[i][0], E[i][1]]) * (e_jl - np.sign(cov[E[i][0], E[i][1]]) * e_kl)
 
-            # Convert everything else to a torch tensor
-            yt = torch.tensor(y, requires_grad = False)
-            Xt = torch.tensor(X, requires_grad = False)
-            print(Xt.dtype)
-            Gamma_t = torch.tensor(Gamma, requires_grad = False)
+            # Transform variables to write loss term compactly
+            XX = np.concatenate([X, np.sqrt(n * lambda_S) * Gamma])
+            YY = np.concatenate([y, np.zeros((len(E), 1))])
+            GG = np.concatenate([lambda_TV * Gamma, np.identity(p)])
 
-            betas = fmin_lbfgs(self.gtv_loss, np.zeros(X.shape[1]), 
-                args = (lambda_1, lambda_TV, lambda_S, Xt, yt, Gamma_t), orthantwise_c = lambda_1,
-                max_linesearch = 40, epsilon = 1e-3, ftol = 1e-1)
+            XX = XX @ pinv(GG)        
+
+            # Convert everything else to a torch tensor
+            yt = torch.tensor(YY, requires_grad = False)
+            Xt = torch.tensor(XX, requires_grad = False)
+
+            betas = fmin_lbfgs(self.gtv_loss, np.zeros(m + p), 
+                args = (lambda_1, lambda_TV, lambda_S, Xt, yt), orthantwise_c = lambda_1,
+                max_linesearch = 40, epsilon = 1e-3, ftol = 1e-3)
+
+            # Apply inverse transformation
+            betas = pinv(GG) @ betas
+
         return betas
 
     # def cvx_minimize(self, lambda_S, lambda_TV, lambda_1, X, y, cov):

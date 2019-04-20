@@ -8,6 +8,7 @@ import json
 import time
 import traceback
 from glob import glob
+from subprocess import check_output
 
 def chunk_list(l, n):
     # For item i in a range that is a length of l,
@@ -270,6 +271,23 @@ def run_jobs(jobdir, constraint, size = None, exp_type = None, run = True):
                 # Submit the job
                 os.system('sbatch %s ' % run_file)
 
+# Sequentially run files locally:
+def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
+    # Crawl through all subdirectories and 
+    # (1) change permissions of sbatch file
+    # (2) run sbatch file
+
+    run_files = grab_arg_files(jobdir, exp_type)
+            
+    if size is not None:
+        run_files = run_files[:size]
+    cont = input("You are about to submit %d jobs, do you want to continue? [0/1]" % len(run_files))
+
+    if cont:
+        for run_file in run_files:
+            msg = check_output('mpiexec -n %d python -u mpi_submit.py %s' 
+                          % (nprocs, run_file))        
+            print(msg)
 # Edit specific lines of all sbatch files 
 # By default, edits an attribute
 # To replace a specific line with exact match to string, set edit_attribute
@@ -320,6 +338,19 @@ def grab_sbatch_files(root_dir, exp_type = None):
                 run_files.extend(glob('%s/*.sh' % p))
     return run_files
     
+# Crawl through a subdirectory and grab all param files
+def grab_arg_files(root_dir, exp_type = None):
+    run_files = []
+    for root, dirs, files in os.walk(root_dir):
+        for d in dirs:
+            p = os.path.join(root, d)
+            if exp_type is not None:
+                if exp_type in p:
+                    run_files.extend(glob('%s/*.dat' % p))
+            else:
+                run_files.extend(glob('%s/*.dat' % p))
+    return run_files
+
 # Upon running this command, check which jobs have been successfully completed, and 
 # submit another batch of jobs to be run
 def evaluate_job_structure(root_dir):
@@ -359,24 +390,24 @@ def evaluate_job_structure(root_dir):
     
         
 
-# Read through all the out files 
-# and determine whether a given job
-# has finished successfully
-def check_output(rstatus, cstatus, out_files):
+# # Read through all the out files 
+# # and determine whether a given job
+# # has finished successfully
+# def check_output(rstatus, cstatus, out_files):
     
-    for i in range(rstatus.size):
-        # Trust that if the job has been marked completed, it has been:
-        if cstatus[i]:
-            continue
-        # If the job has run, determine whether or not it has been completed
-        if rstatus[i]:
-            if 'job%d.o' % i in out_files:
-                # Check the last line for completed message
-                with open('job%d.o' % i, 'r') as f:
-                    first = f.readline()        # Read the first line.
-                    f.seek(-2, os.SEEK_END)     # Jump to the second last byte.
-                    while f.read(1) != b"\n":   # Until EOL is found...
-                        f.seek(-2, os.SEEK_CUR) # ...jump back the read byte plus one more.
-                    last = f.readline()         # Read last line.
-                if 'Job completed!' in last:
-                    cstatus[i] = 1
+#     for i in range(rstatus.size):
+#         # Trust that if the job has been marked completed, it has been:
+#         if cstatus[i]:
+#             continue
+#         # If the job has run, determine whether or not it has been completed
+#         if rstatus[i]:
+#             if 'job%d.o' % i in out_files:
+#                 # Check the last line for completed message
+#                 with open('job%d.o' % i, 'r') as f:
+#                     first = f.readline()        # Read the first line.
+#                     f.seek(-2, os.SEEK_END)     # Jump to the second last byte.
+#                     while f.read(1) != b"\n":   # Until EOL is found...
+#                         f.seek(-2, os.SEEK_CUR) # ...jump back the read byte plus one more.
+#                     last = f.readline()         # Read last line.
+#                 if 'Job completed!' in last:
+#                     cstatus[i] = 1

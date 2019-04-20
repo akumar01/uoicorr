@@ -21,18 +21,6 @@ total_start = time.time()
 # Need to add pyuoi to path
 parent_path, current_dir = os.path.split(os.path.abspath('.'))
 
-# Crawl up to the repos folder
-while current_dir not in ['repos', 'nse']:
-    parent_path, current_dir = os.path.split(parent_path)
-
-p = os.path.join(parent_path, current_dir)
-
-# Add uoicorr and pyuoi to the path
-if '%s/uoicor' % p not in sys.path:
-    sys.path.append('%s/uoicorr' % p)
-if '%s/PyUoI' % p not in sys.path:
-    sys.path.append('%s/PyUoI' % p)
-
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
 from pyuoi.mpi_utils import Bcast_from_root, Gatherv_rows
 
@@ -55,9 +43,7 @@ with open(args.arg_file, 'rb') as f:
 comm = MPI.COMM_WORLD
 rank = comm.rank
 numproc = comm.Get_size()    
-
-print('Nprocs: %d, rank %d' % (numproc, rank))
-    
+   
 # Keys that will be iterated over in the outer loop of this function
 sub_iter_params = args['sub_iter_params']
 
@@ -69,15 +55,15 @@ results_file = args['results_file']
 # exp = importlib.import_module(exp_type, 'exp_types')
 exp = locate('exp_types.%s' % exp_type)
 
-if exp_type in ['UoILasso', 'UoIElasticNet']:
+if exp_type in ['UoILasso', 'UoIElasticNet', 'GTV']:
     partype = 'uoi'
 else:
     partype = 'reps'
         
 # If any of the specified parameters are not in the list/arrays, wrap them
 for key in sub_iter_params:
-    if type(args['sub_iter_params']) != list:
-        args['sub_iter_params'] = [args['sub_iter_params']]
+    if type(args[key]) != list:
+        args[key] = [args[key]]
 
 # Complement of the sub_iter_params:
 const_keys = list(set(args.keys()) - set(sub_iter_params))
@@ -130,8 +116,6 @@ if const_beta:
     
     beta = Bcast_from_root(beta, comm, root = 0)
         
-print(partype)
-
 # Initialize arrays to store data in
 if (partype == 'uoi' and rank == 0) or partype == 'reps':
     betas = np.zeros((num_tasks, args['n_features']))
@@ -180,7 +164,7 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
             sigma = np.array(params['cov_params']['sigma'])
         else:
             sigma = gen_covariance(params['cov_type'], params['n_features'],
-                                params['block_size'], **params['cov_params'])
+                                   **params['cov_params'])
 
         # Generate data
         X, X_test, y, y_test = gen_data(n_samples = params['n_samples'], 
@@ -203,7 +187,7 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
     if (partype == 'uoi' and rank == 0) or partype == 'reps':
         #### Calculate and log results
         betas[i, :] = beta.ravel()  
-        beta_hat = model[0].coef_.ravel()
+        beta_hat = model.coef_.ravel()
         beta_hats[i, :] = beta_hat.ravel()
         fn_results[i] = np.count_nonzero(beta[beta_hat == 0, 0])
         fp_results[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
@@ -233,7 +217,7 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
                 
         ee_results[i] = ee
         median_ee_results[i] = median_ee
-    print('Process %d completed iteration %d/%d' % (rank, i, len(chunk_param_list[chunk_idx])))
+    print('Process %d completed outer loop %d/%d' % (rank, i, len(chunk_param_list[chunk_idx])))
     print(time.time() - start)
        
 # Save results. If parallelizing over reps, concatenate all arrays together first
