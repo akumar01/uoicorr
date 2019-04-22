@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.model_selection import KFold
 from sklearn.decomposition import FactorAnalysis
 from sklearn.model_selection import cross_val_score
+from pyuoi.linear_model.base import AbstractUoILinearModel
 
 # Set all elements a distance > k from the diagonal to zero
 def banded_matrix(M, k):
@@ -75,8 +76,24 @@ def factor_model(X):
         fa_scores[i] = np.mean(cross_val_score(fa, X, cv = 5))
 
     cv_nfactors = n_factors[np.argmax(fa_scores)]
+    fa.n_components(cv_nfactors)
+    fa.fit(X)
+    return fa.get_covariance()
 
-    # Return the covariance estimate of a factor model
+# Use UoI Lasso in place of Lasso in the Graphical Lasso algorithm
+class UoIGraphicalLasso(AbstractUoILinearModel):
 
-
-def UoIGraphicalLasso(X, y):
+        def __init__(self, n_boots_sel=48, n_boots_est=48, selection_frac=0.9,
+                 estimation_frac=0.9, n_lambdas=48, stability_selection=1.,
+                 eps=1e-3, warm_start=True, estimation_score='frobenius',
+                 random_state=None, max_iter=1000,
+                 comm=None):
+            super(UoIGraphicalLasso, self).__init__(
+                n_boots_sel = n_boots_sel, n_boots_est = n_boots_est,
+                selection_frac = selection_frac, estimation_frac = estimation_frac,
+                stability_selection = stability_selection, random_state = random_state,
+                comm = comm
+                )
+            self.n_lambdas = n_lambdas
+            self.eps = eps
+            self.__selection_lm = Lasso()
