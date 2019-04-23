@@ -1,22 +1,23 @@
 import numpy as np
-from cov_estimators import factor_model
+from cov_estimators import banding, inverse_banding, thresholding
 import itertools
 from mpi4py import MPI
 from pyuoi.mpi_utils import Gatherv_rows
 import pickle
 from utils import gen_data, interpolate_covariance, gen_beta2
 from sklearn.covariance import EmpiricalCovariance, GraphicalLassoCV, LedoitWolf, MinCovDet, OAS, ShrunkCovariance
+import pdb
 
-n_samples = np.array([25, 50, 100, 150, 200, 400])
-n_features = 200
-block_size = np.array([10, 20, 40])
+n_samples = np.array([12, 20, 30, 50, 100, 200])
+n_features = 100
+block_size = np.array([5, 10, 25])
 block_correlation = np.array([0.05, 0.1, 0.25, 0.5])
 sparsity = 1
-L = np.array([10, 50])
+L = np.array([5, 25])
 betawidth = 5
 
 shape = (n_samples.size, block_size.size, block_correlation.size, L.size, 3)
-methods = ['empirical', 'ShrunkCovariance', 'LedoitWolf', 'OAS', 'banding', 'inverse_banding']
+methods = ['empirical', 'ShrunkCovariance', 'LedoitWolf', 'OAS', 'banding', 'inverse_banding', 'thresholding']
 
 # Estimators
 empcov = EmpiricalCovariance(assume_centered = True)
@@ -56,50 +57,81 @@ for ii, idx in enumerate(chunk_list[rank]):
     for i, sigma in enumerate(sigmas):
         X, X_test, y, y_test = gen_data(n_samples = ns, n_features = nf,
                                        covariance = sigma['sigma'], beta = beta)
-        try:
-            empcov.fit(X)
-            errors[ii, i, 0] = empcov.error_norm(sigma['sigma'])
-            spectrum_errors[ii, i, 0] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(empcov.covariance_))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
-        except:
-            errors[ii, i, 0] = np.nan
-            spectrum_errors[ii, i, 0] = np.nan
+        print('Process %d began inner iteration %d' % (rank, i))
+#    try:
+        empcov.fit(X)
+        errors[ii, i, 0] = empcov.error_norm(sigma['sigma'])
+        spectrum_errors[ii, i, 0] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(empcov.covariance_))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
+#     except:
+#         errors[ii, i, 0] = np.nan
+#         spectrum_errors[ii, i, 0] = np.nan
+        print('Process %d did empirical covariance'% rank)
 
-        try:
-            shrunk.fit(X)
-            errors[ii, i, 1] = shrunk.error_norm(sigma['sigma'])
-            spectrum_errors[ii, i, 1] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(shrunk.covariance_))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
-        except:
-            errors[ii, i, 1] = np.nan
-            spectrum_errors[ii, i, 1] = np.nan
-        try:
-            lw.fit(X)
-            errors[ii, i, 2] = lw.error_norm(sigma['sigma'])
-            spectrum_errors[ii, i, 2] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(lw.covariance_))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
-        except:
-            errors[ii, i, 2] = np.nan
-            spectrum_errors[ii, i, 2] = np.nan
-        try:
-            oas.fit(X)
-            errors[ii, i, 3] = oas.error_norm(sigma['sigma'])
-            spectrum_errors[ii, i, 3] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(oas.covariance_))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
-        except:
-            errors[ii, i, 3] = np.nan
-            spectrum_errors[ii, i, 3] = np.nan
+#    try:
+        shrunk.fit(X)
+        errors[ii, i, 1] = shrunk.error_norm(sigma['sigma'])
+        spectrum_errors[ii, i, 1] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(shrunk.covariance_))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
+        print('Process %d did shrunk covariance' % rank)
+
+#     except:
+#         errors[ii, i, 1] = np.nan
+#         spectrum_errors[ii, i, 1] = np.nan
+#    try:
+        lw.fit(X)
+        errors[ii, i, 2] = lw.error_norm(sigma['sigma'])
+        spectrum_errors[ii, i, 2] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(lw.covariance_))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
+#     except:
+#         errors[ii, i, 2] = np.nan
+#         spectrum_errors[ii, i, 2] = np.nan
+#    try:
+        oas.fit(X)
+        errors[ii, i, 3] = oas.error_norm(sigma['sigma'])
+        spectrum_errors[ii, i, 3] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(oas.covariance_))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
+#     except:
+#         errors[ii, i, 3] = np.nan
+#         spectrum_errors[ii, i, 3] = np.nan
+#    try:
+        print('Process %d did OAS covariance' % rank)
         try:
             sigma_hat = banding(X)
             errors[ii, i, 4] = np.linalg.norm(sigma['sigma'] - sigma_hat)
             spectrum_errors[ii, i, 4] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(sigma_hat))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
-            pdb.set_trace()
+            print('Process %d did banding covariance' % rank)
         except:
             errors[ii, i, 4] = np.nan
             spectrum_errors[ii, i, 4] = np.nan
+        #     except:
+#         pdb.set_trace()
+#         errors[ii, i, 4] = np.nan
+#         spectrum_errors[ii, i, 4] = np.nan
+#    try:
         try:
             sigma_hat = inverse_banding(X)
             errors[ii, i, 5] = np.linalg.norm(sigma['sigma'] - sigma_hat)
             spectrum_errors[ii, i, 5] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(sigma_hat))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
+            print('Process %d did inv banding covariance' % rank)
         except:
             errors[ii, i, 5] = np.nan
             spectrum_errors[ii, i, 5] = np.nan
+        #     except:
+#         pdb.set_trace()
+#         errors[ii, i, 5] = np.nan
+#         spectrum_errors[ii, i, 5] = np.nan
+#    try:
+        try:
+            sigma_hat = thresholding(X)
+            errors[ii, i, 6] = np.linalg.norm(sigma['sigma'] - sigma_hat)
+            spectrum_errors[ii, i, 6] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(sigma_hat))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
+            print('Process %d did thresholding covariance' % rank)
+        except:
+            errors[ii, i, 6] = np.nan
+            spectrum_errors[ii, i, 6] = np.nan
+#     except:
+#         pdb.set_trace()
+#         errors[ii, i, 6] = np.nan
+#         spectrum_errors[ii, i, 6] = np.nan
+            
+            
     print('Process %d has completed task %d/%d' % (rank, ii + 1, num_tasks))
 
 # Gather together 

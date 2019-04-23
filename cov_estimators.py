@@ -17,7 +17,7 @@ def banded_matrix(M, k):
 
 # Simply cutoff elements a certain distance from the diagonal. 
 # Choose this distance by estimation of the risk through re-sampling
-@timeout_decorator.timeout(60 * 60, use_signals = False)
+@timeout_decorator.timeout(5 * 60, use_signals = False)
 def banding(X, n_splits = 10):
     n = X.shape[0]
     p = X.shape[1]
@@ -58,7 +58,7 @@ def modified_cholesky(X, k):
     return (np.identity(X.shape[1]) - A).T @ np.linalg.inv(D) @\
            (np.identity(X.shape[1]) - A)
 
-@timeout_decorator.timeout(60*60, use_signals = False)
+@timeout_decorator.timeout(5*60, use_signals = False)
 def inverse_banding(X, n_splits = 10):
     n = X.shape[0]
     p = X.shape[1]
@@ -103,6 +103,7 @@ def factor_model(X):
     return fa.get_covariance()
 
 # Simple thresholding, thresholding strength chosen by empirical risk minimization
+@timeout_decorator.timeout(5*60, use_signals = False)
 def thresholding(X, n_splits = 10):
     n = X.shape[0]
     p = X.shape[1]
