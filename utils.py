@@ -143,9 +143,9 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
     X = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)
     X_test = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)
 
-    # signal and noise variance
-    signal_variance = np.sum(covariance * np.dot(beta, beta.T))
-    noise_variance = kappa * signal_variance
+    # Use the same standard as the UoI Lasso paper. i.e.  - a multiplicative factor of the
+    # sum of weight magnitudes
+    noise_variance = kappa * np.sum(np.abs(beta))
 
     # draw noise
     noise = np.random.normal(loc=0, scale=np.sqrt(noise_variance), size=(n_samples, 1))

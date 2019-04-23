@@ -167,13 +167,17 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
                                    **params['cov_params'])
 
         # Generate data
-        X, X_test, y, y_test = gen_data(n_samples = params['n_samples'], 
+        if 'n_samples' in list(params.keys()):
+            n_samples = params['n_samples']
+        elif 'n/p_ratio' in list(params.keys()):
+            n_samples = int(params['n_features'] * params['n/p_ratio'])
+        X, X_test, y, y_test = gen_data(n_samples = n_samples, 
         n_features= params['n_features'], kappa = params['kappa'],
         covariance = sigma, beta = beta)
     else:
-            X = None
-            y = None
-            sigma = None 
+        X = None
+        y = None
+        sigma = None 
     if partype == 'uoi':
         X = Bcast_from_root(X, comm, root = 0)
         y = Bcast_from_root(y, comm, root = 0)
