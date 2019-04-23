@@ -17,8 +17,8 @@ def banded_matrix(M, k):
 
 # Simply cutoff elements a certain distance from the diagonal. 
 # Choose this distance by estimation of the risk through re-sampling
-@timeout_decorator.timeout(60 * 60)
-def banding(X, n_splits = 10, use_signals = False):
+@timeout_decorator.timeout(60 * 60, use_signals = False)
+def banding(X, n_splits = 10):
     n = X.shape[0]
     p = X.shape[1]
 
@@ -58,8 +58,8 @@ def modified_cholesky(X, k):
     return (np.identity(X.shape[1]) - A).T @ np.linalg.inv(D) @\
            (np.identity(X.shape[1]) - A)
 
-@timeout_decorator.timeout(60*60)
-def inverse_banding(X, n_splits = 10, use_signals = False):
+@timeout_decorator.timeout(60*60, use_signals = False)
+def inverse_banding(X, n_splits = 10):
     n = X.shape[0]
     p = X.shape[1]
 
@@ -101,6 +101,36 @@ def factor_model(X):
     fa.n_components = cv_nfactors
     fa.fit(X)
     return fa.get_covariance()
+
+# Simple thresholding, thresholding strength chosen by empirical risk minimization
+def thresholding(X, n_splits = 10):
+    n = X.shape[0]
+    p = X.shape[1]
+    n1 = (1 - 1/np.log(n))
+    n2 = 1/np.log(n)
+    # Mean center X: 
+    X = X - np.mean(X, axis = 0)
+
+    empirical_full = EmpiricalCovariance().fit(X).covariance_
+    # Possible values of m:
+    M = np.linspace(0, np.amax(empirical_full), num=50)
+    risk = np.zeros(M.size)
+
+    for idx, m in enumerate(M):
+        for i in range(n_splits):
+            X1, X2 = train_test_split(X, train_size = n1, test_size = n2)
+            empirical_cov = EmpiricalCovariance().fit(X1).covariance_
+            thresh_cov = empirical_cov.copy()
+            thresh_cov[thresh_cov < m] = 0
+            empirical_cov = EmpiricalCovariance().fit(X2).covariance_
+            risk[idx] += 1/n_splits * np.linalg.norm(thresh_cov - empirical_cov, 'fro')
+
+    # Choose k that minimizes the risk:
+    m_f = M[np.argmin(risk)]
+    thresh_cov = empirical_full.copy()
+    thresh_cov[thresh_cov < m_f] = 0
+    return thresh_cov
+
 
 # Use UoI Lasso in place of Lasso in the Graphical Lasso algorithm
 # class UoIGraphicalLasso(AbstractUoILinearModel):
