@@ -5,8 +5,9 @@ from sklearn.model_selection import KFold
 from sklearn.decomposition import FactorAnalysis
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split
-from pyuoi.linear_model.base import AbstractUoILinearModel
+# from pyuoi.linear_model.base import AbstractUoILinearModel
 from sklearn.covariance import GraphicalLasso, EmpiricalCovariance
+import timeout_decorator
 
 # Set all elements a distance > k from the diagonal to zero
 def banded_matrix(M, k):
@@ -16,7 +17,8 @@ def banded_matrix(M, k):
 
 # Simply cutoff elements a certain distance from the diagonal. 
 # Choose this distance by estimation of the risk through re-sampling
-def banding(X, n_splits = 10):
+@timeout_decorator.timeout(60 * 60)
+def banding(X, n_splits = 10, use_signals = False):
     n = X.shape[0]
     p = X.shape[1]
 
@@ -56,7 +58,8 @@ def modified_cholesky(X, k):
     return (np.identity(X.shape[1]) - A).T @ np.linalg.inv(D) @\
            (np.identity(X.shape[1]) - A)
 
-def inverse_banding(X, n_splits = 10):
+@timeout_decorator.timeout(60*60)
+def inverse_banding(X, n_splits = 10, use_signals = False):
     n = X.shape[0]
     p = X.shape[1]
 
@@ -82,6 +85,7 @@ def inverse_banding(X, n_splits = 10):
 
 # First identify factor model by fitting latent factor model to data, 
 # using cross validation to choose the factor size
+@timeout_decorator.timeout(60 * 60, use_signals = False)
 def factor_model(X):
     n = X.shape[0]
     p = X.shape[1]
@@ -99,52 +103,52 @@ def factor_model(X):
     return fa.get_covariance()
 
 # Use UoI Lasso in place of Lasso in the Graphical Lasso algorithm
-class UoIGraphicalLasso(AbstractUoILinearModel):
+# class UoIGraphicalLasso(AbstractUoILinearModel):
 
-    # Rename covariance to coef_
-    class ModifiedGraphicalLasso(GraphicalLasso):
-        def __init__(self):
-            super(ModifiedGraphicalLasso, self).__init__()
+#     # Rename covariance to coef_
+#     class ModifiedGraphicalLasso(GraphicalLasso):
+#         def __init__(self):
+#             super(ModifiedGraphicalLasso, self).__init__()
 
-        def fit(X, y = None):
-            super(ModifiedGraphicalLasso, self).fit(X)
-            self.coef_ = self.covariance_.ravel()
+#         def fit(X, y = None):
+#             super(ModifiedGraphicalLasso, self).fit(X)
+#             self.coef_ = self.covariance_.ravel()
 
-    class UnregGraphicalModel():
-        def __init__(self):
-            pass
+#     class UnregGraphicalModel():
+#         def __init__(self):
+#             pass
 
-        def fit(X, y = None):
-            pass
+#         def fit(X, y = None):
+#             pass
 
-    def __init__(self, n_boots_sel=48, n_boots_est=48, selection_frac=0.9,
-             estimation_frac=0.9, n_lambdas=48, stability_selection=1.,
-             eps=1e-3, warm_start=True, random_state=None, max_iter=100,
-             comm=None):
-        super(UoIGraphicalLasso, self).__init__(
-            n_boots_sel = n_boots_sel, n_boots_est = n_boots_est,
-            selection_frac = selection_frac, estimation_frac = estimation_frac,
-            stability_selection = stability_selection, random_state = random_state,
-            comm = comm
-            )
-        self.n_lambdas = n_lambdas
-        self.eps = eps
+#     def __init__(self, n_boots_sel=48, n_boots_est=48, selection_frac=0.9,
+#              estimation_frac=0.9, n_lambdas=48, stability_selection=1.,
+#              eps=1e-3, warm_start=True, random_state=None, max_iter=100,
+#              comm=None):
+#         super(UoIGraphicalLasso, self).__init__(
+#             n_boots_sel = n_boots_sel, n_boots_est = n_boots_est,
+#             selection_frac = selection_frac, estimation_frac = estimation_frac,
+#             stability_selection = stability_selection, random_state = random_state,
+#             comm = comm
+#             )
+#         self.n_lambdas = n_lambdas
+#         self.eps = eps
 
-        self.__selection_lm = self.ModifiedGraphicalLasso(max_iter = max_iter)
-        self.__estimation_lm = self.UnregGraphicalModel()
+#         self.__selection_lm = self.ModifiedGraphicalLasso(max_iter = max_iter)
+#         self.__estimation_lm = self.UnregGraphicalModel()
 
-    # For selection
-    @property
-    def selection_lm(self):
-        return self.__selection_lm
+#     # For selection
+#     @property
+#     def selection_lm(self):
+#         return self.__selection_lm
 
-    @property
-    def estimation_lm(self):
-        return self._estimation_lm
+#     @property
+#     def estimation_lm(self):
+#         return self._estimation_lm
     
-    def score_predictions():
-        pass
+#     def score_predictions():
+#         pass
 
-    # Follow the same approach as sklearn's CVGraphicalLasso to select reg_parmas
-    def get_reg_params(self, X, y = None):
-        pass
+#     # Follow the same approach as sklearn's CVGraphicalLasso to select reg_parmas
+#     def get_reg_params(self, X, y = None):
+#         pass
