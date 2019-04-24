@@ -326,15 +326,22 @@ def gen_avg_covariance(cov_type, avg_cov = 0.1, n_features = 60, **kwargs):
     else:
         raise Exception('invalid or missing cov_type')
 
-# Return covariance matrix based on covariance type:
-def gen_covariance(cov_type, n_features = 60, **kwargs):
-    if cov_type == 'block':
-        return block_covariance(n_features, **kwargs)
-    elif cov_type == 'falloff':
-        return exp_falloff(n_features, **kwargs)
+# # Return covariance matrix based on covariance type:
+# def gen_covariance(cov_type, n_features = 60, **kwargs):
+#     if cov_type == 'block':
+#         return block_covariance(n_features, **kwargs)
+#     elif cov_type == 'falloff':
+#         return exp_falloff(n_features, **kwargs)
+
+# Return covariance matrix given the 5 necessary parameters
+def gen_covariance(n_features, correlation, block_size, L, t):
+    s0 = block_covariance(n_features, correlation, block_size)
+    s1 = exp_falloff(n_features, L)
+    s = (1 - t) * s0 + t * s1
+    return s
 
 # Create a block diagonal covariance matrix 
-def block_covariance(n_features = 60, block_size = 6, correlation = 0):
+def block_covariance(n_features = 60, correlation = 0, block_size = 6):
 
     n_blocks = int(n_features/block_size)
 
@@ -348,7 +355,7 @@ def block_covariance(n_features = 60, block_size = 6, correlation = 0):
 
 # Create a covariance matrix where the correlations are given by an exponential
 # fall off
-def exp_falloff(n_features = 60, block_size = None, L = 1):
+def exp_falloff(n_features = 60, L = 1):
     indices = np.arange(n_features)
     distances = np.abs(np.subtract.outer(indices, indices))
     sigma = np.exp(-distances/L)

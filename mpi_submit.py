@@ -16,24 +16,23 @@ import time
 from pydoc import locate
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
-total_start = time.time()
-
-# Need to add pyuoi to path
-parent_path, current_dir = os.path.split(os.path.abspath('.'))
 
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
 from pyuoi.mpi_utils import Bcast_from_root, Gatherv_rows
-
-from utils import gen_beta2, gen_data, gen_covariance, interpolate_covariance
 from utils import FNR, FPR, selection_accuracy, estimation_error
+
+total_start = time.time()
 
 ###### Command line arguments #######
 parser = argparse.ArgumentParser()
 
-# Param file from which to create job scripts
-parser.add_argument('arg_file', default=None)
+parser.add_argument('arg_file')
+parser.add_argument('results_file', default = 'results.h5')
+parser.add_argument('exp_type', default = 'UoILasso')
 args = parser.parse_args()
 #######################################
+
+exp_type = args.exp_type
 
 # Load param file
 with open(args.arg_file, 'rb') as f: 
@@ -44,82 +43,28 @@ comm = MPI.COMM_WORLD
 rank = comm.rank
 numproc = comm.Get_size()    
    
-# Keys that will be iterated over in the outer loop of this function
-sub_iter_params = args['sub_iter_params']
-
-cov_type = args['cov_type']
-exp_type = args['exp_type']
-results_file = args['results_file']
-
-# Determines the type of experiment to do 
-# exp = importlib.import_module(exp_type, 'exp_types')
-exp = locate('exp_types.%s' % exp_type)
-
 if exp_type in ['UoILasso', 'UoIElasticNet', 'GTV']:
     partype = 'uoi'
 else:
     partype = 'reps'
         
-# If any of the specified parameters are not in the list/arrays, wrap them
-for key in sub_iter_params:
-    if type(args[key]) != list:
-        args[key] = [args[key]]
-
-# Complement of the sub_iter_params:
-const_keys = list(set(args.keys()) - set(sub_iter_params))
-
-const_args = {k: args[k] for k in const_keys}
-
-# Combine reps and parameters to be cycled through into a single iterable. Store
-# the indices pointing to the corresponding rep/parameter list for easy unpacking
-# later on
-arg_comb = args['reps']\
-                    * list(itertools.product(*[args[key] for key in args['sub_iter_params']]))
-iter_param_list = []
-for i in range(len(arg_comb)):
-    iter_param_list.append({args['sub_iter_params'][j]: arg_comb[i][j] for j in range(len(args['sub_iter_params']))})
-
-iter_idx_list = args['reps']\
-                     * list(itertools.product(*[np.arange(len(args[key])) 
-                                        for key in args['sub_iter_params']]))
-const_args['comm'] = comm
+for arg in args:
+    arg['comm'] = comm
 
 if partype == 'reps':
     # Chunk up iter_param_list to distribute across iterations
-    chunk_param_list = np.array_split(iter_param_list, numproc)
+    chunk_param_list = np.array_split(args, numproc)
     chunk_idx = rank
     num_tasks = len(chunk_param_list[chunk_idx])
 else:
-    chunk_param_list = [iter_param_list]
+    chunk_param_list = [args]
     chunk_idx = 0
-    num_tasks = len(iter_param_list)
+    num_tasks = len(args)
 
-if 'const_beta' in list(args.keys()):
-    const_beta = args['const_beta']
-    # Cannot use constant beta if one is iterating over one of 
-    # the beta generating parameters at the level of this script
-    if const_beta:
-        if np.any([x in args['sub_iter_params'] for x in ['n_features', 'block_size',
-                                                          'sparsity', 'betadist']]):
-            const_beta = False
-            print('Warning: Parameters provided are not compatible with const_beta')
-else:
-    const_beta = False    
-
-# Keep beta fixed across repetitions
-if const_beta:
-    if rank == 0:
-        beta = gen_beta2(args['n_features'], args['block_size'], 
-                        args['sparsity'], betawidth = args['betawidth'])
-    else:
-        beta = None
-    
-    beta = Bcast_from_root(beta, comm, root = 0)
-        
-# Initialize arrays to store data in
+# Initialize arrays to store data in. Assumes that n_features
+# is held constant across all iterations
 if (partype == 'uoi' and rank == 0) or partype == 'reps':
-    betas = np.zeros((num_tasks, args['n_features']))
-    beta_hats = np.zeros((num_tasks, args['n_features']))
+    beta_hats = np.zeros((num_tasks, args[0]['n_features']))
 
     # result arrays: scores
     fn_results = np.zeros(num_tasks)
@@ -137,60 +82,14 @@ if (partype == 'uoi' and rank == 0) or partype == 'reps':
     ee_results = np.zeros(num_tasks)
     median_ee_results = np.zeros(num_tasks)
     
-for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
+for i, params in enumerate(chunk_param_list[chunk_idx]):
     start = time.time()
-    # Merge iter_param and constant_paramss
-    params = {**iter_param, **const_args}
-   
-    # Generate beta
-    if not const_beta:
-        if (partype == 'uoi' and rank == 0) or partype == 'reps':
+     
+    X = params['data'][0]
+    X_test = params['data'][1]
+    y = params['data'][2]
+    y_test = params['data'][3]
 
-            beta = gen_beta2(params['n_features'], params['block_size'],
-                   params['sparsity'], betawidth = params['betawidth'])
-        else:
-            beta = None
-
-        if partype == 'uoi':
-            beta = Bcast_from_root(beta, comm, root = 0)
-            
-    # Generate covariance matrix and data
-    if (partype == 'uoi' and rank == 0) or partype == 'reps':
-        # Return covariance matrix
-        # If the type of covariance is interpolate, then the matricies have been
-        # pre-generated
-
-        if cov_type == 'interpolate':
-            sigma = interpolate_covariance(n_features = params['n_features'],
-            block_args = {'correlation': params['cov_params']['correlation']
-                          'block_size' : params['cov_params']['block_size']},
-            falloff_args = {'L': params['cov_params']['L']},
-            interp_coeffs = params['interp_t'])
-        elif cov_type == 'fixed_avg':
-            sigma = np.array(params['cov_params']['sigma'])
-        else:
-            sigma = gen_covariance(params['cov_type'], params['n_features'],
-                                   **params['cov_params'])
-
-        # Generate data
-        if 'n_samples' in list(params.keys()):
-            n_samples = params['n_samples']
-        elif 'n/p_ratio' in list(params.keys()):
-            n_samples = int(params['n_features'] * params['n/p_ratio'])
-        X, X_test, y, y_test = gen_data(n_samples = n_samples, 
-        n_features= params['n_features'], kappa = params['kappa'],
-        covariance = sigma, beta = beta)
-    else:
-        X = None
-        y = None
-        sigma = None 
-    if partype == 'uoi':
-        X = Bcast_from_root(X, comm, root = 0)
-        y = Bcast_from_root(y, comm, root = 0)
-        sigma = Bcast_from_root(sigma, comm, root = 0)
-
-    params['cov'] = sigma
-   
     # Call to UoI
     model = exp.run(X, y, params)
 

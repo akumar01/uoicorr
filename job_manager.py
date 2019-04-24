@@ -9,6 +9,7 @@ import time
 import traceback
 from glob import glob
 from subprocess import check_output
+from utils import gen_covariance, gen_beta2, gen_data
 
 def chunk_list(l, n):
     # For item i in a range that is a length of l,
@@ -48,33 +49,66 @@ def fix_datatypes(obj):
         obj = obj.item()
     return obj
 
-def generate_arg_files(job_array, results_files, jobdir):
+def generate_arg_files(argfile_array, jobdir):
 
-    for i, arg in enumerate(job_array):
+    paths = []
+    ntasks = []
+
+    for i, arg in enumerate(argfile_array):
         start = time.time()
-        arg['results_file'] = results_files[i]
 
-        jobname = '%s_%s_job%d' % (arg['exp_type'], arg['chunk_id'], i)
+        arg_file = '%s/master/params%d.dat' % (jobdir, i)
+        paths.append(arg_file)
 
-        arg_file = '%s/%s_params.dat' % (jobdir, jobname)
+        # Generate the full set of data/metadata required to run the job
 
-#         for key, value in arg.items():
-#             arg[key] = fix_datatypes(value)
-             
+        sub_iter_params = arg['sub_iter_params']
+        for key in sub_iter_params:
+            if type(args[key]) != list:
+                args[key] = [args[key]]
+
+        # Complement of the sub_iter_params:
+        const_keys = list(set(args.keys()) - set(sub_iter_params))
+
+        const_args = {k: args[k] for k in const_keys}
+
+        # Combine reps and parameters to be cycled through into a single iterable. Store
+        # the indices pointing to the corresponding rep/parameter list for easy unpacking
+        # later on
+        arg_comb = args['reps']\
+                            * list(itertools.product(*[args[key] for key in args['sub_iter_params']]))
+        iter_param_list = []
+        for i in range(len(arg_comb)):
+            iter_param_list.append({args['sub_iter_params'][j]: arg_comb[i][j] for j in range(len(args['sub_iter_params']))})
+
+        ntasks.append(len(iter_idx_list))
+
+        for i, param_comb in enumerate(iter_param_list):
+
+            # Generate covariance, data, betas, and store them away
+            sigma = gen_covariance(param_comb['n_features'],
+                                   param_comb['cov_params']['correlation'], 
+                                   param_comb['cov_params']['block_size'],
+                                   param_comb['cov_params']['L'],
+                                   param_comb['cov_params']['t'])
+            betas = gen_beta2(param_comb['n_features'], param_comb['sparsity'], 
+                             param_comb['betawidth'])
+            X, X_test, y, y_test = gen_data(param_comb['n_samples'], param_comb['n_features'],
+                                            param_comb['kappa'], sigma, betas)
+            param_comb['sigma'] = sigma
+            param_comb['betas'] = betas
+            param_comb['data'] = [X, X_test, y, y_test]
+
         with open(arg_file, 'wb') as f:
             try:
-                f.write(pickle.dumps(arg, pickle.HIGHEST_PROTOCOL))
+                f.write(pickle.dumps(iter_param_list, pickle.HIGHEST_PROTOCOL))
             except:
                 traceback.print_exc()
                 pdb.set_trace()
 
-        arg['arg_file'] = arg_file
-        arg['jobdir'] = jobdir
-
-        job_array[i] = arg
         print('arg_file iteration time: %f' % (time.time() - start))
     
-    return job_array
+    return paths, ntasks
 
 def generate_log_file(job_array, jobdir):
 
@@ -90,25 +124,17 @@ def generate_log_file(job_array, jobdir):
         for i, value in enumerate(values):
             f.write('%s: %s\n' % (value, np.array2string(unique_args[i])))
 
-def generate_sbatch_scripts(job_array, script_dir):
+def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
 
     # Generate sbatch scripts for the given directory
 
-    for i, job in enumerate(job_array):
+    for i, sbatch in enumerate(sbatch_array):
         
-        jobdir = job['jobdir']
-        sbname = '%s/sbatch%d.sh' % (jobdir, i)
-        jobname = '%s_%s_job%d' % (job['exp_type'], job['chunk_id'], i)
+        sbname = '%s/sbatch%d.sh' % (sbatch_dir, i)
+        jobname = '%s_%s_job%d' % (sbatch['exp_type'], i)
 
         script = 'mpi_submit.py'
-
-        # If UoI, parallelize across bootstraps
-        # Otherwise, take the max of 64 and the number of reps required
-        # by this particular job
-        if job['exp_type'] in ['UoIElasticNet', 'UoILasso']:
-            nprocs = 48
-        else:
-            nprocs = 64
+        results_file = '%s/%s.h5' % (sbatch_dir, jobname)
 
         with open(sbname, 'w') as sb:
             # Arguments common across jobs
@@ -116,11 +142,11 @@ def generate_sbatch_scripts(job_array, script_dir):
             sb.write('#SBATCH -q regular\n')
             sb.write('#SBATCH -N 1\n')
 
-            sb.write('#SBATCH -t %s\n' % job['job_time'])
+            sb.write('#SBATCH -t %s\n' % sbatch['job_time'])
 
             sb.write('#SBATCH --job-name=%s\n' % jobname)
-            sb.write('#SBATCH --out=%s/%s.o\n' % (jobdir, jobname))
-            sb.write('#SBATCH --error=%s/%s.e\n' % (jobdir, jobname))
+            sb.write('#SBATCH --out=%s/%s.o\n' % (sbatch_dir, jobname))
+            sb.write('#SBATCH --error=%s/%s.e\n' % (sbatch_dir, jobname))
             sb.write('#SBATCH --mail-user=ankit_kumar@berkeley.edu\n')
             sb.write('#SBATCH --mail-type=FAIL\n')
 
@@ -132,16 +158,18 @@ def generate_sbatch_scripts(job_array, script_dir):
             # Critical to prevent threads competing for resources
             sb.write('export OMP_NUM_THREADS=1\n')
             sb.write('export MKL_NUM_THREADS=1\n')
+            sb.write('export KMP_AFFINITY=disabled\n')
 
-            sb.write('srun -n %d python3 -u %s/%s %s' 
-                    % (nprocs, script_dir, script, job['arg_file']))
+            sb.write('srun -n %d python3 -u %s/%s %s %s %s' 
+                    % (sbatch['ntasks'], script_dir, script, sbatch['arg_file'],
+                       sbatch['results_file'], sbatch['exp_type']))
 
-def create_job_structure(arg_file, data_dir = 'uoicorr/dense', skip_arg_files=True):
+def create_job_structure(submit_file, jobdir):
 
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
+    if not os.path.exists(jobdir):
+        os.makedirs(jobdir)
 
-    path, name = arg_file.split('/')
+    path, name = submit_file.split('/')
     sys.path.append(path)
     args = importlib.import_module(name)
 
@@ -152,71 +180,53 @@ def create_job_structure(arg_file, data_dir = 'uoicorr/dense', skip_arg_files=Tr
     script_dir = args.script_dir
     total_jobs = np.prod(len(val) for val in iter_params.values())
 
-    # Master list of job parameters
-    job_array = []
+    # Common master list of arg file parameters
+    argfile_array = []
 
     iter_keys = list(iter_params.keys())
 
+    # Iterate over all combinations of parameters in iter_params and combine them
+    # with comm_params to produce a unique argument dictionary for each individual job
+    for j, arg_comb in enumerate(itertools.product(*list(iter_params.values()))):
+        arg = {}
+        for j in range(len(arg_comb)):
+            arg[iter_keys[j]] = arg_comb[j]         
+        for key, value in comm_params.items():
+            arg[key] = value
+
+        argfile_array[i].append(arg)
+
+    # Master directory with all arg files
+    if not os.path.exists('%s/master' % jobdir):
+        os.mkdir('%s/master' % jobdir)
+
+    # Generate the arg_files:
+    paths, ntasks = generate_arg_files(argfile_array, jobdir)
+
+    # Create an sbatch_array used to generate sbatch files that specifies exp_type, job_time, 
+    # num_tasks, and the path to the corresponding arg_file
+
+    sbatch_array = []
     for i, exp_type in enumerate(exp_types):
-        job_array.append([])
-        # Iterate over all combinations of parameters in iter_params and combine them
-        # with comm_params to produce a unique argument dictionary for each individual job
-        for j, arg_comb in enumerate(itertools.product(*list(iter_params.values()))):
-            arg = {}
-            for j in range(len(arg_comb)):
-                arg[iter_keys[j]] = arg_comb[j]         
-            for key, value in comm_params.items():
-                arg[key] = value
-            arg['exp_type'] = exp_type
+        sbatch_array.append([])
+        for arg in argfile_array:
+            sbatch_dict = {
+            'arg_file' : paths[j],
+            'ntasks' : ntasks[j],
+            'exp_type' : exp_type,
+            'job_time' : algorithm_times[i]
+            }
+            sbatch_array[i].append(sbatch_dict)
 
-            job_array[i].append(arg)
+    # Generate the directory structure and sbatch files
 
-    # Separate into sets of 1000 for each exp_type
-    pdb.set_trace()
-    chunk_size = 1000
-    n_chunks = int(len(job_array[0])/chunk_size)
-
-    job_array_chunks = []
-    for i, exp_type in enumerate(exp_types):
-        job_array_chunks.append(list(chunk_list(job_array[i], chunk_size)))
-
-    # Generate the directory structure
     for i, exp_type in enumerate(exp_types):
         
-        if not os.path.exists('%s/%s' % (data_dir, exp_type)):
-            os.mkdir('%s/%s' % (data_dir, exp_type))
+        if not os.path.exists('%s/%s' % (jobdir, exp_type)):
+            os.mkdir('%s/%s' % (jobdir, exp_type))
 
-        # For each exp_type directory, generate a subdiretory for 
-        # each chunk of jobs
-        for j in range(len(job_array_chunks[i])):
-
-            # Set the job time according to the worst-case runtime of the particular algorithm
-            for job in job_array_chunks[i][j]:
-                job['job_time'] = algorithm_times[i]
-                job['chunk_id'] = j
-
-            jobdir = '%s/%s/%s' % (data_dir, exp_type, j)
-            if not os.path.exists(jobdir):
-                os.mkdir(jobdir)
-            # Generate a human-readable log file, sbatch 
-            # script, and job param files for this directory
-
-            results_files = ['%s/job%d.h5' % (jobdir, i) for i in range(len(job_array_chunks[i][j]))]
-
-#            generate_log_file(job_array_chunks[i][j], jobdir)
-            job_array_chunks[i][j] = generate_arg_files(job_array_chunks[i][j], results_files, jobdir)
-            generate_sbatch_scripts(job_array_chunks[i][j], script_dir)
-        
-
-#     # Initialize arrays that keep track of whether particular jobs have run and whether they have
-#     # succesfully completed            
-#     run_status = np.zeros((len(job_array_chunks), len(job_array_chunks[0]), len(job_array_chunks[0][0])))
-#     completion_status = np.zeros(run_status.shape)
-
-
-#     # Store away:
-#     with open('%s/log.dat' % data_dir, 'wb') as f:
-#         pickle.dump(f, [job_array_chunks, run_status, completion_status])
+        generate_sbatch_scripts(sbatch_array[i], '%s/%s' % (jobdir, exp_type),
+                               script_dir)        
 
 # Jobdir: Directory to crawl through
 # size: only submit this many jobs (if exp_type specified, this
