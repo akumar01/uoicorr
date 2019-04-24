@@ -172,7 +172,7 @@ def create_job_structure(arg_file, data_dir = 'uoicorr/dense', skip_arg_files=Tr
             job_array[i].append(arg)
 
     # Separate into sets of 1000 for each exp_type
-
+    pdb.set_trace()
     chunk_size = 1000
     n_chunks = int(len(job_array[0])/chunk_size)
 
@@ -287,7 +287,7 @@ def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
         for run_file in run_files:
             msg = check_output('mpiexec -n %d python -u mpi_submit.py %s' 
                           % (nprocs, run_file))        
-            print(msg)5,m 
+            print(msg) 
 # Edit specific lines of all sbatch files 
 # By default, edits an attribute
 # To replace a specific line with exact match to string, set edit_attribute

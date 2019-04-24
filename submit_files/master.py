@@ -1,7 +1,8 @@
 import numpy as np
 import itertools
 import pdb
-from misc import get_h
+from misc import get_cov_list
+
 script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
@@ -13,17 +14,17 @@ algorithm_times = ['10:00:00', '10:00:00', '10:00:00', '10:00:00']
 n_features = 500
 
 # Block sizes
-block_sizes = [10, 20, 50, 100]
+block_sizes = [10, 50, 100]
 
 # Block correlation
 correlation = [0, 0.08891397, 0.15811388, 0.28117066, 0.5]
 
 # Exponential length scales
-L = [10, 50, 100, 200]
+L = [10, 50, 200]
 
-cov_list = get_cov_list(n_features, 160, correlation, block_sizes, L)
+cov_list = get_cov_list(n_features, 90, correlation, block_sizes, L)
 
-cov_params = [{'block_size' : t[0], 'correlation' : t[1], 'L' : t[2]} for t in cov_list]
+cov_params = [{'block_size' : t[0], 'correlation' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 
 iter_params = {
 
@@ -40,7 +41,7 @@ iter_params = {
 
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
-'cov_type' : 'interpolation'
+'cov_type' : 'interpolation',
 'reg_params': [],
 'n_models': 1,
 'n_features' : n_features,
