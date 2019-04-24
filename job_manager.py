@@ -287,7 +287,7 @@ def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
         for run_file in run_files:
             msg = check_output('mpiexec -n %d python -u mpi_submit.py %s' 
                           % (nprocs, run_file))        
-            print(msg)
+            print(msg)5,m 
 # Edit specific lines of all sbatch files 
 # By default, edits an attribute
 # To replace a specific line with exact match to string, set edit_attribute
