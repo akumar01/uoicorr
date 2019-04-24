@@ -354,15 +354,16 @@ def exp_falloff(n_features = 60, block_size = None, L = 1):
     sigma = np.exp(-distances/L)
     return sigma
 
-def interpolate_covariance(cov_type1, cov_type2, interp_coeffs = np.linspace(0, 1, 11),
-    n_features = 60, cov_type1_args = {}, cov_type2_args = {}):
+def interpolate_covariance(interp_coeffs = np.linspace(0, 1, 11),
+    n_features = 60, block_args = {}, falloff_args = {}):
     # Start from covariance matrix 1
-    cov_type1 = globals()[cov_type1]
-    cov_type2 = globals()[cov_type2]
-    cov_0 = cov_type1(n_features, **cov_type1_args)
-    cov_n = cov_type2(n_features, **cov_type2_args)
+    cov_0 = block_covariance(n_features, **cov_type1_args)
+    cov_n = exp_falloff(n_features, **cov_type2_args)
     cov = []
     
+    if not hasattr(interp_coeffs, '__len__'):
+        interp_coeffs = [interp_coeffs]
+
     for t in interp_coeffs:
         sigma = (1 - t) * np.array(cov_0) + t * np.array(cov_n)
     #    sigma = sigma.tolist()

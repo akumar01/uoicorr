@@ -24,7 +24,7 @@ parent_path, current_dir = os.path.split(os.path.abspath('.'))
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
 from pyuoi.mpi_utils import Bcast_from_root, Gatherv_rows
 
-from utils import gen_beta2, gen_data, gen_covariance
+from utils import gen_beta2, gen_data, gen_covariance, interpolate_covariance
 from utils import FNR, FPR, selection_accuracy, estimation_error
 
 ###### Command line arguments #######
@@ -160,7 +160,13 @@ for i, iter_param in enumerate(chunk_param_list[chunk_idx]):
         # If the type of covariance is interpolate, then the matricies have been
         # pre-generated
 
-        if cov_type == 'interpolate' or cov_type == 'fixed_avg':
+        if cov_type == 'interpolate':
+            sigma = interpolate_covariance(n_features = params['n_features'],
+            block_args = {'correlation': params['cov_params']['correlation']
+                          'block_size' : params['cov_params']['block_size']},
+            falloff_args = {'L': params['cov_params']['L']},
+            interp_coeffs = params['interp_t'])
+        elif cov_type == 'fixed_avg':
             sigma = np.array(params['cov_params']['sigma'])
         else:
             sigma = gen_covariance(params['cov_type'], params['n_features'],
