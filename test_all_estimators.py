@@ -8,9 +8,11 @@ from utils import gen_data, interpolate_covariance, gen_beta2
 from sklearn.covariance import EmpiricalCovariance, GraphicalLassoCV, LedoitWolf, MinCovDet, OAS, ShrunkCovariance
 import pdb
 
-n_samples = np.array([12, 20, 30, 50, 100, 200])
+#n_samples = np.array([12, 20, 30])
+n_samples= np.array([50, 100, 200])
 n_features = 100
-block_size = np.array([5, 10, 25])
+block_size = np.array([5, 10])
+#block_size = np.array([25])
 block_correlation = np.array([0.05, 0.1, 0.25, 0.5])
 sparsity = 1
 L = np.array([5, 25])
@@ -92,27 +94,24 @@ for ii, idx in enumerate(chunk_list[rank]):
 #         spectrum_errors[ii, i, 3] = np.nan
 #    try:
         print('Process %d did OAS covariance' % rank)
-        try:
-            sigma_hat = banding(X)
-            errors[ii, i, 4] = np.linalg.norm(sigma['sigma'] - sigma_hat)
-            spectrum_errors[ii, i, 4] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(sigma_hat))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
-            print('Process %d did banding covariance' % rank)
-        except:
-            errors[ii, i, 4] = np.nan
-            spectrum_errors[ii, i, 4] = np.nan
+
+        sigma_hat = banding(X)
+        errors[ii, i, 4] = np.linalg.norm(sigma['sigma'] - sigma_hat)
+        spectrum_errors[ii, i, 4] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(sigma_hat))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
+        print('Process %d did banding covariance' % rank)
         #     except:
 #         pdb.set_trace()
 #         errors[ii, i, 4] = np.nan
 #         spectrum_errors[ii, i, 4] = np.nan
 #    try:
-        try:
-            sigma_hat = inverse_banding(X)
-            errors[ii, i, 5] = np.linalg.norm(sigma['sigma'] - sigma_hat)
-            spectrum_errors[ii, i, 5] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(sigma_hat))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
-            print('Process %d did inv banding covariance' % rank)
-        except:
-            errors[ii, i, 5] = np.nan
-            spectrum_errors[ii, i, 5] = np.nan
+        # try:
+        #     sigma_hat = inverse_banding(X)
+        #     errors[ii, i, 5] = np.linalg.norm(sigma['sigma'] - sigma_hat)
+        #     spectrum_errors[ii, i, 5] = np.linalg.norm(np.sort(np.real(np.linalg.eigvals(sigma_hat))) - np.sort(np.real(np.linalg.eigvals(sigma['sigma']))))
+        #     print('Process %d did inv banding covariance' % rank)
+        # except:
+        #     errors[ii, i, 5] = np.nan
+        #     spectrum_errors[ii, i, 5] = np.nan
         #     except:
 #         pdb.set_trace()
 #         errors[ii, i, 5] = np.nan
@@ -152,7 +151,7 @@ if rank == 0:
                 errors_full[chunk_list[i][j][0], chunk_list[i][j][1], chunk_list[i][j][2], chunk_list[i][j][3], :] = errors[i, j, :]
                 spectrum_errors_full[chunk_list[i][j][0], chunk_list[i][j][1], chunk_list[i][j][2], chunk_list[i][j][3], :] = spectrum_errors[i, j, :]
 
-        with open('all_estimators.dat', 'wb') as f:
+        with open('all_estimators4.dat', 'wb') as f:
             pickle.dump(errors_full, f)
             pickle.dump(spectrum_errors_full, f)
             pickle.dump(errors, f)
@@ -160,7 +159,7 @@ if rank == 0:
             pickle.dump(chunk_list, f)
     except:
        
-        with open('all_estimators_backup.dat', 'wb') as f:
+        with open('all_estimators_backup4.dat', 'wb') as f:
             pickle.dump(errors, f)
             pickle.dump(spectrum_errors, f)
             pickle.dump(chunk_list, f)
