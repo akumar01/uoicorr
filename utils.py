@@ -37,11 +37,11 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
 # New version of gen_beta that uses the betawidth parameter:
 # A betawidth of 0 gives features that take on the same value
 # A betawidth of inf is a uniform distribution on the range 0-10
-def gen_beta2(n_features = 60, block_size = 6, sparsity = 0.6, betawidth = np.inf):
+def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6, betawidth = np.inf):
     n_blocks = int(np.floor(n_features/block_size))
 
     n_nonzero_beta = int(sparsity * block_size)
-
+        
     # Handle 0 and np.inf as special cases
     if betawidth == 'uniform':
         beta = np.random.uniform(low = 0, high = 10, size = (n_features, 1))

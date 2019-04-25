@@ -7,6 +7,7 @@ import pickle
 import json
 import time
 import traceback
+import pandas as pd
 from glob import glob
 from subprocess import check_output
 from utils import gen_covariance, gen_beta2, gen_data
@@ -54,7 +55,7 @@ def generate_arg_files(argfile_array, jobdir):
     paths = []
     ntasks = []
 
-    for i, arg in enumerate(argfile_array):
+    for i, arg_ in enumerate(argfile_array):
         start = time.time()
 
         arg_file = '%s/master/params%d.dat' % (jobdir, i)
@@ -62,43 +63,51 @@ def generate_arg_files(argfile_array, jobdir):
 
         # Generate the full set of data/metadata required to run the job
 
-        sub_iter_params = arg['sub_iter_params']
+        sub_iter_params = arg_['sub_iter_params']
         for key in sub_iter_params:
-            if type(args[key]) != list:
-                args[key] = [args[key]]
+            if not hasattr(arg_[key], '__len__'):
+                arg_[key] = [arg_[key]]
+            arg_[key] = list(arg_[key])
 
         # Complement of the sub_iter_params:
-        const_keys = list(set(args.keys()) - set(sub_iter_params))
+        const_keys = list(set(arg_.keys()) - set(sub_iter_params))
 
-        const_args = {k: args[k] for k in const_keys}
+        const_args = {k: arg_[k] for k in const_keys}
 
         # Combine reps and parameters to be cycled through into a single iterable. Store
         # the indices pointing to the corresponding rep/parameter list for easy unpacking
         # later on
-        arg_comb = args['reps']\
-                            * list(itertools.product(*[args[key] for key in args['sub_iter_params']]))
+    
+        arg_comb = arg_['reps']\
+                            * list(itertools.product(*[arg_[key] for key in arg_['sub_iter_params']]))
         iter_param_list = []
         for i in range(len(arg_comb)):
-            iter_param_list.append({args['sub_iter_params'][j]: arg_comb[i][j] for j in range(len(args['sub_iter_params']))})
+            arg_dict = const_args.copy()
+            [arg_dict.update({arg_['sub_iter_params'][j]: arg_comb[i][j] for j in range(len(arg_['sub_iter_params']))})]
+            iter_param_list.append(arg_dict)
 
-        ntasks.append(len(iter_idx_list))
+        ntasks.append(len(iter_param_list))
 
         for i, param_comb in enumerate(iter_param_list):
 
+            if 'n_samples' in list(param_comb.keys()):
+                n_samples = param_comb['n_samples']
+            elif 'np_ratio' in list(param_comb.keys()):
+                n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
+            
             # Generate covariance, data, betas, and store them away
             sigma = gen_covariance(param_comb['n_features'],
                                    param_comb['cov_params']['correlation'], 
                                    param_comb['cov_params']['block_size'],
                                    param_comb['cov_params']['L'],
                                    param_comb['cov_params']['t'])
-            betas = gen_beta2(param_comb['n_features'], param_comb['sparsity'], 
-                             param_comb['betawidth'])
-            X, X_test, y, y_test = gen_data(param_comb['n_samples'], param_comb['n_features'],
+            betas = gen_beta2(param_comb['n_features'], param_comb['cov_params']['block_size'],
+                              param_comb['sparsity'], param_comb['betawidth'])
+            X, X_test, y, y_test = gen_data(n_samples, param_comb['n_features'],
                                             param_comb['kappa'], sigma, betas)
             param_comb['sigma'] = sigma
             param_comb['betas'] = betas
             param_comb['data'] = [X, X_test, y, y_test]
-
         with open(arg_file, 'wb') as f:
             try:
                 f.write(pickle.dumps(iter_param_list, pickle.HIGHEST_PROTOCOL))
@@ -110,20 +119,11 @@ def generate_arg_files(argfile_array, jobdir):
     
     return paths, ntasks
 
-def generate_log_file(job_array, jobdir):
-
-    # Collect the unqiue values comprised in each job dictionary
-    values = list(job_array[0].keys())
-    unique_args = []
-    for i, value in enumerate(values):
-        pdb.set_trace()
-        unique_args.append(np.unique(np.array([jbarr[value] for jbarr in job_array])))
+# Store the metadata as an easily searchable pandas dataframe
+def generate_log_file(argfile_array, jobdir):
+    metadata = pd.DataFrame(argfile_array)
+    metadata.to_pickle('%s/log.dat' % jobdir)
     
-    # Write to file
-    with open('%s/log.txt' % jobdir, 'w') as f:
-        for i, value in enumerate(values):
-            f.write('%s: %s\n' % (value, np.array2string(unique_args[i])))
-
 def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
 
     # Generate sbatch scripts for the given directory
@@ -187,19 +187,22 @@ def create_job_structure(submit_file, jobdir):
 
     # Iterate over all combinations of parameters in iter_params and combine them
     # with comm_params to produce a unique argument dictionary for each individual job
-    for j, arg_comb in enumerate(itertools.product(*list(iter_params.values()))):
+    for arg_comb in itertools.product(*list(iter_params.values())):
         arg = {}
         for j in range(len(arg_comb)):
             arg[iter_keys[j]] = arg_comb[j]         
         for key, value in comm_params.items():
             arg[key] = value
 
-        argfile_array[i].append(arg)
+        argfile_array.append(arg)
 
+    # Generate log file
+    generate_log_file(argfile_array, jobdir)
+        
     # Master directory with all arg files
     if not os.path.exists('%s/master' % jobdir):
         os.mkdir('%s/master' % jobdir)
-
+        
     # Generate the arg_files:
     paths, ntasks = generate_arg_files(argfile_array, jobdir)
 
