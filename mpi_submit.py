@@ -33,6 +33,7 @@ args = parser.parse_args()
 #######################################
 
 exp_type = args.exp_type
+results_file = args.results_file
 
 # Load param file
 with open(args.arg_file, 'rb') as f: 
@@ -89,13 +90,13 @@ for i, params in enumerate(chunk_param_list[chunk_idx]):
     X_test = params['data'][1]
     y = params['data'][2]
     y_test = params['data'][3]
+    beta = params['betas']
 
-    # Call to UoI
+    exp = locate('exp_types.%s' % exp_type)
     model = exp.run(X, y, params)
 
     if (partype == 'uoi' and rank == 0) or partype == 'reps':
         #### Calculate and log results
-        betas[i, :] = beta.ravel()  
         beta_hat = model.coef_.ravel()
         beta_hats[i, :] = beta_hat.ravel()
         fn_results[i] = np.count_nonzero(beta[beta_hat == 0, 0])
@@ -146,9 +147,6 @@ if partype == 'reps':
     r2_true_results = np.array(r2_true_results)
     r2_true_results = Gatherv_rows(r2_true_results, comm, root = 0)
 
-    betas = np.array(betas)
-    betas = Gatherv_rows(betas, comm, root = 0)
-
     beta_hats = np.array(beta_hats)
     beta_hats = Gatherv_rows(beta_hats, comm, root = 0)
 
@@ -183,7 +181,6 @@ if rank == 0:
         results['fp'] = fp_results
         results['r2'] = r2_results
         results['r2_true'] = r2_true_results
-        results['betas'] = betas
         results['beta_hats'] = beta_hats
         results['BIC'] = BIC_results
         results['AIC'] = AIC_results
@@ -194,7 +191,6 @@ if rank == 0:
         results['sa'] = sa_results
         results['ee'] = ee_results
         results['median_ee'] = median_ee_results
-        results['iter_idx'] = iter_idx_list
     print('Total time: %f' % (time.time() - total_start))
     print('Job completed!')
     

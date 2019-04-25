@@ -2,6 +2,7 @@ import numpy as np
 from scipy.optimize import broyden1
 import itertools
 import pdb
+from scipy.optimize import minimize
 
 # Solve for the L needed to yield a desired average correlation
 # for exponential falloff design
@@ -78,17 +79,16 @@ def calc_avg_cov(p, correlation, block_size, L, t):
 
 # Return n total covariance matrices that uniformly sample the
 # average correlation space, 
-def get_cov_list(n_features, n, correlation, block_size, L):
+def get_cov_list(n_features, n, correlation, block_size, L, n_supplement = 0):
 
     block_comb = list(itertools.product(correlation, block_size))
  
     avg_block_cov = np.zeros(len(block_comb))
     avg_exp_cov = np.zeros(len(L))
-
     for i, comb in enumerate(block_comb):
         avg_block_cov[i] = calc_avg_cov(n_features, comb[0], 
                                         comb[1], 1, 0)
-
+    
     for i, l in enumerate(L):
         avg_exp_cov[i] = calc_avg_cov(n_features, 1, 1, l, 1)
 
@@ -100,13 +100,17 @@ def get_cov_list(n_features, n, correlation, block_size, L):
     cmin = np.min(avg_cov[avg_cov > 0])
 
     # Log sample the number line
-    coords = np.linspace(0.1, 0.3, 100 * n)
+    coords = np.linspace(cmin, 0.3, 100 * n)
 
     final_comb = []
     final_comb.extend([(c[0], c[1], 1, 0) for c in block_comb])
     final_comb.extend([(1, 1, l, 1) for l in L])
-
+    
     starting_length = len(final_comb)
+
+    # Keep track of the usage of the various covariance matrices
+    possible_combs = list(itertools.product(block_comb, L))
+    comb_counts = np.zeros(len(possible_combs))
 
     # Add an average covariance to the point that is farthest 
     # away from any neighbors on that iteration
@@ -114,21 +118,53 @@ def get_cov_list(n_features, n, correlation, block_size, L):
 
         target_cov = max_separation(coords, avg_cov)
         avg_cov = np.append(avg_cov, target_cov)
-        # Grab the parameters of the corresponding covariance matrices
-        idxblock = np.random.choice(np.arange(len(avg_block_cov)))
-        idxexp = np.random.choice(np.arange(len(avg_exp_cov)))
+                
+        # Return the index of which covariance matrices to interpolate between
+        comb_idx = get_best_comb(target_cov, avg_block_cov, avg_exp_cov, 
+                                            comb_counts)
+        comb_counts[comb_idx] += 1
+        block_cov = avg_block_cov[block_comb.index(possible_combs[comb_idx][0])]
+        exp_cov = avg_exp_cov[L.index(possible_combs[comb_idx][1])]
+        
+        t = (target_cov - block_cov)/(exp_cov - block_cov)
+        final_comb.append(possible_combs[comb_idx][0] + (possible_combs[comb_idx][1], t))
 
-        t = (target_cov - avg_block_cov[idxblock])/(avg_exp_cov[idxexp] - avg_block_cov[idxblock])
+        
+    # Continue generating interpolations until all combinations have participated in one (potentially expensive):
+#     while np.any(comb_counts == 0):
+        
+#         target_cov = max_separation(coords, avg_cov)
+#         avg_cov = np.append(avg_cov, target_cov)
+                
+#         # Return the index of which covariance matrices to interpolate between
+#         comb_idx = get_best_comb(target_cov, avg_block_cov, avg_exp_cov, 
+#                                             comb_counts)
+#         comb_counts[comb_idx] += 1
+#         block_cov = avg_block_cov[block_comb.index(possible_combs[comb_idx][0])]
+#         exp_cov = avg_exp_cov[L.index(possible_combs[comb_idx][1])]
+        
+#         t = (target_cov - block_cov)/(exp_cov - block_cov)
+#         final_comb.append(possible_combs[comb_idx][0] + (possible_combs[comb_idx][1], t))
+#         print(len(final_comb))
+        
+    # The strategy employed above is not guaranteed to let all combination participate. Therefore, if 
+    # n_supplement > 0, generate an additional number of covariance matrices to even out the numbers.
+    if n_supplement > 0:
 
-        while t > 1 or t < 0 or np.isnan(t):
-            # Grab the parameters of the corresponding covariance matrices
-            idxblock = np.random.choice(np.arange(len(avg_block_cov)))
-            idxexp = np.random.choice(np.arange(len(avg_exp_cov)))
-            t = (target_cov - avg_block_cov[idxblock])/(avg_exp_cov[idxexp] - avg_block_cov[idxblock])
-
-        final_comb.append((block_comb[idxblock]) + (L[idxexp], t))
-
-    return final_comb    
+        for i in range(n_supplement):            
+            target_cov = max_separation(coords, avg_cov)
+            
+            comb_idx = np.argmin(comb_counts)
+            comb_counts[comb_idx] += 1
+            block_cov = avg_block_cov[block_comb.index(possible_combs[comb_idx][0])]
+            exp_cov = avg_exp_cov[L.index(possible_combs[comb_idx][1])]
+            
+            # Bias the interpolation to be towards the direction of block_cov as this is what
+            # is generally underpresented
+            t = np.random.uniform(0.1, 0.5)
+            np.append(avg_cov, block_cov * (1 - t) + exp_cov * t)
+            final_comb.append(possible_combs[comb_idx][0] + (possible_combs[comb_idx][1], t))
+    return final_comb, np.sort(avg_cov)    
 
 # Return the element from x that is most separated from 
 # its nearest neighbor in y, as well as that element's
@@ -142,17 +178,22 @@ def max_separation(x, y):
 
     return xsep
 
-# Conditional max:
-def cmax(x):
-    if not list(x):
-        return np.nan
-    else:
-        return np.max(x)
-
-def cmin(x):
-    if not list(x):
-        return np.nan
-    else:
-        return np.min(x)
-
-
+# First assemble all viable combinations, then return that which has been 
+# featured the least so far
+def get_best_comb(target, avg_block, avg_exp, comb_counts):
+    
+    comb_viable = np.zeros(len(comb_counts))
+    
+    for i, comb in enumerate(list(itertools.product(np.arange(avg_block.size), np.arange(avg_exp.size)))):
+        t = (target - avg_block[comb[0]])/(avg_exp[comb[1]] - avg_block[comb[0]])
+        if t > 0 and t < 1:
+            comb_viable[i] = 1    
+    
+    comb_viable = comb_viable != 0
+                    
+    # Here parent_idx gives the index of lowest comb_count subject to the constraint that that 
+    # particular combination is viable
+    subset_idx = np.argmin(comb_counts[comb_viable])
+    parent_idx = np.arange(comb_counts.size)[comb_viable][subset_idx]
+        
+    return parent_idx

@@ -131,7 +131,7 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
     for i, sbatch in enumerate(sbatch_array):
         
         sbname = '%s/sbatch%d.sh' % (sbatch_dir, i)
-        jobname = '%s_%s_job%d' % (sbatch['exp_type'], i)
+        jobname = '%s_job%d' % (sbatch['exp_type'], i)
 
         script = 'mpi_submit.py'
         results_file = '%s/%s.h5' % (sbatch_dir, jobname)
@@ -162,9 +162,11 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
 
             sb.write('srun -n %d python3 -u %s/%s %s %s %s' 
                     % (sbatch['ntasks'], script_dir, script, sbatch['arg_file'],
-                       sbatch['results_file'], sbatch['exp_type']))
+                       results_file, sbatch['exp_type']))
 
-def create_job_structure(submit_file, jobdir):
+# Use skip_argfiles if arg_files have already been generated and just need to 
+# re-gen sbatch files
+def create_job_structure(submit_file, jobdir, skip_argfiles = False):
 
     if not os.path.exists(jobdir):
         os.makedirs(jobdir)
@@ -178,41 +180,52 @@ def create_job_structure(submit_file, jobdir):
     exp_types = args.exp_types
     algorithm_times = args.algorithm_times
     script_dir = args.script_dir
-    total_jobs = np.prod(len(val) for val in iter_params.values())
+    total_jobs = np.prod([len(val) for val in iter_params.values()])
 
-    # Common master list of arg file parameters
-    argfile_array = []
+    if not skip_argfiles:
+        # Common master list of arg file parameters
+        argfile_array = []
 
-    iter_keys = list(iter_params.keys())
+        iter_keys = list(iter_params.keys())
 
-    # Iterate over all combinations of parameters in iter_params and combine them
-    # with comm_params to produce a unique argument dictionary for each individual job
-    for arg_comb in itertools.product(*list(iter_params.values())):
-        arg = {}
-        for j in range(len(arg_comb)):
-            arg[iter_keys[j]] = arg_comb[j]         
-        for key, value in comm_params.items():
-            arg[key] = value
+        # Iterate over all combinations of parameters in iter_params and combine them
+        # with comm_params to produce a unique argument dictionary for each individual job
+        for arg_comb in itertools.product(*list(iter_params.values())):
+            arg = {}
+            for j in range(len(arg_comb)):
+                arg[iter_keys[j]] = arg_comb[j]         
+            for key, value in comm_params.items():
+                arg[key] = value
 
-        argfile_array.append(arg)
+            argfile_array.append(arg)
 
-    # Generate log file
-    generate_log_file(argfile_array, jobdir)
+        # Generate log file
+        generate_log_file(argfile_array, jobdir)
+
+        # Master directory with all arg files
+        if not os.path.exists('%s/master' % jobdir):
+            os.mkdir('%s/master' % jobdir)
+
+        # Generate the arg_files:
+        paths, ntasks = generate_arg_files(argfile_array, jobdir)
+    else:
+        # Need to get paths and ntasks
+        paths = glob('%s/master/*.dat' % jobdir)
+        # Go through and count the length of the dictionary contained within each argfile
+        # to get ntasks
+        ntasks = []
+        for path in paths:
+            with open(path, 'rb') as f:
+                args = pickle.load(f)
+                ntasks.append(len(args))
         
-    # Master directory with all arg files
-    if not os.path.exists('%s/master' % jobdir):
-        os.mkdir('%s/master' % jobdir)
-        
-    # Generate the arg_files:
-    paths, ntasks = generate_arg_files(argfile_array, jobdir)
-
     # Create an sbatch_array used to generate sbatch files that specifies exp_type, job_time, 
     # num_tasks, and the path to the corresponding arg_file
 
     sbatch_array = []
     for i, exp_type in enumerate(exp_types):
         sbatch_array.append([])
-        for arg in argfile_array:
+        for j in range(total_jobs):
             sbatch_dict = {
             'arg_file' : paths[j],
             'ntasks' : ntasks[j],
