@@ -197,3 +197,4 @@ if rank == 0:
         results['iter_idx'] = iter_idx_list
     print('Total time: %f' % (time.time() - total_start))
     print('Job completed!')
+    

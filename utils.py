@@ -43,7 +43,7 @@ def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6, betawidth = np.i
     n_nonzero_beta = int(sparsity * block_size)
         
     # Handle 0 and np.inf as special cases
-    if betawidth == 'uniform':
+    if betawidth == np.inf:
         beta = np.random.uniform(low = 0, high = 10, size = (n_features, 1))
     elif betawidth == 0:
         beta = 5 * np.ones((n_features, 1))
