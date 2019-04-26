@@ -87,7 +87,7 @@ def generate_arg_files(argfile_array, jobdir):
             iter_param_list.append(arg_dict)
 
         ntasks.append(len(iter_param_list))
-        pdb.set_trace()
+
         for i, param_comb in enumerate(iter_param_list):
 
             if 'n_samples' in list(param_comb.keys()):
