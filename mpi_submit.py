@@ -45,18 +45,18 @@ if exp_type in ['UoILasso', 'UoIElasticNet', 'GTV']:
 else:
     partype = 'reps'
 
-# Load h5 file, but at this point only to see its shape
-with h5py.File(args.arg_file, 'r') as f:
-    totaltasks = f['params'].size
+# Open the arg file and read out the number of total_tasks
+f = open(args.arg_file, 'rb')
+total_tasks = pickle.load(f)
 
 if partype == 'reps':
     # Chunk up iter_param_list to distribute across iterations
-    chunk_param_list = np.array_split(np.arange(totaltasks))
+    chunk_param_list = np.array_split(np.arange(total_tasks))
     chunk_idx = rank
     num_tasks = len(chunk_param_list[chunk_idx])
 else:
     chunk_idx = 0
-    num_tasks = totaltasks
+    num_tasks = total_tasks
 
 # Initialize arrays to store data in. Assumes that n_features
 # is held constant across all iterations
@@ -81,16 +81,14 @@ if (partype == 'uoi' and rank == 0) or partype == 'reps':
     
 for i in range(num_tasks):
     start = time.time()
-     
-    # Read the releavant portion of the arg file from disk
-    with h5py.File(args.arg_file, 'r') as f:
-        params = f['params'][i]
-
-    X = params['data'][0]
-    X_test = params['data'][1]
-    y = params['data'][2]
-    y_test = params['data'][3]
-    beta = params['betas']
+    
+    params = pickle.load(f)
+    sigma = params['sigma']
+    betas = params['betas']
+    seed = params['seed']
+    # Generate data
+    X, X_test, y, y_test = gen_data(n_samples, params['n_features'],
+                                    params['kappa'], sigma, betas, seed)
 
     exp = locate('exp_types.%s' % exp_type)
     model = exp.run(X, y, params)
@@ -127,6 +125,7 @@ for i in range(num_tasks):
                 
         ee_results[i] = ee
         median_ee_results[i] = median_ee
+    del params
     print('Process %d completed outer loop %d/%d' % (rank, i, num_tasks - 1))
     print(time.time() - start)
        
@@ -138,7 +137,7 @@ if partype == 'reps':
     if rank == 0:
         print(fn_results.shape)
 
-        fp_results = np.array(fp_results)
+    fp_results = np.array(fp_results)
     fp_results = Gatherv_rows(fp_results, comm, root = 0)
 
     r2_results = np.array(r2_results)

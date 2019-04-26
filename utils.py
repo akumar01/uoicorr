@@ -137,8 +137,12 @@ def interpolated_dist(lmbda, t, sigma, n_features = 60, low = -5, high = 5):
 # Generate toy data to fit given number of features, covariance structure, signal to noise, and sparsity
 # Note that sparsity is applied within blocks. When this is not desired, set the block size to equal n_features
 def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
-            covariance = np.diag(np.ones(60)), beta = np.random.uniform(0, 10, (60, 1))):
+            covariance = np.diag(np.ones(60)), beta = np.random.uniform(0, 10, (60, 1)), seed = None):
 
+    # For consistency across different runs
+    if seed is not None:
+        np.random.seed(seed)
+        
     # draw samples from a multivariate normal distribution cenetered around 0
     X = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)
     X_test = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)

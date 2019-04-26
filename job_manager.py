@@ -4,8 +4,6 @@ import itertools
 import pdb
 import sys, os
 import pickle
-import h5py
-import json
 import time
 import traceback
 import pandas as pd
@@ -59,7 +57,7 @@ def generate_arg_files(argfile_array, jobdir):
     for i, arg_ in enumerate(argfile_array):
         start = time.time()
 
-        arg_file = '%s/master/params%d.h5' % (jobdir, i)
+        arg_file = '%s/master/params%d.dat' % (jobdir, i)
         paths.append(arg_file)
 
         # Generate the full set of data/metadata required to run the job
@@ -95,25 +93,27 @@ def generate_arg_files(argfile_array, jobdir):
                 n_samples = param_comb['n_samples']
             elif 'np_ratio' in list(param_comb.keys()):
                 n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
-            
-            # Generate covariance, data, betas, and store them away
             sigma = gen_covariance(param_comb['n_features'],
                                    param_comb['cov_params']['correlation'], 
                                    param_comb['cov_params']['block_size'],
                                    param_comb['cov_params']['L'],
                                    param_comb['cov_params']['t'])
             betas = gen_beta2(param_comb['n_features'], param_comb['cov_params']['block_size'],
-                              param_comb['sparsity'], param_comb['betawidth'])
-            X, X_test, y, y_test = gen_data(n_samples, param_comb['n_features'],
-                                            param_comb['kappa'], sigma, betas)
+                              param_comb['sparsity'], param_comb['betawidth'])            
             param_comb['sigma'] = sigma
             param_comb['betas'] = betas
-            param_comb['data'] = [X, X_test, y, y_test]
-        with h5py.File(arg_file) as f:
-            # Allow multiple readers
-            f.swmr_mode = True
-            f['params'] = iter_param_list
-
+            # Save a seed that will be used to generate the same data for every process
+            param_comb['seed'] = i 
+        with open(arg_file, 'wb') as f:
+            # Sequentially pickle the elements of iter_param_list so they can be 
+            # sequentially unpickled
+            
+            # First pickle away the number of tasks 
+            f.write(pickle.dumps(len(iter_param_list)))
+            
+            for elem in iter_param_list:
+                f.write(pickle.dumps(elem))
+            
         print('arg_file iteration time: %f' % (time.time() - start))
     
     return paths, ntasks
@@ -133,7 +133,7 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
         jobname = '%s_job%d' % (sbatch['exp_type'], i)
 
         script = 'mpi_submit.py'
-        results_file = '%s/%s.h5' % (sbatch_dir, jobname)
+        results_file = '%s/%s.dat' % (sbatch_dir, jobname)
 
         with open(sbname, 'w') as sb:
             # Arguments common across jobs
@@ -212,7 +212,7 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
 
     else:
         # Need to get paths and ntasks
-        paths = glob('%s/master/*.h5' % jobdir)
+        paths = glob('%s/master/*.dat' % jobdir)
         # Go through and count the length of the dictionary contained within each argfile
         # to get ntasks
         ntasks = []
