@@ -9,7 +9,7 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 exp_types =  ['UoILasso', 'UoIElasticNet', 'EN', 'CV_Lasso']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['10:00:00', '10:00:00', '10:00:00', '10:00:00']
+algorithm_times = ['04:00:00', '10:00:00', '02:00:00', '01:00:00']
 
 n_features = 1000
 
@@ -22,7 +22,7 @@ correlation = [0, 0.08891397, 0.15811388, 0.28117066, 0.5]
 # Exponential length scales
 L = [20, 50, 100, 200]
 
-cov_list, _ = get_cov_list(n_features, 50, correlation, block_sizes, L, n_supplement = 0)
+cov_list, _ = get_cov_list(n_features, 100, correlation, block_sizes, L, n_supplement = 20)
 
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 
@@ -31,7 +31,7 @@ iter_params = {
 'cov_params' : cov_params,
 
 # Sparsity
-'sparsity' : np.logspace(np.log10(0.02), 0, 2),
+'sparsity' : np.array_split(np.logspace(np.log10(0.02), 0, 15), 5)
 
 }
 
@@ -53,7 +53,7 @@ comm_params = {
 'betawidth' : [0.1, 0.5, 2.5, np.inf],
 # Inverse Signal to noise ratio
 'kappa' : np.linspace(0, 0.6, 5),
-'sub_iter_params': ['kappa', 'betawidth']
+'sub_iter_params': ['kappa', 'betawidth', 'sparsity']
 }
 
 # Parameters for ElasticNet

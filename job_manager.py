@@ -87,7 +87,7 @@ def generate_arg_files(argfile_array, jobdir):
             iter_param_list.append(arg_dict)
 
         ntasks.append(len(iter_param_list))
-
+        pdb.set_trace()
         for i, param_comb in enumerate(iter_param_list):
 
             if 'n_samples' in list(param_comb.keys()):
@@ -228,7 +228,7 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False):
         for j in range(total_jobs):
             sbatch_dict = {
             'arg_file' : paths[j],
-            'ntasks' : ntasks[j],
+            'ntasks' : min(60, ntasks[j]),
             'exp_type' : exp_type,
             'job_time' : algorithm_times[i]
             }
