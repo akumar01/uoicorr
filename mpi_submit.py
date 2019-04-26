@@ -35,10 +35,6 @@ args = parser.parse_args()
 exp_type = args.exp_type
 results_file = args.results_file
 
-# Load param file
-with open(args.arg_file, 'rb') as f: 
-    args = pickle.load(f)
-
 # Create an MPI comm object
 comm = MPI.COMM_WORLD
 rank = comm.rank
@@ -48,19 +44,19 @@ if exp_type in ['UoILasso', 'UoIElasticNet', 'GTV']:
     partype = 'uoi'
 else:
     partype = 'reps'
-        
-for arg in args:
-    arg['comm'] = comm
+
+# Load h5 file, but at this point only to see its shape
+with h5py.File(args.arg_file, 'r') as f:
+    totaltasks = f['params'].size
 
 if partype == 'reps':
     # Chunk up iter_param_list to distribute across iterations
-    chunk_param_list = np.array_split(args, numproc)
+    chunk_param_list = np.array_split(np.arange(totaltasks))
     chunk_idx = rank
     num_tasks = len(chunk_param_list[chunk_idx])
 else:
-    chunk_param_list = [args]
     chunk_idx = 0
-    num_tasks = len(args)
+    num_tasks = totaltasks
 
 # Initialize arrays to store data in. Assumes that n_features
 # is held constant across all iterations
@@ -83,9 +79,13 @@ if (partype == 'uoi' and rank == 0) or partype == 'reps':
     ee_results = np.zeros(num_tasks)
     median_ee_results = np.zeros(num_tasks)
     
-for i, params in enumerate(chunk_param_list[chunk_idx]):
+for i in range(num_tasks):
     start = time.time()
      
+    # Read the releavant portion of the arg file from disk
+    with h5py.File(args.arg_file, 'r') as f:
+        params = f['params'][i]
+
     X = params['data'][0]
     X_test = params['data'][1]
     y = params['data'][2]
@@ -127,7 +127,7 @@ for i, params in enumerate(chunk_param_list[chunk_idx]):
                 
         ee_results[i] = ee
         median_ee_results[i] = median_ee
-    print('Process %d completed outer loop %d/%d' % (rank, i, len(chunk_param_list[chunk_idx])))
+    print('Process %d completed outer loop %d/%d' % (rank, i, num_tasks - 1))
     print(time.time() - start)
        
 # Save results. If parallelizing over reps, concatenate all arrays together first

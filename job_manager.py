@@ -4,6 +4,7 @@ import itertools
 import pdb
 import sys, os
 import pickle
+import h5py
 import json
 import time
 import traceback
@@ -58,7 +59,7 @@ def generate_arg_files(argfile_array, jobdir):
     for i, arg_ in enumerate(argfile_array):
         start = time.time()
 
-        arg_file = '%s/master/params%d.dat' % (jobdir, i)
+        arg_file = '%s/master/params%d.h5' % (jobdir, i)
         paths.append(arg_file)
 
         # Generate the full set of data/metadata required to run the job
@@ -108,12 +109,10 @@ def generate_arg_files(argfile_array, jobdir):
             param_comb['sigma'] = sigma
             param_comb['betas'] = betas
             param_comb['data'] = [X, X_test, y, y_test]
-        with open(arg_file, 'wb') as f:
-            try:
-                f.write(pickle.dumps(iter_param_list, pickle.HIGHEST_PROTOCOL))
-            except:
-                traceback.print_exc()
-                pdb.set_trace()
+        with h5py.File(arg_file) as f:
+            # Allow multiple readers
+            f.swmr_mode = True
+            f['params'] = iter_param_list
 
         print('arg_file iteration time: %f' % (time.time() - start))
     
@@ -166,7 +165,7 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
 
 # Use skip_argfiles if arg_files have already been generated and just need to 
 # re-gen sbatch files
-def create_job_structure(submit_file, jobdir, skip_argfiles = False):
+def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test = False):
 
     if not os.path.exists(jobdir):
         os.makedirs(jobdir)
@@ -180,7 +179,6 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False):
     exp_types = args.exp_types
     algorithm_times = args.algorithm_times
     script_dir = args.script_dir
-    total_jobs = np.prod([len(val) for val in iter_params.values()])
 
     if not skip_argfiles:
         # Common master list of arg file parameters
@@ -198,6 +196,9 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False):
                 arg[key] = value
 
             argfile_array.append(arg)
+            # Create only a single file for testing purposes
+            if single_test:
+                break
 
         # Generate log file
         generate_log_file(argfile_array, jobdir)
@@ -208,15 +209,16 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False):
 
         # Generate the arg_files:
         paths, ntasks = generate_arg_files(argfile_array, jobdir)
+
     else:
         # Need to get paths and ntasks
-        paths = glob('%s/master/*.dat' % jobdir)
+        paths = glob('%s/master/*.h5' % jobdir)
         # Go through and count the length of the dictionary contained within each argfile
         # to get ntasks
         ntasks = []
         for path in paths:
-            with open(path, 'rb') as f:
-                args = pickle.load(f)
+            with h5py.File(path, 'r') as f:
+                args = f['params']
                 ntasks.append(len(args))
         
     # Create an sbatch_array used to generate sbatch files that specifies exp_type, job_time, 
@@ -225,7 +227,7 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False):
     sbatch_array = []
     for i, exp_type in enumerate(exp_types):
         sbatch_array.append([])
-        for j in range(total_jobs):
+        for j in range(len(paths)):
             sbatch_dict = {
             'arg_file' : paths[j],
             'ntasks' : min(60, ntasks[j]),
@@ -364,19 +366,6 @@ def grab_sbatch_files(root_dir, exp_type = None):
                 run_files.extend(glob('%s/*.sh' % p))
     return run_files
     
-# Crawl through a subdirectory and grab all param files
-def grab_arg_files(root_dir, exp_type = None):
-    run_files = []
-    for root, dirs, files in os.walk(root_dir):
-        for d in dirs:
-            p = os.path.join(root, d)
-            if exp_type is not None:
-                if exp_type in p:
-                    run_files.extend(glob('%s/*.dat' % p))
-            else:
-                run_files.extend(glob('%s/*.dat' % p))
-    return run_files
-
 # Upon running this command, check which jobs have been successfully completed, and 
 # submit another batch of jobs to be run
 def evaluate_job_structure(root_dir):
