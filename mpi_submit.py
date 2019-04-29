@@ -19,6 +19,7 @@ from sklearn.metrics import r2_score
 
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
 from pyuoi.mpi_utils import Bcast_from_root, Gatherv_rows
+from utils import gen_data
 from utils import FNR, FPR, selection_accuracy, estimation_error
 
 total_start = time.time()
@@ -45,13 +46,14 @@ if exp_type in ['UoILasso', 'UoIElasticNet', 'GTV']:
 else:
     partype = 'reps'
 
-# Open the arg file and read out the number of total_tasks
+# Open the arg file and read out the number of total_tasks and n_features
 f = open(args.arg_file, 'rb')
 total_tasks = pickle.load(f)
+n_features = pickle.load(f)
 
 if partype == 'reps':
     # Chunk up iter_param_list to distribute across iterations
-    chunk_param_list = np.array_split(np.arange(total_tasks))
+    chunk_param_list = np.array_split(np.arange(total_tasks), numproc)
     chunk_idx = rank
     num_tasks = len(chunk_param_list[chunk_idx])
 else:
@@ -61,7 +63,7 @@ else:
 # Initialize arrays to store data in. Assumes that n_features
 # is held constant across all iterations
 if (partype == 'uoi' and rank == 0) or partype == 'reps':
-    beta_hats = np.zeros((num_tasks, args[0]['n_features']))
+    beta_hats = np.zeros((num_tasks, n_features))
 
     # result arrays: scores
     fn_results = np.zeros(num_tasks)
@@ -84,11 +86,11 @@ for i in range(num_tasks):
     
     params = pickle.load(f)
     sigma = params['sigma']
-    betas = params['betas']
+    beta = params['betas']
     seed = params['seed']
     # Generate data
-    X, X_test, y, y_test = gen_data(n_samples, params['n_features'],
-                                    params['kappa'], sigma, betas, seed)
+    X, X_test, y, y_test = gen_data(params['n_samples'], params['n_features'],
+                                    params['kappa'], sigma, beta, seed)
 
     exp = locate('exp_types.%s' % exp_type)
     model = exp.run(X, y, params)
@@ -172,6 +174,8 @@ if partype == 'reps':
 
     median_ee_results = np.array(median_ee_results)
     median_ee_results = Gatherv_rows(median_ee_results, comm, root = 0)
+
+f.close()    
 if rank == 0:
     # Save results
     with h5py.File(results_file, 'w') as results:

@@ -93,6 +93,7 @@ def generate_arg_files(argfile_array, jobdir):
                 n_samples = param_comb['n_samples']
             elif 'np_ratio' in list(param_comb.keys()):
                 n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
+                param_comb['n_samples'] = n_samples
             sigma = gen_covariance(param_comb['n_features'],
                                    param_comb['cov_params']['correlation'], 
                                    param_comb['cov_params']['block_size'],
@@ -110,7 +111,9 @@ def generate_arg_files(argfile_array, jobdir):
             
             # First pickle away the number of tasks 
             f.write(pickle.dumps(len(iter_param_list)))
-            
+            # Then the number of features (assuming it remains fixed)
+            f.write(pickle.dumps(param_comb['n_features']))
+                
             for elem in iter_param_list:
                 f.write(pickle.dumps(elem))
             
@@ -217,9 +220,8 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
         # to get ntasks
         ntasks = []
         for path in paths:
-            with h5py.File(path, 'r') as f:
-                args = f['params']
-                ntasks.append(len(args))
+            with open(path, 'rb') as f:
+                ntasks.append(pickle.load(f))
         
     # Create an sbatch_array used to generate sbatch files that specifies exp_type, job_time, 
     # num_tasks, and the path to the corresponding arg_file
@@ -253,7 +255,7 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
 # edit_attribute: Dict containing key value pair of job property to
 # edit before submitting
 # run: If set to false, make modifications to sbatch files but do not run them
-def run_jobs(jobdir, constraint, size = None, exp_type = None, run = True):
+def run_jobs(jobdir, constraint, size = None, exp_type = None, run = False):
     
     # Crawl through all subdirectories and 
     # (1) change permissions of sbatch file
@@ -281,7 +283,8 @@ def run_jobs(jobdir, constraint, size = None, exp_type = None, run = True):
                 for c in constraint_string:
                     contents.remove(c)
             
-            # Add constraint to the top
+            # Add constraint to the 2nd line (index 1) so it is the first
+            # thing after #/bin/bash
             if constraint == 'haswell':
                 contents.insert(1, '#SBATCH --constraint=haswell\n')
               
