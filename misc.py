@@ -90,7 +90,7 @@ def get_cov_list(n_features, n, correlation, block_size, L, n_supplement = 0):
                                         comb[1], 1, 0)
     
     for i, l in enumerate(L):
-        avg_exp_cov[i] = calc_avg_cov(n_features, 1, 1, l, 1)
+        avg_exp_cov[i] = calc_avg_cov(n_features, 1, n_features, l, 1)
 
     avg_cov = np.concatenate([avg_block_cov, avg_exp_cov])
 
@@ -104,7 +104,7 @@ def get_cov_list(n_features, n, correlation, block_size, L, n_supplement = 0):
 
     final_comb = []
     final_comb.extend([(c[0], c[1], 1, 0) for c in block_comb])
-    final_comb.extend([(1, 1, l, 1) for l in L])
+    final_comb.extend([(1, n_features, l, 1) for l in L])
     
     starting_length = len(final_comb)
 

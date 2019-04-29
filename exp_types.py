@@ -23,8 +23,8 @@ class CV_Lasso():
 
         scores = np.zeros(n_alphas)
 
-        #lasso = self.lbfgs_lasso(normalize=True, warm_start = False)
-        lasso = Lbfgs_lasso()
+        lasso = Lasso(normalize=True, warm_start = False)
+#        lasso = Lbfgs_lasso()
         # Use 10 fold cross validation. Do this in a manual way to enable use of warm_start and custom parameter sweeps
         kfold = KFold(n_splits = cv_splits, shuffle = True)
 
@@ -32,13 +32,12 @@ class CV_Lasso():
         alphas = _alpha_grid(X = X, y = y.ravel(), l1_ratio = 1, normalize = True, n_alphas = n_alphas)
 
         for a_idx, alpha in enumerate(alphas):
-#            lasso.set_params(alpha = alpha)
-
+            lasso.set_params(alpha = alpha)
             cv_scores = np.zeros(cv_splits)
             # Cross validation splits into training and test sets
             for i, cv_idxs in enumerate(kfold.split(X, y)):
                 t0 = time.time()
-                lasso.fit(X[cv_idxs[0], :], y[cv_idxs[0]], alpha)
+                lasso.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
                 cv_scores[i] = r2_score(y[cv_idxs[1]], lasso.coef_ @ X[cv_idxs[1], :].T)
                 print('CV time: %f' % (time.time() - t0))
             # Average together cross-validation scores

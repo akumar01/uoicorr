@@ -338,10 +338,12 @@ def gen_avg_covariance(cov_type, avg_cov = 0.1, n_features = 60, **kwargs):
 #         return exp_falloff(n_features, **kwargs)
 
 # Return covariance matrix given the 5 necessary parameters
-def gen_covariance(n_features, correlation, block_size, L, t):
+def gen_covariance(n_features, correlation, block_size, L, t, threshold = 0):
     s0 = block_covariance(n_features, correlation, block_size)
     s1 = exp_falloff(n_features, L)
     s = (1 - t) * s0 + t * s1
+    if threshold > 0: 
+        s[s < threshold] = 0
     return s
 
 # Create a block diagonal covariance matrix 
