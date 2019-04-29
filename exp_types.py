@@ -4,12 +4,14 @@ from sklearn.linear_model.coordinate_descent import _alpha_grid
 from sklearn.linear_model import Lasso, ElasticNet
 from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score
+from sklearn.preprocessing import normalize
 from pyuoi.linear_model.lasso import UoI_Lasso
 from pyuoi.linear_model.elasticnet import UoI_ElasticNet
 from gtv import GraphTotalVariance
 import itertools
 import time
 from pyuoi.mpi_utils import Gatherv_rows
+from pyuoi.lbfgs import fmin_lbfgs
 
 class CV_Lasso():
 
@@ -21,8 +23,8 @@ class CV_Lasso():
 
         scores = np.zeros(n_alphas)
 
-        lasso = Lasso(normalize=True, warm_start = False)
-
+        #lasso = self.lbfgs_lasso(normalize=True, warm_start = False)
+        lasso = Lbfgs_lasso()
         # Use 10 fold cross validation. Do this in a manual way to enable use of warm_start and custom parameter sweeps
         kfold = KFold(n_splits = cv_splits, shuffle = True)
 
@@ -30,15 +32,15 @@ class CV_Lasso():
         alphas = _alpha_grid(X = X, y = y.ravel(), l1_ratio = 1, normalize = True, n_alphas = n_alphas)
 
         for a_idx, alpha in enumerate(alphas):
-
-            lasso.set_params(alpha = alpha)
+#            lasso.set_params(alpha = alpha)
 
             cv_scores = np.zeros(cv_splits)
             # Cross validation splits into training and test sets
             for i, cv_idxs in enumerate(kfold.split(X, y)):
-                lasso.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
+                t0 = time.time()
+                lasso.fit(X[cv_idxs[0], :], y[cv_idxs[0]], alpha)
                 cv_scores[i] = r2_score(y[cv_idxs[1]], lasso.coef_ @ X[cv_idxs[1], :].T)
-
+                print('CV time: %f' % (time.time() - t0))
             # Average together cross-validation scores
             scores[a_idx] = np.mean(cv_scores)
 
@@ -47,6 +49,31 @@ class CV_Lasso():
         lasso.set_params(alpha = alphas[max_score_idx])
         lasso.fit(X, y.ravel())
         return lasso
+
+class Lbfgs_lasso(Lasso):
+
+    def __init__(self):
+        super(Lbfgs_lasso, self).__init__()
+        self.alpha = None
+
+    def loss(self, beta, gradient, n, X, y):
+        l = 1/n * np.linalg.norm(y.ravel() - X @ beta)**2
+        gradient[:] = -2/n * X.T @ (y.ravel() - X @ beta)
+
+        return  l
+
+    # Use the lbfgs solver instead of whatever sklearn does
+    def fit(self, X, y, alpha):
+        n = X.shape[0]
+        p = X.shape[1]
+
+        if self.normalize:
+            X, _ = normalize(X)
+
+        betas = fmin_lbfgs(self.loss, np.zeros(p),
+                           args = (n, X, y), orthantwise_c = alpha)    
+
+        self.coef_ = betas
 
 
 class UoILasso():
