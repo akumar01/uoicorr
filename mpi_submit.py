@@ -104,7 +104,8 @@ for i in range(num_tasks):
         r2_results[i] = r2_score(y_test, np.dot(X_test, beta_hat))
         r2_true_results[i] = r2_score(y_test, np.dot(X_test, beta))
     # Score functions have been modified, requiring us to first calculate log-likelihood
-        llhood = log_likelihood_glm('normal', y_test, np.dot(X_test, beta))
+    
+        llhood = log_likelihood_glm('normal', y_test, np.dot(X_test, beta_hat))
         try:
             BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), n_samples)
         except:

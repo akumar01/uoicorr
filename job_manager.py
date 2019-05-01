@@ -101,6 +101,10 @@ def generate_arg_files(argfile_array, jobdir):
                                    param_comb['cov_params']['t'])
             betas = gen_beta2(param_comb['n_features'], param_comb['cov_params']['block_size'],
                               param_comb['sparsity'], param_comb['betawidth'])            
+            if np.count_nonzero(betas) == 0:
+                print('Warning, all betas were 0!')
+                print(param_comb)
+                sys.exit(0)
             param_comb['sigma'] = sigma
             param_comb['betas'] = betas
             # Save a seed that will be used to generate the same data for every process
@@ -232,7 +236,7 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
         for j in range(len(paths)):
             sbatch_dict = {
             'arg_file' : paths[j],
-            'ntasks' : min(60, ntasks[j]),
+            'ntasks' : min(24, ntasks[j]),
             'exp_type' : exp_type,
             'job_time' : algorithm_times[i]
             }
@@ -255,16 +259,20 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
 # edit_attribute: Dict containing key value pair of job property to
 # edit before submitting
 # run: If set to false, make modifications to sbatch files but do not run them
-def run_jobs(jobdir, constraint, size = None, exp_type = None, run = False):
+def run_jobs(jobdir, constraint, size = None, nums = None,
+             exp_type = None, run = False):
     
     # Crawl through all subdirectories and 
     # (1) change permissions of sbatch file
     # (2) run sbatch file
 
     run_files = grab_sbatch_files(jobdir, exp_type)
-            
+    
+    # Can either constrain size or manually give numbers
     if size is not None:
         run_files = run_files[:size]
+    elif nums is not None:
+        run_files = [r for r in run_files if int(r.split('params')[1].split('.dat')[0]) in nums]
     cont = input("You are about to submit %d jobs, do you want to continue? [0/1]" % len(run_files))
     
     if cont:
@@ -307,7 +315,6 @@ def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
     # Crawl through all subdirectories and 
     # (1) change permissions of sbatch file
     # (2) run sbatch file
-
     run_files = grab_arg_files(jobdir, exp_type)
             
     if size is not None:

@@ -36,10 +36,10 @@ class CV_Lasso():
             cv_scores = np.zeros(cv_splits)
             # Cross validation splits into training and test sets
             for i, cv_idxs in enumerate(kfold.split(X, y)):
-                t0 = time.time()
+#                t0 = time.time()
                 lasso.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
                 cv_scores[i] = r2_score(y[cv_idxs[1]], lasso.coef_ @ X[cv_idxs[1], :].T)
-                print('CV time: %f' % (time.time() - t0))
+#                print('CV time: %f' % (time.time() - t0))
             # Average together cross-validation scores
             scores[a_idx] = np.mean(cv_scores)
 

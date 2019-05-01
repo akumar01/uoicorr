@@ -9,7 +9,7 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 exp_types =  ['UoILasso', 'UoIElasticNet', 'EN', 'CV_Lasso']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['04:00:00', '10:00:00', '02:00:00', '01:00:00']
+algorithm_times = ['16:00:00', '24:00:00', '02:00:00', '01:00:00']
 
 n_features = 1000
 
