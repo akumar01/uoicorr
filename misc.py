@@ -3,6 +3,7 @@ from scipy.optimize import broyden1
 import itertools
 import pdb
 from scipy.optimize import minimize
+import pickle
 
 # Solve for the L needed to yield a desired average correlation
 # for exponential falloff design
@@ -197,3 +198,25 @@ def get_best_comb(target, avg_block, avg_exp, comb_counts):
     parent_idx = np.arange(comb_counts.size)[comb_viable][subset_idx]
         
     return parent_idx
+
+# Utility function to shorten number of reps in a param file to facilitate testing
+def shorten_param_file(param_path, target_path, n):
+    f = open(param_path, 'rb')
+    n_tasks = pickle.load(f)
+    n_features = pickle.load(f)
+    params = []
+    
+    n_tasks = min(n, n_tasks)
+    for i in range(n_tasks):
+        params.append(pickle.load(f))
+    
+    f.close()
+    
+    f = open(target_path, 'wb')
+    f.write(pickle.dumps(n_tasks))
+    f.write(pickle.dumps(n_features))
+
+    for param in params:
+        f.write(pickle.dumps(param))
+    
+    f.close()

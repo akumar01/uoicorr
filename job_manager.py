@@ -266,7 +266,7 @@ def run_jobs(jobdir, constraint, size = None, nums = None,
     # (1) change permissions of sbatch file
     # (2) run sbatch file
 
-    run_files = grab_sbatch_files(jobdir, exp_type)
+    run_files = grab_files(jobdir, '*.sh', exp_type)
     
     # Can either constrain size or manually give numbers
     if size is not None:
@@ -305,11 +305,38 @@ def run_jobs(jobdir, constraint, size = None, nums = None,
             f.close()
             
             if run:
-                # Change permissions
-                os.system('chmod u+x %s' % run_file)
-                # Submit the job
-                os.system('sbatch %s ' % run_file)
+                run_(run_file)
+                
+# Find jobs that are lacking a .h5 file (jobs that failed to run)
+def unfinished_jobs(jobdir, exp_type = None):
+    
+    # Get all potential files to run
+    all_files = grab_files(jobdir, '*.sh', exp_type)
+    # Get all files with a .h5 output
+    completed_files = grab_files(jobdir, '*.dat', exp_type)            
+                
+    # Get the job numbers to compare 
+    all_files = [os.path.split(f)[1] for f in all_files]
+    all_jobnos = [int(f.split('.sh')[0].split('sbatch')[1]) for f in all_files]
+    
+    completed_files = [os.path.split(f)[1] for f in completed_files]
+    completed_jobnos = [int(f.split('.dat')[0].split('job')[1]) for f in completed_files]
+    
+    to_run = np.setdiff1d(all_jobnos, completed_jobnos)
+    
+    # Reconstruct the full paths from the numbers
+    run_paths = paths_from_nums(jobdir, exp_type, to_run, 'sbatch')
+    return run_paths
 
+# Run the given jobs:
+def run_(run_files):
+    if not hasattr(run_files, '__iter__'):
+        run_files = [run_files]
+        
+    for run_file in run_files:
+        os.system('chmod u+x %s' % run_file)
+        os.system('sbatch %s' % run_file)
+                
 # Sequentially run files locally:
 def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
     # Crawl through all subdirectories and 
@@ -326,14 +353,13 @@ def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
             msg = check_output('mpiexec -n %d python -u mpi_submit.py %s' 
                           % (nprocs, run_file))        
             print(msg) 
-# Edit specific lines of all sbatch files 
+
+# Edit specific lines of the provided sbatch files (full paths)
 # By default, edits an attribute
 # To replace a specific line with exact match to string, set edit_attribute
 # to None, and pass in linestring instead
-def edit_job_attribute(jobdir, edit_attribute, linestring = None, exp_type = None):
+def edit_job_attribute(run_files, edit_attribute, linestring = None, exp_type = None):
     
-    run_files = grab_sbatch_files(jobdir, exp_type)
-
     for run_file in run_files:
         start = time.time()
         f = open(run_file, 'r')
@@ -363,19 +389,36 @@ def edit_job_attribute(jobdir, edit_attribute, linestring = None, exp_type = Non
         f.close()
         print('Iteration time: %f' % (time.time() - start))
         
-# Crawl through a subdirectory and grab all jobs contained in it:
-def grab_sbatch_files(root_dir, exp_type = None):
+# Crawl through a subdirectory and grab all files contained in it matching the 
+# provided criteria:
+def grab_files(root_dir, file_str, exp_type = None):
     run_files = []
     for root, dirs, files in os.walk(root_dir):
         for d in dirs:
             p = os.path.join(root, d)
             if exp_type is not None:
                 if exp_type in p:
-                    run_files.extend(glob('%s/*.sh' % p))
+                    run_files.extend(glob('%s/%s' % (p, file_str)))
             else:
-                run_files.extend(glob('%s/*.sh' % p))
+                run_files.extend(glob('%s/%s' % (p, file_str)))
     return run_files
+
+# Return the full path to the file type given a list of jobIDs
+def paths_from_nums(jobdir, exp_type, nums, type_):
     
+    base_path = '%s/%s' % (jobdir, exp_type)
+    paths = []
+    for n in nums:
+        if type_ == 'sbatch':
+            paths.append('%s/sbatch%d.sh' % (base_path, n))
+        elif type == 'data':
+            paths.append('%s/%s_job%d.dat' % (base_path, exp_type, n))
+        elif type == 'output':
+            paths.append('%s/%s_job%d.o' % (base_path, exp_type, n))
+        elif type == 'error':
+            paths.append('%s/%s_job%d.e' % (base_path, exp_type, n))
+    return paths
+            
 # Upon running this command, check which jobs have been successfully completed, and 
 # submit another batch of jobs to be run
 def evaluate_job_structure(root_dir):
@@ -436,3 +479,5 @@ def evaluate_job_structure(root_dir):
 #                     last = f.readline()         # Read last line.
 #                 if 'Job completed!' in last:
 #                     cstatus[i] = 1
+
+

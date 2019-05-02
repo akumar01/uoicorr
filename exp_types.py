@@ -73,8 +73,7 @@ class Lbfgs_lasso(Lasso):
                            args = (n, X, y), orthantwise_c = alpha)    
 
         self.coef_ = betas
-
-
+        
 class UoILasso():
 
     @classmethod
