@@ -47,9 +47,14 @@ numproc = comm.Get_size()
 # to parallelize over both bootstraps and repetitions
  
 if numproc > args.comm_splits and args.comm_splits > 1:
-    color = rank % args.comm_splits
-    key = rank
-    subcomm = comm.Split(color, key)
+    # Use array split to do comm.split
+    ranks = np.arange(numproc)
+    split_ranks = np.array_split(ranks, args.comm_splits)
+    color = [i for i in np.arange(args.comm_splits) if rank in split_ranks[i]][0]
+    subcomm_roots = [split_ranks[i][0] for i in np.arange(args.comm_splits)]
+
+    subcomm = comm.Split(color, rank)
+
     rank = color
     nchunks = args.comm_splits
     subrank = subcomm.rank
@@ -58,6 +63,11 @@ else:
     subcomm = comm
     subrank = 0
     nchunks = numproc
+    subcomm_roots = list(np.arange(numproc))
+
+# Create a group including the root of each subcomm. 
+global_group = MPI.Group(comm)
+root_group = MPI.Group.Incl(global_group, nchunks, subcomm_roots)
 
 # Open the arg file and read out the number of total_tasks and n_features
 f = open(args.arg_file, 'rb')
@@ -144,52 +154,52 @@ for i in range(num_tasks):
         ee_results[i] = ee
         median_ee_results[i] = median_ee
     del params
-    print('Process %d completed outer loop %d/%d' % (rank, i, num_tasks - 1))
+    print('Process group %d completed outer loop %d/%d' % (rank, i, num_tasks - 1))
     print(time.time() - start)
        
-# Save results. If parallelizing over reps, concatenate all arrays together first
+# Gather across root nodes
 if subrank == 0:
     fn_results = np.array(fn_results)
-    fn_results = Gatherv_rows(fn_results, comm, root = 0)
+    fn_results = Gatherv_rows(fn_results, root_group, root = 0)
 
     fp_results = np.array(fp_results)
-    fp_results = Gatherv_rows(fp_results, comm, root = 0)
+    fp_results = Gatherv_rows(fp_results, root_group, root = 0)
 
     r2_results = np.array(r2_results)
-    r2_results = Gatherv_rows(r2_results, comm, root = 0)
+    r2_results = Gatherv_rows(r2_results, root_group, root = 0)
 
     r2_true_results = np.array(r2_true_results)
-    r2_true_results = Gatherv_rows(r2_true_results, comm, root = 0)
+    r2_true_results = Gatherv_rows(r2_true_results, root_group, root = 0)
 
     beta_hats = np.array(beta_hats)
-    beta_hats = Gatherv_rows(beta_hats, comm, root = 0)
+    beta_hats = Gatherv_rows(beta_hats, root_group, root = 0)
 
     BIC_results = np.array(BIC_results)
-    BIC_results = Gatherv_rows(BIC_results, comm, root = 0)
+    BIC_results = Gatherv_rows(BIC_results, root_group, root = 0)
 
     AIC_results = np.array(AIC_results)
-    AIC_results = Gatherv_rows(AIC_results, comm, root = 0)
+    AIC_results = Gatherv_rows(AIC_results, root_group, root = 0)
 
     AICc_results = np.array(AICc_results)
-    AICc_results = Gatherv_rows(AICc_results, comm, root = 0)
+    AICc_results = Gatherv_rows(AICc_results, root_group, root = 0)
 
     FNR_results = np.array(FNR_results)
-    FNR_results = Gatherv_rows(FNR_results, comm, root = 0)
+    FNR_results = Gatherv_rows(FNR_results, root_group, root = 0)
 
     FPR_results = np.array(FPR_results)
-    FPR_results = Gatherv_rows(FPR_results, comm, root = 0)
+    FPR_results = Gatherv_rows(FPR_results, root_group, root = 0)
 
     sa_results = np.array(sa_results)
-    sa_results = Gatherv_rows(sa_results, comm, root = 0)
+    sa_results = Gatherv_rows(sa_results, root_group, root = 0)
 
     ee_results = np.array(ee_results)
-    ee_results = Gatherv_rows(ee_results, comm, root = 0)
+    ee_results = Gatherv_rows(ee_results, root_group, root = 0)
 
     median_ee_results = np.array(median_ee_results)
-    median_ee_results = Gatherv_rows(median_ee_results, comm, root = 0)
+    median_ee_results = Gatherv_rows(median_ee_results, root_group, root = 0)
 
 f.close()    
-if rank == 0:
+if comm.rank == 0:
     # Save results
     with h5py.File(results_file, 'w') as results:
 
