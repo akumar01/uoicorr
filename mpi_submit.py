@@ -30,6 +30,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('arg_file')
 parser.add_argument('results_file', default = 'results.h5')
 parser.add_argument('exp_type', default = 'UoILasso')
+parser.add_argument('--comm_splits', default = 1)
 args = parser.parse_args()
 #######################################
 
@@ -40,29 +41,38 @@ results_file = args.results_file
 comm = MPI.COMM_WORLD
 rank = comm.rank
 numproc = comm.Get_size()    
-   
-if exp_type in ['UoILasso', 'UoIElasticNet', 'GTV']:
-    partype = 'uoi'
+
+# If specified, split the comm object into subcommunicators. The number of splits will 
+# determine the number of parallel executions of the outer loop. This is useful for UoI 
+# to parallelize over both bootstraps and repetitions
+ 
+if numproc > args.comm_splits and args.comm_splits > 1:
+    color = rank % args.comm_splits
+    key = rank
+    subcomm = comm.split(color, key)
+    rank = color
+    nchunks = args.comm_splits
+    subrank = subcomm.rank
+    numproc = subcomm.Get_size()
 else:
-    partype = 'reps'
+    subcomm = comm
+    subrank = 0
+    nchunks = numproc
 
 # Open the arg file and read out the number of total_tasks and n_features
 f = open(args.arg_file, 'rb')
 total_tasks = pickle.load(f)
 n_features = pickle.load(f)
 
-if partype == 'reps':
-    # Chunk up iter_param_list to distribute across iterations
-    chunk_param_list = np.array_split(np.arange(total_tasks), numproc)
-    chunk_idx = rank
-    num_tasks = len(chunk_param_list[chunk_idx])
-else:
-    chunk_idx = 0
-    num_tasks = total_tasks
+# Chunk up iter_param_list to distribute across iterations
+chunk_param_list = np.array_split(np.arange(total_tasks), nchunks)
+chunk_idx = rank 
+num_tasks = len(chunk_param_list[chunk_idx])
 
 # Initialize arrays to store data in. Assumes that n_features
 # is held constant across all iterations
-if (partype == 'uoi' and rank == 0) or partype == 'reps':
+if subrank == 0:
+    
     beta_hats = np.zeros((num_tasks, n_features))
 
     # result arrays: scores
@@ -85,6 +95,7 @@ for i in range(num_tasks):
     start = time.time()
     
     params = pickle.load(f)
+    params['comm'] = subcomm
     sigma = params['sigma']
     beta = params['betas']
     seed = params['seed']
@@ -95,7 +106,7 @@ for i in range(num_tasks):
     exp = locate('exp_types.%s' % exp_type)
     model = exp.run(X, y, params)
 
-    if (partype == 'uoi' and rank == 0) or partype == 'reps':
+    if subrank == 0:
         #### Calculate and log results
         beta_hat = model.coef_.ravel()
         beta_hats[i, :] = beta_hat.ravel()
@@ -133,12 +144,9 @@ for i in range(num_tasks):
     print(time.time() - start)
        
 # Save results. If parallelizing over reps, concatenate all arrays together first
-if partype == 'reps':
+if subrank == 0:
     fn_results = np.array(fn_results)
-    print(fn_results.shape)
     fn_results = Gatherv_rows(fn_results, comm, root = 0)
-    if rank == 0:
-        print(fn_results.shape)
 
     fp_results = np.array(fp_results)
     fp_results = Gatherv_rows(fp_results, comm, root = 0)
