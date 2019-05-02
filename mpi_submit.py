@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('arg_file')
 parser.add_argument('results_file', default = 'results.h5')
 parser.add_argument('exp_type', default = 'UoILasso')
-parser.add_argument('--comm_splits', default = 1)
+parser.add_argument('--comm_splits', type=int, default = 1)
 args = parser.parse_args()
 #######################################
 
@@ -49,7 +49,7 @@ numproc = comm.Get_size()
 if numproc > args.comm_splits and args.comm_splits > 1:
     color = rank % args.comm_splits
     key = rank
-    subcomm = comm.split(color, key)
+    subcomm = comm.Split(color, key)
     rank = color
     nchunks = args.comm_splits
     subrank = subcomm.rank
@@ -68,6 +68,9 @@ n_features = pickle.load(f)
 chunk_param_list = np.array_split(np.arange(total_tasks), nchunks)
 chunk_idx = rank 
 num_tasks = len(chunk_param_list[chunk_idx])
+
+print(num_tasks)
+print('subrank: %d, color: %d' % (subrank, color))
 
 # Initialize arrays to store data in. Assumes that n_features
 # is held constant across all iterations
@@ -104,6 +107,7 @@ for i in range(num_tasks):
                                     params['kappa'], sigma, beta, seed)
 
     exp = locate('exp_types.%s' % exp_type)
+    print('Going into exp')
     model = exp.run(X, y, params)
 
     if subrank == 0:
