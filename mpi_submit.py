@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('arg_file')
 parser.add_argument('results_file', default = 'results.h5')
 parser.add_argument('exp_type', default = 'UoILasso')
-parser.add_argument('--comm_splits', type=int, default = 1)
+parser.add_argument('--comm_splits', type=int, default = None)
 args = parser.parse_args()
 #######################################
 
@@ -45,29 +45,30 @@ numproc = comm.Get_size()
 # If specified, split the comm object into subcommunicators. The number of splits will 
 # determine the number of parallel executions of the outer loop. This is useful for UoI 
 # to parallelize over both bootstraps and repetitions
- 
-if numproc > args.comm_splits and args.comm_splits > 1:
-    # Use array split to do comm.split
-    ranks = np.arange(numproc)
-    split_ranks = np.array_split(ranks, args.comm_splits)
-    color = [i for i in np.arange(args.comm_splits) if rank in split_ranks[i]][0]
-    subcomm_roots = [split_ranks[i][0] for i in np.arange(args.comm_splits)]
 
-    subcomm = comm.Split(color, rank)
+if args.comm_splits is None:
+    if exp_type in ['UoILasso', 'UoIElasticNet']:
+        args.comm_splits = 1
+    else:
+        args.comm_splits = numproc
 
-    rank = color
-    nchunks = args.comm_splits
-    subrank = subcomm.rank
-    numproc = subcomm.Get_size()
-else:
-    subcomm = comm
-    subrank = 0
-    nchunks = numproc
-    subcomm_roots = list(np.arange(numproc))
+# Use array split to do comm.split
+ranks = np.arange(numproc)
+split_ranks = np.array_split(ranks, args.comm_splits)
+color = [i for i in np.arange(args.comm_splits) if rank in split_ranks[i]][0]
+subcomm_roots = [split_ranks[i][0] for i in np.arange(args.comm_splits)]
+
+subcomm = comm.Split(color, rank)
+
+rank = color
+nchunks = args.comm_splits
+subrank = subcomm.rank
+numproc = subcomm.Get_size()
 
 # Create a group including the root of each subcomm. 
-global_group = MPI.Group(comm)
-root_group = MPI.Group.Incl(global_group, nchunks, subcomm_roots)
+global_group = comm.Get_group()
+root_group = MPI.Group.Incl(global_group, subcomm_roots)
+roots_comm = comm.Create(root_group)
 
 # Open the arg file and read out the number of total_tasks and n_features
 f = open(args.arg_file, 'rb')
@@ -79,8 +80,7 @@ chunk_param_list = np.array_split(np.arange(total_tasks), nchunks)
 chunk_idx = rank 
 num_tasks = len(chunk_param_list[chunk_idx])
 
-print(num_tasks)
-print('subrank: %d, color: %d' % (subrank, color))
+print('rank: %d, subrank: %d, color: %d' % (comm.rank, subrank, color))
 
 # Initialize arrays to store data in. Assumes that n_features
 # is held constant across all iterations
@@ -112,10 +112,21 @@ for i in range(num_tasks):
     sigma = params['sigma']
     beta = params['betas']
     seed = params['seed']
-    # Generate data
-    X, X_test, y, y_test = gen_data(params['n_samples'], params['n_features'],
-                                    params['kappa'], sigma, beta, seed)
-
+    if subrank == 0:
+        # Generate data
+        X, X_test, y, y_test = gen_data(params['n_samples'], params['n_features'],
+                                        params['kappa'], sigma, beta, seed)
+    else:
+        X = None
+        X_test = None
+        y = None 
+        y_test = None
+        
+    X = Bcast_from_root(X, subcomm)
+    X_test = Bcast_from_root(X, subcomm)
+    y = Bcast_from_root(y, subcomm)
+    y_test = Bcast_from_root(y_test, subcomm)
+        
     exp = locate('exp_types.%s' % exp_type)
     print('Going into exp')
     model = exp.run(X, y, params)
@@ -160,43 +171,43 @@ for i in range(num_tasks):
 # Gather across root nodes
 if subrank == 0:
     fn_results = np.array(fn_results)
-    fn_results = Gatherv_rows(fn_results, root_group, root = 0)
+    fn_results = Gatherv_rows(fn_results, roots_comm, root = 0)
 
     fp_results = np.array(fp_results)
-    fp_results = Gatherv_rows(fp_results, root_group, root = 0)
+    fp_results = Gatherv_rows(fp_results, roots_comm, root = 0)
 
     r2_results = np.array(r2_results)
-    r2_results = Gatherv_rows(r2_results, root_group, root = 0)
+    r2_results = Gatherv_rows(r2_results, roots_comm, root = 0)
 
     r2_true_results = np.array(r2_true_results)
-    r2_true_results = Gatherv_rows(r2_true_results, root_group, root = 0)
+    r2_true_results = Gatherv_rows(r2_true_results, roots_comm, root = 0)
 
     beta_hats = np.array(beta_hats)
-    beta_hats = Gatherv_rows(beta_hats, root_group, root = 0)
+    beta_hats = Gatherv_rows(beta_hats, roots_comm, root = 0)
 
     BIC_results = np.array(BIC_results)
-    BIC_results = Gatherv_rows(BIC_results, root_group, root = 0)
+    BIC_results = Gatherv_rows(BIC_results, roots_comm, root = 0)
 
     AIC_results = np.array(AIC_results)
-    AIC_results = Gatherv_rows(AIC_results, root_group, root = 0)
+    AIC_results = Gatherv_rows(AIC_results, roots_comm, root = 0)
 
     AICc_results = np.array(AICc_results)
-    AICc_results = Gatherv_rows(AICc_results, root_group, root = 0)
+    AICc_results = Gatherv_rows(AICc_results, roots_comm, root = 0)
 
     FNR_results = np.array(FNR_results)
-    FNR_results = Gatherv_rows(FNR_results, root_group, root = 0)
+    FNR_results = Gatherv_rows(FNR_results, roots_comm, root = 0)
 
     FPR_results = np.array(FPR_results)
-    FPR_results = Gatherv_rows(FPR_results, root_group, root = 0)
+    FPR_results = Gatherv_rows(FPR_results, roots_comm, root = 0)
 
     sa_results = np.array(sa_results)
-    sa_results = Gatherv_rows(sa_results, root_group, root = 0)
+    sa_results = Gatherv_rows(sa_results, roots_comm, root = 0)
 
     ee_results = np.array(ee_results)
-    ee_results = Gatherv_rows(ee_results, root_group, root = 0)
+    ee_results = Gatherv_rows(ee_results, roots_comm, root = 0)
 
     median_ee_results = np.array(median_ee_results)
-    median_ee_results = Gatherv_rows(median_ee_results, root_group, root = 0)
+    median_ee_results = Gatherv_rows(median_ee_results, roots_comm, root = 0)
 
 f.close()    
 if comm.rank == 0:
