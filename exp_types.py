@@ -18,10 +18,13 @@ class CV_Lasso():
     @classmethod
     def run(self, X, y, args):
 
+        if 'comm' in list(args.keys()):
+            comm = args['comm']
+        else:
+            comm = None
+
         n_alphas = args['n_alphas']
         cv_splits = 10
-
-        scores = np.zeros(n_alphas)
 
         lasso = Lasso(normalize=True, warm_start = False)
 #        lasso = Lbfgs_lasso()
@@ -31,22 +34,41 @@ class CV_Lasso():
         # Generate alphas to use
         alphas = _alpha_grid(X = X, y = y.ravel(), l1_ratio = 1, normalize = True, n_alphas = n_alphas)
 
-        for a_idx, alpha in enumerate(alphas):
+        if comm is not None:
+            numproc = comm.Get_size()
+            rank = comm.rank
+            chunk_alphas = np.array_split(alphas, numproc)
+            chunk_idx = rank
+            num_tasks = len(chunk_alphas[chunk_idx])
+        else:
+            numproc = 1
+            rank = 0
+            chunk_alphas = [alphas]
+            num_tasks = len(alphas)
+
+        cv_scores = np.zeros(len(chunk_alphas[chunk_idx]))
+        for a_idx, alpha in enumerate(chunk_alphas[chunk_idx]):
             lasso.set_params(alpha = alpha)
-            cv_scores = np.zeros(cv_splits)
+            scores = np.zeros(cv_splits)
             # Cross validation splits into training and test sets
             for i, cv_idxs in enumerate(kfold.split(X, y)):
 #                t0 = time.time()
                 lasso.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
-                cv_scores[i] = r2_score(y[cv_idxs[1]], lasso.coef_ @ X[cv_idxs[1], :].T)
+                scores[i] = r2_score(y[cv_idxs[1]], lasso.coef_ @ X[cv_idxs[1], :].T)
 #                print('CV time: %f' % (time.time() - t0))
             # Average together cross-validation scores
-            scores[a_idx] = np.mean(cv_scores)
+            cv_scores[a_idx] = np.mean(scores)
 
-        # Select the model with the maximum score
-        max_score_idx = np.argmax(scores.ravel())
-        lasso.set_params(alpha = alphas[max_score_idx])
-        lasso.fit(X, y.ravel())
+        # Gather scores
+        if comm is not None:
+            cv_scores = Gatherv_rows(cv_scores, comm, root = 0)
+        if rank == 0:
+            # Select the model with the maximum score
+            max_score_idx = np.argmax(cv_scores.ravel())
+            lasso.set_params(alpha = alphas[max_score_idx])
+            lasso.fit(X, y.ravel())
+        else:
+            lasso = None
         return lasso
 
 class Lbfgs_lasso(Lasso):
@@ -149,6 +171,11 @@ class EN():
                 l1_ratios = np.array([l1_ratios])
             else:
                 l1_ratios = np.array(l1_ratios)
+
+        if 'comm' in list(args.keys()):
+            comm = args['comm']
+        else:
+            comm = None
                 
         en = ElasticNet(normalize=True, warm_start = True)
 
@@ -164,23 +191,41 @@ class EN():
             reg_params.extend([{'l1_ratio': l1_ratio, 'alpha': alpha} for alpha in alphas])
         reg_params = np.array(reg_params)
 
-        scores = []
+        if comm is not None:
+            numproc = comm.Get_size() 
+            rank = comm.rank
+            chunk_regparams = np.array_split(reg_params, numproc)
+            chunk_idx = rank
+            num_tasks = len(chunk_regparams[chunk_idx])
+        else:
+            numproc = 1
+            rank = 0
+            chunk_regparams = [reg_params]
+            chunk_idx = 0
+            num_tasks = len(reg_params)
 
-        for reg_param in reg_params:
+        cv_scores = np.zeros(len(chunk_regparams[chunk_idx]))
+
+        for i, reg_param in enumerate(chunk_regparams[chunk_idx]):
             en.set_params(**reg_param)
-            cv_scores = np.zeros(cv_splits)
+            scores = np.zeros(cv_splits)
             # Cross validation splits into training and test sets
             for i, cv_idxs in enumerate(kfold.split(X, y)):
                 en.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
-                cv_scores[i] = r2_score(y[cv_idxs[1]], en.coef_ @ X[cv_idxs[1], :].T)
+                scores[i] = r2_score(y[cv_idxs[1]], en.coef_ @ X[cv_idxs[1], :].T)
 
-            scores.append(np.mean(cv_scores))
+            cv_scores[i] = np.mean(cv_scores)
 
-        # Select the model with the maximum score
-        max_score_idx = np.argmax(np.array(scores).ravel())
-        en.set_params(**reg_params[max_score_idx])
-        en.fit(X, y.ravel())
-            
+        # Gather scores
+        if comm is not None:
+            cv_scores = Gatherv_rows(cv_scores, comm, root = 0)
+        if rank == 0:
+            # Select the model with the maximum score
+            max_score_idx = np.argmax(cv_scores.ravel())
+            en.set_params(**reg_params[max_score_idx])
+            en.fit(X, y.ravel())
+        else:
+            en = None            
         return en
 
 class GTV():
@@ -254,12 +299,12 @@ class GTV():
             t0 = time.time()
             gtv = GraphTotalVariance(lambda_S = hparam[0], lambda_TV = hparam[1], 
                                      lambda_1 = hparam[2], normalize=True, 
-                                     warm_start = False, use_skeleton = use_skeleton,
+                                     warmd_start = False, use_skeleton = use_skeleton,
                                      threshold = threshold, minimizer = 'lbfgs')
             scores = np.zeros(cv_splits)
             fold_idx = 0
             for train_index, test_index in kfold.split(X):
-                # Fit
+                # Fits
                 gtv.fit(X[train_index, :], y[train_index], cov)
                 # Score
                 scores[fold_idx] = r2_score(y[test_index], X[test_index] @ gtv.coef_)
