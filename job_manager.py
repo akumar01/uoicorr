@@ -4,6 +4,7 @@ import itertools
 import pdb
 import sys, os
 import pickle
+import shelve
 import time
 import traceback
 import pandas as pd
@@ -109,18 +110,15 @@ def generate_arg_files(argfile_array, jobdir):
             param_comb['betas'] = betas
             # Save a seed that will be used to generate the same data for every process
             param_comb['seed'] = i 
-        with open(arg_file, 'wb') as f:
-            # Sequentially pickle the elements of iter_param_list so they can be 
-            # sequentially unpickled
-            
-            # First pickle away the number of tasks 
-            f.write(pickle.dumps(len(iter_param_list)))
-            # Then the number of features (assuming it remains fixed)
-            f.write(pickle.dumps(param_comb['n_features']))
-                
-            for elem in iter_param_list:
-                f.write(pickle.dumps(elem))
-            
+        
+            f = shelve.open(arg_file)
+            f['n_tasks'] = len(iter_param_list)
+            f['n_features'] = len(param_comb['n_features'])
+
+            for i, elem in enumerate(iter_param_list):
+                f['%d' % i] = elem            
+            f.close() 
+
         print('arg_file iteration time: %f' % (time.time() - start))
     
     return paths, ntasks

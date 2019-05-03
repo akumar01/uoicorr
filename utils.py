@@ -136,7 +136,7 @@ def interpolated_dist(lmbda, t, sigma, n_features = 60, low = -5, high = 5):
 
 # Generate toy data to fit given number of features, covariance structure, signal to noise, and sparsity
 # Note that sparsity is applied within blocks. When this is not desired, set the block size to equal n_features
-def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
+def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 3,
             covariance = np.diag(np.ones(60)), beta = np.random.uniform(0, 10, (60, 1)), seed = None):
 
     # For consistency across different runs
@@ -147,12 +147,18 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 0.3,
     X = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)
     X_test = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)
 
-    # Use the same standard as the UoI Lasso paper. i.e.  - a multiplicative factor of the
-    # sum of weight magnitudes
-    noise_variance = kappa * np.sum(np.abs(beta))
+
+    # Kappa is the signal to noise ratio
+
+    signal = np.var(X @ beta)
+    noise_variance = signal/kappa
 
     # draw noise
     noise = np.random.normal(loc=0, scale=np.sqrt(noise_variance), size=(n_samples, 1))
+    
+    signal = np.var(X_test @ beta)
+    noise_variance = signal/kappa
+
     noise_test = np.random.normal(loc=0, scale=np.sqrt(noise_variance), size=(n_samples, 1))
 
     # response variable
@@ -328,7 +334,7 @@ def gen_avg_covariance(cov_type, avg_cov = 0.1, n_features = 60, **kwargs):
                                 [t], n_features, cov_type1_args, cov_type2_args)[0]['sigma']
 
     else:
-        raise Exception('invalid or missing cov_type')
+       raise Exception('invalid or missing cov_type')
 
 # # Return covariance matrix based on covariance type:
 # def gen_covariance(cov_type, n_features = 60, **kwargs):

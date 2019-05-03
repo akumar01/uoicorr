@@ -6,7 +6,7 @@ import pdb
 import itertools
 import glob
 import argparse
-import pickle
+import shelve
 import importlib
 import subprocess
 import numpy as np
@@ -71,9 +71,9 @@ root_group = MPI.Group.Incl(global_group, subcomm_roots)
 roots_comm = comm.Create(root_group)
 
 # Open the arg file and read out the number of total_tasks and n_features
-f = open(args.arg_file, 'rb')
-total_tasks = pickle.load(f)
-n_features = pickle.load(f)
+f = shelve.open(args.arg_file)
+total_tasks = f['n_tasks']
+n_features = f['n_features']
 
 # Chunk up iter_param_list to distribute across iterations
 chunk_param_list = np.array_split(np.arange(total_tasks), nchunks)
@@ -107,7 +107,7 @@ if subrank == 0:
 for i in range(num_tasks):
     start = time.time()
     
-    params = pickle.load(f)
+    params = f['%d' % chunk_param_list[chunk_idx][i]]
     params['comm'] = subcomm
     sigma = params['sigma']
     beta = params['betas']
