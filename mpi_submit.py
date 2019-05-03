@@ -7,6 +7,7 @@ import itertools
 import glob
 import argparse
 import pickle
+import struct
 import importlib
 import subprocess
 import numpy as np
@@ -74,7 +75,7 @@ roots_comm = comm.Create(root_group)
 # total_tasks and n_features
 
 
-f = open(args.arg_file, 'wb')
+f = open(args.arg_file, 'rb')
 index_loc = f.read(8)
 index_loc = struct.unpack('L', index_loc)[0]
 total_tasks = pickle.load(f)
@@ -134,7 +135,6 @@ for i in range(num_tasks):
     X_test = Bcast_from_root(X, subcomm)
     y = Bcast_from_root(y, subcomm)
     y_test = Bcast_from_root(y_test, subcomm)
-        
     exp = locate('exp_types.%s' % exp_type)
     print('Going into exp')
     model = exp.run(X, y, params)

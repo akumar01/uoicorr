@@ -9,7 +9,7 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 exp_types =  ['UoILasso', 'UoIElasticNet', 'EN', 'CV_Lasso']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['16:00:00', '24:00:00', '02:00:00', '01:00:00']
+algorithm_times = ['16:00:00', '24:00:00', '04:00:00', '02:00:00']
 
 n_features = 1000
 
@@ -52,7 +52,7 @@ comm_params = {
 'n_boots_est' : 48,
 'betawidth' : [0.1, 0.5, 2.5, np.inf],
 # Inverse Signal to noise ratio
-'kappa' : np.linspace(0, 0.6, 5),
+'kappa' : [np.inf, 10, 5, 2, 1],
 'sub_iter_params': ['kappa', 'betawidth', 'sparsity']
 }
 

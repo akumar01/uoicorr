@@ -164,7 +164,6 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 3,
     # response variable
     y = np.dot(X, beta) + noise
     y_test = np.dot(X_test, beta) + noise_test
-    pdb.set_trace()
 #     # Center response
 #     y = y - np.mean(y)
 #     y_test = y_test - np.mean(y_test)
