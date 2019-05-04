@@ -2,7 +2,7 @@ import numpy as np
 import pdb
 from sklearn.linear_model.coordinate_descent import _alpha_grid
 from sklearn.linear_model import Lasso, ElasticNet
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, GroupKFold
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import normalize
 from pyuoi.linear_model.lasso import UoI_Lasso
@@ -16,7 +16,7 @@ from pyuoi.lbfgs import fmin_lbfgs
 class CV_Lasso():
 
     @classmethod
-    def run(self, X, y, args):
+    def run(self, X, y, args, groups = None):
 
         if 'comm' in list(args.keys()):
             comm = args['comm']
@@ -24,12 +24,12 @@ class CV_Lasso():
             comm = None
 
         n_alphas = args['n_alphas']
-        cv_splits = 10
+        cv_splits = 5
 
         lasso = Lasso(normalize=True, warm_start = False)
 #        lasso = Lbfgs_lasso()
         # Use 10 fold cross validation. Do this in a manual way to enable use of warm_start and custom parameter sweeps
-        kfold = KFold(n_splits = cv_splits, shuffle = True)
+        kfold = GroupKFold(n_splits = cv_splits)
 
         # Generate alphas to use
         alphas = _alpha_grid(X = X, y = y.ravel(), l1_ratio = 1, normalize = True, n_alphas = n_alphas)
@@ -51,7 +51,7 @@ class CV_Lasso():
             lasso.set_params(alpha = alpha)
             scores = np.zeros(cv_splits)
             # Cross validation splits into training and test sets
-            for i, cv_idxs in enumerate(kfold.split(X, y)):
+            for i, cv_idxs in enumerate(kfold.split(X, y, groups)):
 #                t0 = time.time()
                 lasso.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
                 scores[i] = r2_score(y[cv_idxs[1]], lasso.coef_ @ X[cv_idxs[1], :].T)
@@ -160,7 +160,7 @@ class UoIElasticNet():
 class EN():
 
     @classmethod
-    def run(self, X, y, args):
+    def run(self, X, y, args, groups = None):
         print('Started run method')
         l1_ratios = args['l1_ratios']
         n_alphas = args['n_alphas']
@@ -181,7 +181,7 @@ class EN():
 
         # Use 10 fold cross validation. Do this in a manual way to enable use of warm_start 
         # and custom parameter sweeps
-        kfold = KFold(n_splits = cv_splits, shuffle = True)
+        kfold = GroupKFold(n_splits = cv_splits)
 
         reg_params = []
         
@@ -210,7 +210,7 @@ class EN():
             en.set_params(**reg_param)
             scores = np.zeros(cv_splits)
             # Cross validation splits into training and test sets
-            for j, cv_idxs in enumerate(kfold.split(X, y)):
+            for j, cv_idxs in enumerate(kfold.split(X, y, groups)):
                 en.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
                 scores[j] = r2_score(y[cv_idxs[1]], en.coef_ @ X[cv_idxs[1], :].T)
 
@@ -231,7 +231,7 @@ class EN():
 class GTV():
 
     @classmethod
-    def run(self, X, y, args):
+    def run(self, X, y, args, groups = None):
         print('started run')
         cv_splits = 5
         lambda_S = args['reg_params']['lambda_S']
@@ -276,7 +276,7 @@ class GTV():
         scores = np.zeros((lambda_S.size, lambda_TV.size, lambda_1.size))
 
 #        Use k-fold cross_validation
-        kfold = KFold(n_splits = cv_splits, shuffle = True)
+        kfold = GroupKFold(n_splits = cv_splits)
 
         # Parallelize hyperparameter search
         hparamlist = list(itertools.product(lambda_S, lambda_TV, lambda_1))
@@ -303,7 +303,7 @@ class GTV():
                                      threshold = threshold, minimizer = 'lbfgs')
             scores = np.zeros(cv_splits)
             fold_idx = 0
-            for train_index, test_index in kfold.split(X):
+            for train_index, test_index in kfold.split(X, groups = groups):
                 # Fits
                 gtv.fit(X[train_index, :], y[train_index], cov)
                 # Score
