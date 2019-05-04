@@ -43,6 +43,7 @@ for exp_type in ['CV_Lasso', 'EN', 'UoILasso', 'UoIElasticNet']:
     n_reps = pickle.load(f)
     stratified = pickle.load(f)
     model_coefs = []
+    sigma_hats = []
     for rep in range(n_reps):
         if stratified:
             groups = pickle.load(f)
@@ -50,9 +51,6 @@ for exp_type in ['CV_Lasso', 'EN', 'UoILasso', 'UoIElasticNet']:
         if not stratified:
             groups = np.zeros(data.shape[0])
 
-        # Estimate covariance
-        sigma_hat = oas(data)
-        
         # Split data into training and test samples
 
         train_data, test_data = train_test_split(data, train_size = 0.8, stratify=groups,
@@ -82,9 +80,14 @@ for exp_type in ['CV_Lasso', 'EN', 'UoILasso', 'UoIElasticNet']:
         # Fix exp_types to accept a group kfold if provided with groups
         if rank == 0:
             model_coefs.append(coefs)
+            # Estimate covariance
+            sigma_hats.append(oas(data))
+
     if rank == 0:
         model_coefs = np.array(model_coefs)
+        sigma_hats = np.array(sigma_hats)
 
         # Save data
         with h5py.File('%s_%s.h5' % (exp_type, results_file), 'w') as f:
             f['coefs'] = model_coefs
+            f['sigma_hats'] =  sigma_hats

@@ -44,6 +44,7 @@ class CV_Lasso():
             numproc = 1
             rank = 0
             chunk_alphas = [alphas]
+            chunk_idx = rank
             num_tasks = len(alphas)
 
         cv_scores = np.zeros(len(chunk_alphas[chunk_idx]))
