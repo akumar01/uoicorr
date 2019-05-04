@@ -151,7 +151,7 @@ for i in range(num_tasks):
     
         llhood = log_likelihood_glm('normal', y_test, np.dot(X_test, beta_hat))
         try:
-            BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), n_samples)
+            BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), y_test.size)
         except:
             BIC_results[i] = np.nan
         try:
@@ -159,7 +159,7 @@ for i in range(num_tasks):
         except:
             AIC_results[i] = np.nan
         try:
-            AICc_results[i] = AICc(llhood, np.count_nonzero(beta_hat), n_samples)
+            AICc_results[i] = AICc(llhood, np.count_nonzero(beta_hat), y_test.size)
         except:
             AICc_results[i] = np.nan
         # Perform calculation of FNR, FPR, selection accuracy, and estimation error

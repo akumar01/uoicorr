@@ -1,7 +1,7 @@
 import numpy as np
 import pdb
 from sklearn.linear_model.coordinate_descent import _alpha_grid
-from sklearn.linear_model import Lasso, ElasticNet
+from sklearn.linear_model import LassoCV, ElasticNetCV
 from sklearn.model_selection import KFold, GroupKFold
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import normalize
@@ -26,76 +26,9 @@ class CV_Lasso():
         n_alphas = args['n_alphas']
         cv_splits = 5
 
-        lasso = Lasso(normalize=True, warm_start = False)
-#        lasso = Lbfgs_lasso()
-        # Use 10 fold cross validation. Do this in a manual way to enable use of warm_start and custom parameter sweeps
-        kfold = KFold(n_splits = cv_splits, shuffle = True)
+        lasso = LassoCV(cv = cv_splits, n_alphas = n_alphas).Fit(X, y.ravel())
 
-        # Generate alphas to use
-        alphas = _alpha_grid(X = X, y = y.ravel(), l1_ratio = 1, normalize = True, n_alphas = n_alphas)
-
-        if comm is not None:
-            numproc = comm.Get_size()
-            rank = comm.rank
-            chunk_alphas = np.array_split(alphas, numproc)
-            chunk_idx = rank
-            num_tasks = len(chunk_alphas[chunk_idx])
-        else:
-            numproc = 1
-            rank = 0
-            chunk_alphas = [alphas]
-            chunk_idx = rank
-            num_tasks = len(alphas)
-
-        cv_scores = np.zeros(len(chunk_alphas[chunk_idx]))
-        for a_idx, alpha in enumerate(chunk_alphas[chunk_idx]):
-            lasso.set_params(alpha = alpha)
-            scores = np.zeros(cv_splits)
-            # Cross validation splits into training and test sets
-            for i, cv_idxs in enumerate(kfold.split(X, y)):
-#                t0 = time.time()
-                lasso.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
-                scores[i] = r2_score(y[cv_idxs[1]], lasso.coef_ @ X[cv_idxs[1], :].T)
-#                print('CV time: %f' % (time.time() - t0))
-            # Average together cross-validation scores
-            cv_scores[a_idx] = np.mean(scores)
-
-        # Gather scores
-        if comm is not None:
-            cv_scores = Gatherv_rows(cv_scores, comm, root = 0)
-        if rank == 0:
-            # Select the model with the maximum score
-            max_score_idx = np.argmax(cv_scores.ravel())
-            lasso.set_params(alpha = alphas[max_score_idx])
-            lasso.fit(X, y.ravel())
-        else:
-            lasso = None
         return lasso
-
-class Lbfgs_lasso(Lasso):
-
-    def __init__(self):
-        super(Lbfgs_lasso, self).__init__()
-        self.alpha = None
-
-    def loss(self, beta, gradient, n, X, y):
-        l = 1/n * np.linalg.norm(y.ravel() - X @ beta)**2
-        gradient[:] = -2/n * X.T @ (y.ravel() - X @ beta)
-
-        return  l
-
-    # Use the lbfgs solver instead of whatever sklearn does
-    def fit(self, X, y, alpha):
-        n = X.shape[0]
-        p = X.shape[1]
-
-        if self.normalize:
-            X, _ = normalize(X)
-
-        betas = fmin_lbfgs(self.loss, np.zeros(p),
-                           args = (n, X, y), orthantwise_c = alpha)    
-
-        self.coef_ = betas
         
 class UoILasso():
 
@@ -172,59 +105,9 @@ class EN():
             else:
                 l1_ratios = np.array(l1_ratios)
 
-        if 'comm' in list(args.keys()):
-            comm = args['comm']
-        else:
-            comm = None
-                
-        en = ElasticNet(normalize=True, warm_start = True)
+        en = ElasticNetCV(cv = 5, n_alphas = 48, 
+                        l1_ratio = l1_ratios).fit(X, y.ravel())
 
-        # Use 10 fold cross validation. Do this in a manual way to enable use of warm_start 
-        # and custom parameter sweeps
-        kfold = KFold(n_splits = cv_splits, shuffle = True)
-
-        reg_params = []
-        
-        for l1_idx, l1_ratio in enumerate(l1_ratios):
-            # Generate alphas to use
-            alphas = _alpha_grid(X = X, y = y.ravel(), l1_ratio = l1_ratio, normalize = True, n_alphas = n_alphas)
-            reg_params.extend([{'l1_ratio': l1_ratio, 'alpha': alpha} for alpha in alphas])
-        reg_params = np.array(reg_params)
-
-        if comm is not None:
-            numproc = comm.Get_size() 
-            rank = comm.rank
-            chunk_regparams = np.array_split(reg_params, numproc)
-            chunk_idx = rank
-            num_tasks = len(chunk_regparams[chunk_idx])
-        else:
-            numproc = 1
-            rank = 0
-            chunk_regparams = [reg_params]
-            chunk_idx = 0
-            num_tasks = len(reg_params)
-
-        cv_scores = np.zeros(len(chunk_regparams[chunk_idx]))
-        for i, reg_param in enumerate(chunk_regparams[chunk_idx]):
-            t0 = time.time()
-            en.set_params(**reg_param)
-            scores = np.zeros(cv_splits)
-            # Cross validation splits into training and test sets
-            for j, cv_idxs in enumerate(kfold.split(X, y)):
-                en.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
-                scores[j] = r2_score(y[cv_idxs[1]], en.coef_ @ X[cv_idxs[1], :].T)
-
-            cv_scores[i] = np.mean(cv_scores)
-        # Gather scores
-        if comm is not None:
-            cv_scores = Gatherv_rows(cv_scores, comm, root = 0)
-        if rank == 0:
-            # Select the model with the maximum score
-            max_score_idx = np.argmax(cv_scores.ravel())
-            en.set_params(**reg_params[max_score_idx])
-            en.fit(X, y.ravel())
-        else:
-            en = None            
         return en
 
 class GTV():
