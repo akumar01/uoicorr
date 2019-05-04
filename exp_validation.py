@@ -17,6 +17,7 @@ import time
 from pydoc import locate
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
+from sklearn.model_selection import train_test_split
 from sklearn.covariance import oas
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
 from pyuoi.mpi_utils import Bcast_from_root, Gatherv_rows
@@ -37,7 +38,7 @@ rank = comm.rank
 numproc = comm.Get_size()    
 
 for exp_type in ['CV_Lasso', 'EN', 'UoILasso', 'UoIElasticNet']:
-
+    print(exp_type)
     f = open(args.data_file, 'rb')
     n_reps = pickle.load(f)
     stratified = pickle.load(f)
@@ -45,9 +46,9 @@ for exp_type in ['CV_Lasso', 'EN', 'UoILasso', 'UoIElasticNet']:
     for rep in range(n_reps):
         if stratified:
             groups = pickle.load(f)
-        else:
-            groups = None
         data = pickle.load(f)
+        if not stratified:
+            groups = np.zeros(data.shape[0])
 
         # Estimate covariance
         sigma_hat = oas(data)
@@ -57,10 +58,13 @@ for exp_type in ['CV_Lasso', 'EN', 'UoILasso', 'UoIElasticNet']:
         train_data, test_data = train_test_split(data, train_size = 0.8, stratify=groups,
                                                 random_state = 0)
 
-        model_coefs.append(np.zeros((data.shape[1], data.shape[1] - 1)))
+        if not stratified: 
+            groups = None
+        coefs = np.zeros((data.shape[1], data.shape[1] - 1))
         # Iterate over the all neurons
         for i in range(data.shape[1]):
-
+            print('Working on %d/%d' % (i, data.shape[1] - 1
+                ))
             # Load params with the needed information
             p = {}
             p['comm'] = comm
@@ -72,12 +76,15 @@ for exp_type in ['CV_Lasso', 'EN', 'UoILasso', 'UoIElasticNet']:
             p['l1_ratios'] = [0.1, 0.2, 0.5, 0.75, 0.9, 0.95, 0.99]
             exp = locate('exp_types.%s' % exp_type)
             X = train_data[:, np.arange(data.shape[1]) != i]
-            model = exp.run(X, train_data[:, i], p, groups)
-            
-            model_coefs[i, :] = model.coef_
+            model = exp.run(X, train_data[:, i], p)
+            if rank == 0:
+                coefs[i, :] = model.coef_
         # Fix exp_types to accept a group kfold if provided with groups
-    model_coefs = np.array(model_coefs)
+        if rank == 0:
+            model_coefs.append(coefs)
+    if rank == 0:
+        model_coefs = np.array(model_coefs)
 
-    # Save data
-    with h5py.File('%s_%s.h5' % (exp_type, results_file), 'w') as f:
-        f['coefs'] = model_coefs
+        # Save data
+        with h5py.File('%s_%s.h5' % (exp_type, results_file), 'w') as f:
+            f['coefs'] = model_coefs
