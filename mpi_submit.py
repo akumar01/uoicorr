@@ -132,7 +132,7 @@ for i in range(num_tasks):
         y_test = None
         
     X = Bcast_from_root(X, subcomm)
-    X_test = Bcast_from_root(X, subcomm)
+    X_test = Bcast_from_root(X_test, subcomm)
     y = Bcast_from_root(y, subcomm)
     y_test = Bcast_from_root(y_test, subcomm)
     exp = locate('exp_types.%s' % exp_type)
@@ -172,10 +172,10 @@ for i in range(num_tasks):
                 
         ee_results[i] = ee
         median_ee_results[i] = median_ee
+        print('Process group %d completed outer loop %d/%d' % (rank, i, num_tasks -1))
+        print(time.time() - start)
     del params
-    print('Process group %d completed outer loop %d/%d' % (rank, i, num_tasks - 1))
-    print(time.time() - start)
-       
+  
 # Gather across root nodes
 if subrank == 0:
     fn_results = np.array(fn_results)

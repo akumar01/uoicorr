@@ -4,6 +4,7 @@ import itertools
 import pdb
 from scipy.optimize import minimize
 import pickle
+import struct
 
 # Solve for the L needed to yield a desired average correlation
 # for exponential falloff design
@@ -220,3 +221,15 @@ def shorten_param_file(param_path, target_path, n):
         f.write(pickle.dumps(param))
     
     f.close()
+
+# Return the dictionary at index in our indexed pickle files
+def unpack_pickle(f, index):
+    f.seek(0, 0)
+    index_loc = f.read(8)
+    index_loc = struct.unpack('L', index_loc)[0]
+    f.seek(index_loc, 0)
+    index_list = pickle.load(f)
+    f.seek(index_list[index], 0)
+    params = pickle.load(f)
+    f.seek(0, 0)
+    return params

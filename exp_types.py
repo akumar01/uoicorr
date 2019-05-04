@@ -164,7 +164,7 @@ class EN():
         print('Started run method')
         l1_ratios = args['l1_ratios']
         n_alphas = args['n_alphas']
-        cv_splits = 10
+        cv_splits = 5
 
         if not isinstance(l1_ratios, np.ndarray):
             if np.isscalar(l1_ratios):
@@ -205,17 +205,17 @@ class EN():
             num_tasks = len(reg_params)
 
         cv_scores = np.zeros(len(chunk_regparams[chunk_idx]))
-
         for i, reg_param in enumerate(chunk_regparams[chunk_idx]):
+            t0 = time.time()
             en.set_params(**reg_param)
             scores = np.zeros(cv_splits)
             # Cross validation splits into training and test sets
-            for i, cv_idxs in enumerate(kfold.split(X, y)):
+            for j, cv_idxs in enumerate(kfold.split(X, y)):
                 en.fit(X[cv_idxs[0], :], y[cv_idxs[0]])
-                scores[i] = r2_score(y[cv_idxs[1]], en.coef_ @ X[cv_idxs[1], :].T)
+                scores[j] = r2_score(y[cv_idxs[1]], en.coef_ @ X[cv_idxs[1], :].T)
 
             cv_scores[i] = np.mean(cv_scores)
-
+            print('Single reg param time: %f' % (time.time() - t0))
         # Gather scores
         if comm is not None:
             cv_scores = Gatherv_rows(cv_scores, comm, root = 0)

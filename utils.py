@@ -464,10 +464,14 @@ def estimation_error(beta, beta_hat, threshold = False):
 
         common_support = np.bitwise_and(b != 0, bhat != 0)
         p = bhat[common_support].size
-        median_ee[i] = np.median(np.sqrt(np.power(b[common_support] - \
+        if p > 0:
+            median_ee[i] = np.median(np.sqrt(np.power(b[common_support] - \
                                         bhat[common_support], 2)))
-        ee[i] = 1/p * np.sqrt(np.sum(np.power(b[common_support] - \
-                                    bhat[common_support], 2)))
+            ee[i] = 1/p * np.sqrt(np.sum(np.power(b[common_support] - \
+                                  bhat[common_support], 2)))
+        else:
+            median_ee[i] = np.nan
+            ee[i] = np.nan
 
     return ee, median_ee
 

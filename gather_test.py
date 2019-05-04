@@ -1,7 +1,7 @@
 import sys, os
 from mpi4py import MPI
 import numpy as np
-from pyuoi.mpi_utils import Gatherv_rows
+from pyuoi.mpi_utils import Gatherv_rows, Bcast_from_root
 from utils import gen_beta2, gen_data
 from sklearn.metrics import r2_score
 
@@ -27,10 +27,13 @@ global_group = comm.Get_group()
 root_group = MPI.Group.Incl(global_group, subcomm_roots)
 roots_comm = comm.Create(root_group)
 
-if subrank == 0: 
-	r2_scores = np.zeros(5)
+print('comm rank: %d, subcomm rank: %d, color: %d' % (comm.rank, subcomm.rank, color))
 
-for i in range(5)
+if subrank == 0: 
+        r2_scores = np.zeros(5)
+        print('roots_comm rank: %d' % roots_comm.rank)
+
+for i in range(1):
     if subrank == 0:
         # Generate data
         beta = gen_beta2()
@@ -42,15 +45,17 @@ for i in range(5)
         y_test = None
         
     X = Bcast_from_root(X, subcomm)
-    X_test = Bcast_from_root(X, subcomm)
+    X_test = Bcast_from_root(X_test, subcomm)
     y = Bcast_from_root(y, subcomm)
     y_test = Bcast_from_root(y_test, subcomm)
 
     if subrank == 0:
-    	r2_scores[i] = r2_score(y_test, X_test @ beta)
-
+        r2_scores[i] = r2_score(y_test, np.dot(X_test, beta))
+        if roots_comm.rank == 0:
+     	    print(beta)
+ 	#print(r2_scores[i])
 if subrank == 0:
-	print('Starting gather')
-	r2_scores = Gatherv_rows(r2_scores, roots_comm, root = 0)
-	print (r2_scores)
-	
+        print('Starting gather')
+        r2_scores = Gatherv_rows(r2_scores, roots_comm, root = 0)
+        print (r2_scores)
+        
