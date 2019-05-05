@@ -48,8 +48,13 @@ def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6, betawidth = np.i
     elif betawidth == 0:
         beta = 5 * np.ones((n_features, 1))
     else:
-        beta = np.random.laplace(scale = betawidth, loc = 5, size = (n_features, 1))
-    
+        beta = np.zeros((0,))    # empty for now
+        while beta.shape[0] < n_features: 
+            b = np.random.laplace(scale = betawidth, loc = 5, size=(n_features,))
+            accepted = b[(b >= 0) & (b <= 10)]
+            beta = np.concatenate((beta, accepted), axis=0)
+        beta = beta[:n_features] 
+        beta = beta[:, np.newaxis]   # we probably got more than needed, so discard extra ones
     # Apply sparsity separately to each block
     mask = np.array([])
     for block in range(n_blocks):
