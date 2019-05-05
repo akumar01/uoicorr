@@ -339,13 +339,9 @@ def unfinished_jobs(jobdir, exp_type = None):
     return run_paths
 
 # Run the given jobs:
-def run_(run_files):
-    if not hasattr(run_files, '__iter__'):
-        run_files = [run_files]
-        
-    for run_file in run_files:
-        os.system('chmod u+x %s' % run_file)
-        os.system('sbatch %s' % run_file)
+def run_(run_file):
+    os.system('chmod u+x %s' % run_file)
+    os.system('sbatch %s' % run_file)
                 
 # Sequentially run files locally:
 def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
