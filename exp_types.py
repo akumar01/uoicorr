@@ -26,7 +26,7 @@ class CV_Lasso():
         n_alphas = args['n_alphas']
         cv_splits = 5
 
-        lasso = LassoCV(cv = cv_splits, n_alphas = n_alphas).Fit(X, y.ravel())
+        lasso = LassoCV(cv = cv_splits, n_alphas = n_alphas).fit(X, y.ravel())
 
         return lasso
         

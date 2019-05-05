@@ -61,9 +61,10 @@ for exp_type in ['CV_Lasso', 'EN', 'UoILasso', 'UoIElasticNet']:
         coefs = np.zeros((outer_folds, data.shape[1], data.shape[1] - 1))
         selection_ratios_ = np.zeros((outer_folds, data.shape[1]))
         r2_ = np.zeros((outer_folds, data.shape[1]))
-        BIC_ = np.zeros((outer_folds, datas.shape[1]))        
+        BIC_ = np.zeros((outer_folds, data.shape[1]))        
         cv_idx = 0
-        for train_index, test_index in folds.split(data)
+        for train_index, test_index in folds.split(data):
+            print('Fold %d' % cv_idx)
             train_data = data[train_index, :]
             test_data = data[test_index, :]
             # Iterate over the all neurons
@@ -88,7 +89,7 @@ for exp_type in ['CV_Lasso', 'EN', 'UoILasso', 'UoIElasticNet']:
                     coefs[cv_idx, i, :] = model.coef_
                     selection_ratios_[cv_idx, i] = np.count_nonzero(model.coef_)/model.coef_.size
                     r2_[cv_idx, i] = r2_score(test_data[:, i], model.predict(X_test))
-                    llhood = log+log_likelihood_glm('normal', test_data[:, i], model.predict(X_test))
+                    llhood = log_likelihood_glm('normal', test_data[:, i], model.predict(X_test))
                     BIC_[cv_idx, i] = BIC(llhood, np.count_nonzero(model.coef_), X_test.shape[0])
 
             cv_idx += 1
@@ -96,7 +97,8 @@ for exp_type in ['CV_Lasso', 'EN', 'UoILasso', 'UoIElasticNet']:
         if rank == 0:
             model_coefs.append(coefs)
             # Estimate covariance
-            sigma_hats.append(oas(data))
+            cov, _ = oas(data)
+            sigma_hats.append(cov)
             selection_ratios.append(selection_ratios_)
             r2.append(r2_)
             BIC_results.append(BIC_)
