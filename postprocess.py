@@ -11,7 +11,7 @@ import pdb
 from job_manager import grab_files
 
 # Common postprocessing operations on a single data file
-def postprocess(data_file, param_file):
+def postprocess(data_file, param_file, fields = None):
 
     data_list = []
 
@@ -32,8 +32,12 @@ def postprocess(data_file, param_file):
         # Do not store Sigma to save memory
         data_dict['sigma'] = []
 
-        for key in data_file.keys():
-           data_dict[key] = data_file[key][:] 
+        if fields is None:
+            for key in data_file.keys():
+               data_dict[key] = data_file[key][:] 
+        else:
+            for key in fields:
+                data_dict[key] = data_file[key][:]
 
         data_list.append(data_dict)
     return data_list
@@ -43,7 +47,7 @@ def postprocess(data_file, param_file):
 # old_format: back when we were using the .py param files
 # skip_bad: Skip over files that cannot be processed without raising errors
 # arg_flag: Only return dataframes for data files that match arg_flag {key: value}
-def postprocess_dir(jobdir, exp_type = None):
+def postprocess_dir(jobdir, exp_type = None, fields = None):
     # Collect all .h5 files
     data_files = grab_files(jobdir, '*.h5', exp_type)
     # List to store all data
@@ -55,7 +59,7 @@ def postprocess_dir(jobdir, exp_type = None):
         jobno = fname.split('.dat')[0].split('job')[1]
         with h5py.File(data_file, 'r') as f1:
             with open('%s/master/params%s.dat' % (jobdir, jobno)) as f2:
-                d = postprocess(f1, f2)
+                d = postprocess(f1, f2, fields)
                 data_list.extend(d)
 
     # Copy to dataframe
