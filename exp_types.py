@@ -148,7 +148,7 @@ class GTV():
         if 'use_skeleton' in list(args.keys()):
             use_skeleton = args['use_skeleton']
         else:
-            use_skeleton = True
+            use_skeleton = False
 
         if 'threshold' in list(args.keys()):
             threshold = args['threshold']
@@ -181,7 +181,7 @@ class GTV():
             t0 = time.time()
             gtv = GraphTotalVariance(lambda_S = hparam[0], lambda_TV = hparam[1], 
                                      lambda_1 = hparam[2], normalize=True, 
-                                     warmd_start = False, use_skeleton = use_skeleton,
+                                     warm_start = False, use_skeleton = use_skeleton,
                                      threshold = threshold, minimizer = 'lbfgs')
             scores = np.zeros(cv_splits)
             fold_idx = 0

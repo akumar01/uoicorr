@@ -379,8 +379,6 @@ class GraphTotalVariance(ElasticNet):
         # Convert beta to pytorch tensor
         beta_t = torch.tensor(beta, requires_grad = True)
 
-
-
         loss = 1/n * torch.norm(yt - torch.mm(Xt, beta_t))**2
         #loss += l1 * ltv * torch.norm(torch.mm(Gamma_t, beta_t), 1)
 
@@ -397,13 +395,16 @@ class GraphTotalVariance(ElasticNet):
 
     def minimize(self, lambda_S, lambda_TV, lambda_1, X, y, cov):
         # use quadratic programming to optimize the GTV loss function
+
+        if self.threshold:
+            cov[cov < 0.01 * np.amax(cov)] = 0
         
-        # To simplify things, EITHER calculate the minimum spanning tree or
-        # explicitly threshold
         if self.use_skeleton:
             cov = self.skeleton_graph(cov)
-        elif self.threshold:
-            cov[cov < 0.05] = 0
+
+        print(self.threshold)
+        print(self.use_skeleton)
+        print(np.count_nonzero(cov))
 
         if self.minimizer == 'quadprog':
            betas = self.gtv_quadprog(lambda_S, lambda_TV, lambda_1, X, y, cov)

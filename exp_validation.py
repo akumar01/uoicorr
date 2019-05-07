@@ -91,7 +91,7 @@ for exp_type in ['CV_Lasso', 'EN', 'UoILasso', 'UoIElasticNet']:
                     r2_[cv_idx, i] = r2_score(test_data[:, i], model.predict(X_test))
                     llhood = log_likelihood_glm('normal', test_data[:, i], model.predict(X_test))
                     BIC_[cv_idx, i] = BIC(llhood, np.count_nonzero(model.coef_), X_test.shape[0])
-
+                    
             cv_idx += 1
         # Fix exp_types to accept a group kfold if provided with groups
         if rank == 0:
