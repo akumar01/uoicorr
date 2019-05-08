@@ -4,8 +4,8 @@ from scipy.stats import pearsonr
 from mpi4py import MPI
 import itertools
 import time
-import pb
-
+import pdb
+from pyuoi.mpi_utils import Gatherv_rows
 # The index i is removed from np.arange(length). The index j then 
 # corresponds to a different index in the 
 def map_idxs(i, j):
@@ -25,10 +25,10 @@ if __name__ == '__main__':
     f2 = h5py.File('EN_a1.h5', 'r')
     f3 = h5py.File('UoILasso_a1.h5', 'r')
 
-    iter_idx = list(itertools.product(np.arange(1), np.arange(1), np.arange(127)))
+    iter_idx = list(itertools.product(np.arange(5), np.arange(10), np.arange(127)))
 
     # Chunk
-    chunk_list = np.array_split(iter_idx, nchunks)
+    chunk_list = np.array_split(iter_idx, numproc)
     chunk_idx = rank 
     num_tasks = len(chunk_list[chunk_idx])
 
@@ -64,10 +64,14 @@ if __name__ == '__main__':
         r1[i] = pearsonr(c1, db1)[0]
         r2[i] = pearsonr(c2, db2)[0]
         r3[i] = pearsonr(c3, db3)[0]
-
+        print('%f s; %d/%d' % (time.time() - t0, i, num_tasks))
     # Gather 
     r1 = Gatherv_rows(r1, comm, root = 0)
     r2 = Gatherv_rows(r2, comm, root = 0)
     r3 = Gatherv_rows(r3, comm, root = 0)
+    if rank == 0:
+        with h5py.File('parallel_pro.h5', 'w') as f:
 
-    with open('parallel_proc')
+            f['r1'] = r1
+            f['r2'] = r2
+            f['r3'] = r3
