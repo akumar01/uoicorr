@@ -11,7 +11,6 @@ import struct
 import importlib
 import subprocess
 import numpy as np
-from mpi4py import MPI
 import h5py
 import time
 from pydoc import locate
@@ -34,11 +33,6 @@ args = parser.parse_args()
 
 results_file = args.results_file
 
-# Create an MPI comm world object
-comm = MPI.COMM_WORLD
-rank = comm.rank
-numproc = comm.Get_size()    
-
 f = open(args.data_file, 'rb')
 idxs = pickle.load(f)
 train_data = pickle.load(f)
@@ -58,9 +52,8 @@ p['est_score'] = 'r2'
 p['stability_selection'] = 1
 p['l1_ratios'] = [0.1, 0.2, 0.5, 0.75, 0.9, 0.95, 0.99]
 
-if rank == 0:
-	sigma_train = oas(train_data)[0]
-	sigma_test = oas(test_data)[0]
+sigma_train = oas(train_data)[0]
+sigma_test = oas(test_data)[0]
 
 for i, idx in enumerate(idxs):
 
@@ -71,14 +64,16 @@ for i, idx in enumerate(idxs):
 	y_test = test_data[:, idx]
 	model = exp.run(X, y, p)
 
-	if rank == 0:
-		model_coefs[i, :] = model.coef_
-		selection_ratios[i] = np.count_nonzero(model.coef_)/model.coef_size
-		r2[i] = model.score(y_test, X_test)
-        llhood = log_likelihood_glm('normal', y, model.predict(X_test))
-        BIC_results[i] = BIC(llhood, np.count_nonzero(model.coef_), X_test.shape[0])
-
+	model_coefs[i, :] = model.coef_
+	selection_ratios[i] = np.count_nonzero(model.coef_)/model.coef_size
+	r2[i] = model.score(y_test, X_test)
+    llhood = log_likelihood_glm('normal', y, model.predict(X_test))
+    BIC_results[i] = BIC(llhood, np.count_nonzero(model.coef_), X_test.shape[0])
 
 # Save data
-if rank == 0:
-	model_coefs = np.array(model_coefs)
+with h5py.File('%s_%s.h5' % (exp_type, results_file), 'w') as f:
+	f['coefs'] = model_coefs
+	f['sigma_hats'] = sigma_hats
+	f['selection_ratios'] = selection_ratios
+	f['r2'] = r2
+	f['BIC'] = BIC_results

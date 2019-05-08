@@ -7,10 +7,7 @@ import time
 import pdb
 from pyuoi.mpi_utils import Gatherv_rows
 # The index i is removed from np.arange(length). The index j then 
-# corresponds to a different index in the 
-def map_idxs(i, j):
-    if j > i:
-        idx = j + 1
+# corresponds to a different 
     else:
         idx = j
     return idx
@@ -75,3 +72,5 @@ if __name__ == '__main__':
             f['r1'] = r1
             f['r2'] = r2
             f['r3'] = r3
+
+
