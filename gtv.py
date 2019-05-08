@@ -5,7 +5,7 @@ from scipy.optimize import minimize
 import quadprog
 # import cvxopt
 import networkx as nx
-from networkx import minimum_spanning_tree
+from networkx import maximum_spanning_tree
 
 from sklearn.linear_model import ElasticNet, LinearRegression
 from sklearn.linear_model.base import _pre_fit
@@ -214,7 +214,7 @@ class GraphTotalVariance(ElasticNet):
         G = nx.from_numpy_matrix(sigma)
 
         # Calculate MST
-        MST = minimum_spanning_tree(G)
+        MST = maximum_spanning_tree(G)
 
         return nx.convert_matrix.to_numpy_matrix(MST)
 
