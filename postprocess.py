@@ -23,9 +23,8 @@ def postprocess(data_file, param_file, fields = None):
     param_file.seek(index_loc, 0)
     index = pickle.load(param_file)
 
-
     for i, loc in enumerate(index):
-
+        
         param_file.seek(loc, 0)
         params = pickle.load(param_file)
         data_dict = params.copy()
@@ -34,10 +33,10 @@ def postprocess(data_file, param_file, fields = None):
 
         if fields is None:
             for key in data_file.keys():
-               data_dict[key] = data_file[key][:] 
+               data_dict[key] = data_file[key][i] 
         else:
             for key in fields:
-                data_dict[key] = data_file[key][:]
+                data_dict[key] = data_file[key][i]
 
         data_list.append(data_dict)
     return data_list
@@ -49,7 +48,7 @@ def postprocess(data_file, param_file, fields = None):
 # arg_flag: Only return dataframes for data files that match arg_flag {key: value}
 def postprocess_dir(jobdir, exp_type = None, fields = None):
     # Collect all .h5 files
-    data_files = grab_files(jobdir, '*.h5', exp_type)
+    data_files = grab_files(jobdir, '*.dat', exp_type)
     # List to store all data
     data_list = []
 

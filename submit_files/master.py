@@ -22,7 +22,7 @@ correlation = [0, 0.08891397, 0.15811388, 0.28117066, 0.5]
 # Exponential length scales
 L = [20, 50, 100, 200]
 
-cov_list, _ = get_cov_list(n_features, 100, correlation, block_sizes, L, n_supplement = 20)
+cov_list, _ = get_cov_list(n_features, 65, correlation, block_sizes, L, n_supplement = 15)
 
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 
@@ -52,7 +52,7 @@ comm_params = {
 'n_boots_est' : 48,
 'betawidth' : [0.1, 0.5, 2.5, np.inf],
 # Inverse Signal to noise ratio
-'kappa' : [np.inf, 10, 5, 2, 1],
+'kappa' : [10, 5, 2, 1],
 'sub_iter_params': ['kappa', 'betawidth', 'sparsity']
 }
 
