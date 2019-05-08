@@ -28,13 +28,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument('data_file')
 parser.add_argument('results_file')
 parser.add_argument('exp_type')
-parser.add_argument('comm_splits')
+parser.add_argument('-i', '--idxs', nargs = '+', type= int)
 args = parser.parse_args()
 
 results_file = args.results_file
 
 f = open(args.data_file, 'rb')
-idxs = pickle.load(f)
 train_data = pickle.load(f)
 test_data = pickle.load(f)
 
