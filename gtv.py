@@ -360,7 +360,7 @@ class GraphTotalVariance(ElasticNet):
 #         Q = 1/n*X.T @ X
 #         c = 1/n*-X.T @ y
 
-#         # Enlarge the dimension of Q to handle the positive/negative decomposition
+    #         # Enlarge the dimension of Q to handle the positive/negative decomposition
 #         QQ = np.concatenate([Q, -Q], axis = 1)
 #         QQ = np.concatenate([QQ, -QQ])
 
@@ -393,6 +393,29 @@ class GraphTotalVariance(ElasticNet):
 
         return loss.detach().cpu().numpy().astype(float)
 
+    # Approximate the L1 total variation term as a differntiable log(cosh())
+    def gtv_loss_approx(self, beta, gradient, l1, ltv, ls, Gamma, Xt, yt):
+
+        n = Xt.shape[0]
+
+        if beta.ndim == 1:
+            beta = beta[:, np.newaxis]
+
+        # Convert beta to a pytorch tensor
+        beta_t = torch.tensor(beta, requires_grad = True)
+
+        loss = 1/n * torch.norm(yt - torch.mm(Xt, beta_t))**2
+        loss += ls * torch.norm(torch.mm(Gamma, beta_t))**2
+        loss += l1 * ltv * torch.sum(torch.log(torch.cosh(torch.mm(Gamma, beta_t))))
+        # Backprop
+        loss.backward()
+
+        dlossdbeta = beta_t.grad
+        gradient[:] = dlossdbeta.detach().cpu().numpy().astype(float).ravel()
+
+        return loss.detach().cpu().numpy().astype(float)
+
+
     def minimize(self, lambda_S, lambda_TV, lambda_1, X, y, cov):
         # use quadratic programming to optimize the GTV loss function
 
@@ -402,12 +425,45 @@ class GraphTotalVariance(ElasticNet):
         if self.use_skeleton:
             cov = self.skeleton_graph(cov)
 
-        print(self.threshold)
-        print(self.use_skeleton)
-        print(np.count_nonzero(cov))
-
         if self.minimizer == 'quadprog':
            betas = self.gtv_quadprog(lambda_S, lambda_TV, lambda_1, X, y, cov)
+        elif self.minimizer == 'lbfgs_approx':
+            # Replace the l1 total variance term with a log-cosh to avoid having to 
+            # expand the dimensionality of the problem
+            n = X.shape[0]
+            p = X.shape[1]
+
+            # E: edge set of cov
+            E = []
+            for i in range(p):
+                for j in range(p):
+                    if i == j: 
+                        continue
+                    if cov[i, j] != 0:
+                        E.append([i, j])
+
+            # m: size of edge set
+            m = len(E)
+
+            # Gamma: Used to vectorize terms in the loss function involving the covariance matrix
+            Gamma = np.zeros((m, p))
+
+            for i in range(Gamma.shape[0]):
+                e_jl = np.zeros(p)
+                e_kl = np.zeros(p)
+                e_jl[E[i][0]] = 1
+                e_kl[E[i][1]] = 1
+                Gamma[i, :] = np.sqrt(cov[E[i][0], E[i][1]]) * (e_jl - np.sign(cov[E[i][0], E[i][1]]) * e_kl)
+
+            # Convert to a Torch tensor
+            yt = torch.tensor(y, requires_grad = False)
+            Xt = torch.tensor(X, requires_grad = False)
+            Gammat = torch.tensor(Gamma, requires_grad = False)
+            betas = fmin_lbfgs(self.gtv_loss_approx, np.zeros(p), 
+                               args = (lambda_1, lambda_TV, lambda_S, Gammat, Xt, yt),
+                               orthantwise_c = lambda_1,
+                               max_linesearch = 48, epsilon = 1e-3, ftol = 1e-3)
+
         elif self.minimizer == 'lbfgs':
             # Use random initialization of beta weights
 
@@ -543,6 +599,9 @@ class GraphTotalVariance(ElasticNet):
 
         # workaround since _set_intercept will cast self.coef_ into X.dtype
         self.coef_ = np.asarray(self.coef_, dtype=X.dtype)
+
+        # Set self.n_iter_ so sklearn doesn't complain
+        self.n_iter_ = 10
 
         # return self for chaining fit and predict calls
         return self

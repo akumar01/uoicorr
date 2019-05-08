@@ -191,7 +191,7 @@ class GTV():
                 # Score
                 scores[fold_idx] = r2_score(y[test_index], X[test_index] @ gtv.coef_)
                 fold_idx += 1
-            print('Process %d has finished iteration %d/%d in %f s' % (rank, i, num_tasks, time.time() - t0))
+#            print('Process %d has finished iteration %d/%d in %f s' % (rank, i, num_tasks, time.time() - t0))
             cv_scores[i] = np.mean(scores)
         # Gather scores across processes
         if comm is not None:
