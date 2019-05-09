@@ -148,7 +148,7 @@ class GTV():
         if 'use_skeleton' in list(args.keys()):
             use_skeleton = args['use_skeleton']
         else:
-            use_skeleton = False
+            use_skeleton = True
 
         if 'threshold' in list(args.keys()):
             threshold = args['threshold']
@@ -191,8 +191,8 @@ class GTV():
                 # Score
                 scores[fold_idx] = r2_score(y[test_index], X[test_index] @ gtv.coef_)
                 fold_idx += 1
-#            print('Process %d has finished iteration %d/%d in %f s' % (rank, i, num_tasks, time.time() - t0))
             cv_scores[i] = np.mean(scores)
+            print('hparam time: %f' % (time.time() - t0))
         # Gather scores across processes
         if comm is not None:
             cv_scores = Gatherv_rows(cv_scores, comm, root=0)
