@@ -173,11 +173,10 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
             
             # Critical to prevent threads competing for resources
             sb.write('export OMP_NUM_THREADS=1\n')
-            sb.write('export MKL_NUM_THREADS=1\n')
             sb.write('export KMP_AFFINITY=disabled\n')
 
-            sb.write('srun -n %d python3 -u %s/%s %s %s %s' 
-                    % (sbatch['ntasks'], script_dir, script, sbatch['arg_file'],
+            sb.write('srun -n 34 -c 8 python3 -u %s/%s %s %s %s' 
+                    % (script_dir, script, sbatch['arg_file'],
                        results_file, sbatch['exp_type']))
 
 # Use skip_argfiles if arg_files have already been generated and just need to 
@@ -228,14 +227,14 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
         paths, ntasks = generate_arg_files(argfile_array, jobdir)
 
     else:
-        # Need to get paths and ntasks
+#         # Need to get paths and ntasks
         paths = glob('%s/master/*.dat' % jobdir)
-        # Go through and count the length of the dictionary contained within each argfile
-        # to get ntasks
-        ntasks = []
-        for path in paths:
-            with open(path, 'rb') as f:
-                ntasks.append(pickle.load(f))
+#         # Go through and count the length of the dictionary contained within each argfile
+#         # to get ntasks
+#         ntasks = []
+#         for path in paths:
+#             with open(path, 'rb') as f:
+#                 ntasks.append(pickle.load(f))
         
     # Create an sbatch_array used to generate sbatch files that specifies exp_type, job_time, 
     # num_tasks, and the path to the corresponding arg_file
@@ -246,7 +245,7 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
         for j in range(len(paths)):
             sbatch_dict = {
             'arg_file' : paths[j],
-            'ntasks' : min(64, ntasks[j]),
+            'ntasks' : 34,
             'exp_type' : exp_type,
             'job_time' : algorithm_times[i]
             }
@@ -269,14 +268,14 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
 # edit_attribute: Dict containing key value pair of job property to
 # edit before submitting
 # run: If set to false, make modifications to sbatch files but do not run them
-def run_jobs(jobdir, constraint, size = None, nums = None,
+def run_jobs(jobdir, constraint, size = None, nums = None, run_files = None,
              exp_type = None, run = False):
     
     # Crawl through all subdirectories and 
     # (1) change permissions of sbatch file
     # (2) run sbatch file
-
-    run_files = grab_files(jobdir, '*.sh', exp_type)
+    if run_files is None:
+        run_files = grab_files(jobdir, '*.sh', exp_type)
     
     # Can either constrain size or manually give numbers
     if size is not None:
@@ -395,6 +394,21 @@ def edit_job_attribute(run_files, edit_attribute, linestring = None, exp_type = 
         f.close()
         print('Iteration time: %f' % (time.time() - start))
 
+# Remove line
+def remove_line(run_files, index):
+    
+    for run_file in run_files:
+        
+        f = open(run_file, 'r')
+        contents = f.readlines()
+        f.close()
+        contents.pop(index)
+
+        f = open(run_file, 'w')
+        contents = "".join(contents)
+        f.write(contents)
+        f.close()
+        
 # Change the arguments sent into the srun argument
 def edit_srun_statement(run_files, srun_args):
 
@@ -406,13 +420,13 @@ def edit_srun_statement(run_files, srun_args):
 
         srun_string = [s for s in contents if 'srun' in s][0]
         srun_string_idx = contents.index(srun_string)
-        srun_split = srun_string.split('python')[0]
+        srun_split = srun_string.split('python')
 
         new_srun = 'srun %s ' % srun_args
 
         srun_split[0] = new_srun
-        srun_string = "".join(srun_split)        
-        contents.insert(srun_string_idx, srun_string)
+        new_srun_string = "".join(srun_string)        
+        contents.insert(srun_string_idx, new_srun_string)
 
         f = open(run_file, 'w')
         contents = "".join(contents)
@@ -448,7 +462,7 @@ def paths_from_nums(jobdir, exp_type, nums, type_):
         elif type == 'error':
             paths.append('%s/%s_job%d.e' % (base_path, exp_type, n))
     return paths
-            
+
 # Upon running this command, check which jobs have been successfully completed, and 
 # submit another batch of jobs to be run
 def evaluate_job_structure(root_dir):

@@ -6,7 +6,8 @@ from job_manager import grab_files, run_
 import itertools
 import os
 import pickle
-from neuropacks.ecog import ECOG, PVC11
+from neuropacks.ecog import ECOG
+from neuropacks.pvc11 import PVC11
 
 def create_job_structure(datapath, jobdir, dataset, n_chunks = 10):
 
