@@ -394,7 +394,31 @@ def edit_job_attribute(run_files, edit_attribute, linestring = None, exp_type = 
         f.write(contents)
         f.close()
         print('Iteration time: %f' % (time.time() - start))
-        
+
+# Change the arguments sent into the srun argument
+def edit_srun_statement(run_files, srun_args):
+
+    for run_file in run_files:
+
+        f = open(run_file, 'r')
+        contents = f.readlines()
+        f.close()
+
+        srun_string = [s for s in contents if 'srun' in s][0]
+        srun_string_idx = contents.index(srun_string)
+        srun_split = srun_string.split('python')[0]
+
+        new_srun = 'srun %s ' % srun_args
+
+        srun_split[0] = new_srun
+        srun_string = "".join(srun_split)        
+        contents.insert(srun_string_idx, srun_string)
+
+        f = open(run_file, 'w')
+        contents = "".join(contents)
+        f.write(contents)
+        f.close()
+
 # Crawl through a subdirectory and grab all files contained in it matching the 
 # provided criteria:
 def grab_files(root_dir, file_str, exp_type = None):
