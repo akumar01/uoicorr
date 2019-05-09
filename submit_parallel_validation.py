@@ -6,7 +6,7 @@ from job_manager import grab_files, run_
 import itertools
 import os
 import pickle
-from neuropacks.ecog import ECOG
+from neuropacks.ecog import ECOG, PVC11
 
 def create_job_structure(datapath, jobdir, dataset, n_chunks = 10):
 
@@ -27,31 +27,45 @@ def create_job_structure(datapath, jobdir, dataset, n_chunks = 10):
     # sbatch files. We have opted for shared queue as opposed to
     # trying to use MPI
 
+
+    if not os.path.exists('%s/%s' % (jobdir, dataset)):
+        os.makedirs('%s/%s' % (jobdir, dataset))
+
     if dataset == 'A1':
-        
-        if not os.path.exists('%s/%s' % (jobdir, dataset)):
-            os.makedirs('%s/%s' % (jobdir, dataset))
 
         ecog = ECOG(datapath)
         response_matrix = ecog.get_response_matrix(bounds = (40, 60),
                                                     band ='HG')
+ 
+    elif dataset == 'PVC':
 
-        # Normalize
-        response_matrix = response_matrix - np.mean(response_matrix, axis = 0)
-        response_matrix = response_matrix/np.std(response_matrix, axis = 0)
+        pvc = PVC11(datapath)
+        response_matrix = pvc.get_response_matrix(transform = 'square_root')
 
-        # Partition into folds
-        kfold = KFold(n_splits = n_folds, shuffle = True, random_state = 25)
-        train_data_folds = []
-        test_data_folds = []
-        for train_idxs, test_idxs in kfold.split(response_matrix):
-            train_data_folds.append(response_matrix[train_idxs, :])
-            test_data_folds.append(response_matrix[test_idxs, :])
+    elif 'MEG' in dataset:
 
-        # Partition columns of coupling model fits
-        n_nodes = response_matrix.shape[1]
-        chunk_columns = np.array_split(np.arange(n_nodes), n_chunks)
-                
+        # Get the index
+        idx = int(dataset.split('MEG')[1])
+
+        meg = h5py.File(datapath, 'r')
+        response_matrix = meg['data'][idx]
+        
+    # Normalize
+    response_matrix = response_matrix - np.mean(response_matrix, axis = 0)
+    response_matrix = response_matrix/np.std(response_matrix, axis = 0)
+
+    # Partition into folds
+    kfold = KFold(n_splits = n_folds, shuffle = True, random_state = 25)
+    train_data_folds = []
+    test_data_folds = []
+    for train_idxs, test_idxs in kfold.split(response_matrix):
+        train_data_folds.append(response_matrix[train_idxs, :])
+        test_data_folds.append(response_matrix[test_idxs, :])
+
+    # Partition columns of coupling model fits
+    n_nodes = response_matrix.shape[1]
+    chunk_columns = np.array_split(np.arange(n_nodes), n_chunks)
+
     # Write train/test splits of data to file
     data_files = []
     for i in range(n_folds):
