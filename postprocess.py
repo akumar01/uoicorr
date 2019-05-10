@@ -16,6 +16,7 @@ def postprocess(data_file, param_file, fields = None):
     data_list = []
 
     # Indexed pickle file
+    param_file.seek(0, 0)
     index_loc = param_file.read(8)
     index_loc = struct.unpack('L', index_loc)[0]
     total_tasks = pickle.load(param_file)
