@@ -7,7 +7,7 @@ import pickle
 import struct
 import networkx as nx
 from networkx.algorithms.cluster import average_clustering
-from utils import gen_covariance
+import utils
 
 # Solve for the L needed to yield a desired average correlation
 # for exponential falloff design
@@ -239,7 +239,7 @@ def unpack_pickle(f, index):
 
 def calc_clustering(n_features, correlation, block_size, L, t):
     # Gerneate the covariance matrix
-    cov = gen_covariance(n_features, correlation, block_size, L, t)
+    cov = misc.gen_covariance(n_features, correlation, block_size, L, t)
     # Convert to networkx graph
     G = nx.from_numpy_array(cov)
     avg_clustering = average_clustering(G, weight = 'weight')

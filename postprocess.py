@@ -34,7 +34,7 @@ def postprocess(data_file, param_file, fields = None):
 
         if fields is None:
             for key in data_file.keys():
-               data_dict[key] = data_file[key][i] 
+                data_dict[key] = data_file[key][i] 
         else:
             for key in fields:
                 data_dict[key] = data_file[key][i]
@@ -58,7 +58,7 @@ def postprocess_dir(jobdir, exp_type = None, fields = None):
         _, fname = os.path.split(data_file)
         jobno = fname.split('.dat')[0].split('job')[1]
         with h5py.File(data_file, 'r') as f1:
-            with open('%s/master/params%s.dat' % (jobdir, jobno)) as f2:
+            with open('%s/master/params%s.dat' % (jobdir, jobno), 'rb') as f2:
                 d = postprocess(f1, f2, fields)
                 data_list.extend(d)
 

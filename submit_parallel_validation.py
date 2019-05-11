@@ -15,7 +15,7 @@ def create_job_structure(datapath, jobdir, dataset, n_chunks = 10):
     
     job_times = {'CV_Lasso' : '00:30:00', 'EN' : '0:30:00', 
                  'UoILasso' : '03:00:00', 'UoIElasticNet' : '08:00:00',
-                 'GTV' : '08:00:00'}
+                 'GTV' : '24:00:00'}
     n_folds = 5
 
     # Create directory structure:

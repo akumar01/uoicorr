@@ -17,7 +17,7 @@ def chunk_list(l, n):
     for i in range(0, len(l), n):
         # Create an index range for l of n items:
         yield l[i:i+n]
-
+        
 # Convert all numpy datatypes to native python
 # datatypes
 def fix_datatypes(obj):
@@ -26,7 +26,7 @@ def fix_datatypes(obj):
     if type(obj) == list:
         for idx, sub_obj in enumerate(obj):
             obj[idx] = fix_datatypes(sub_obj)
-
+        
     # If ndarray, convert to list, and then
     # recursively search through it:
     if type(obj) == np.ndarray:

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.linalg import block_diag
-from misc import invexp_dist, cluster_dist, solve_L, solve_t
+from misc import *
 import pdb
 import traceback
 import time
