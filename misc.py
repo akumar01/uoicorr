@@ -239,7 +239,7 @@ def unpack_pickle(f, index):
 
 def calc_clustering(n_features, correlation, block_size, L, t):
     # Gerneate the covariance matrix
-    cov = misc.gen_covariance(n_features, correlation, block_size, L, t)
+    cov = utils.gen_covariance(n_features, correlation, block_size, L, t)
     # Convert to networkx graph
     G = nx.from_numpy_array(cov)
     avg_clustering = average_clustering(G, weight = 'weight')
