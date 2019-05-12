@@ -146,8 +146,17 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
 
     for i, sbatch in enumerate(sbatch_array):
         
-        sbname = '%s/sbatch%d.sh' % (sbatch_dir, i)
-        jobname = '%s_job%d' % (sbatch['exp_type'], i)
+        if 'sbname' not in list(sbatch.keys()):
+            sbname = 'sbatch%d.sh' % (sbatch_dir, i)
+        else:
+            sbname = sbatch['sbname']
+            
+        sbname = '%s/%s' % (sbatch_dir, sbname)
+        
+        if 'jobname' not in list(sbatch.keys()):
+            jobname = '%s_job%d' % (sbatch['exp_type'], i)
+        else:
+            jobname = sbatch['jobname']
 
         script = 'mpi_submit.py'
         results_file = '%s/%s.dat' % (sbatch_dir, jobname)
@@ -403,10 +412,12 @@ def get_job_attribute(run_files, attribute, exp_type = None):
     for run_file in run_files:  
         with open(run_file, 'r') as f:
             contents = f.readlines()
-
+        
         attribute_string = [s for s in contents if ' %s' % attribute in s][0]
-        attribute_value = attribute_string.split('%s ' % attribute)[1].split('\n')[0]
-
+        if '--' in attribute:
+            attribute_value = attribute_string.split('%s=' % attribute)[1].split('\n')[0]            
+        elif '-' in attribute:
+            attribute_value = attribute_string.split('%s ' % attribute)[1].split('\n')[0]
         attribute_vals.append(attribute_value)
 
     return attribute_vals
@@ -482,16 +493,16 @@ def paths_from_nums(jobdir, exp_type, nums, type_):
 
 
 # Split the jobs given by jobnums into nsplits.
-def split_job(jobdir, exp_type, jobnums, nsplits):
+def split_job(jobdir, exp_type, jobnums, n_splits):
 
     # Grab the param files and sbatch files
     param_files = []
     for j in jobnums:
-        param_files.append(grab_files(jobdir, 'params%d.dat' % j, 'master'))
+        param_files.extend(grab_files(jobdir, 'params%d.dat' % j, 'master'))
 
     sbatch_files = []
     for j in jobnums:
-        sbatch_files.append(grab_files(jobdir, 'sbatch%d.sh' % j, 'master'))
+        sbatch_files.extend(grab_files(jobdir, 'sbatch%d.sh' % j, exp_type))
 
     # Load the param files
     for i, param_file in enumerate(param_files):
@@ -506,12 +517,12 @@ def split_job(jobdir, exp_type, jobnums, nsplits):
         # Distribute parameters across multiple files
         task_splits = np.array_split(np.arange(total_tasks), n_splits)
         
-        split_param_files = ['%s_split%d' % (param_file, ii) for ii in range(n_splits)]
+        split_param_files = ['%s_split%d.dat' % (param_file.split('.dat')[0], ii) for ii in range(n_splits)]
 
         for j, split_param_file in enumerate(split_param_files):
             with open(split_param_file, 'wb') as f2:
                 
-                f2.write(struct.pack('L', 0))                
+                f2.write(struct.pack('L', 0))     
                 f2.write(pickle.dumps(len(task_splits[j])))
                 f2.write(pickle.dumps(n_features))
 
@@ -532,16 +543,19 @@ def split_job(jobdir, exp_type, jobnums, nsplits):
 
         # Create corresponding sbatch files
         split_sbatch_files = ['%s_split%d.sh' % (sbatch_files[i], ii) for ii in range(n_splits)]
-
+        
         job_time = get_job_attribute([sbatch_files[i]], '-t', exp_type = exp_type)[0]
-
+        jobname = get_job_attribute([sbatch_files[i]], '--job-name', exp_type = exp_type)[0]
+        script_dir = '/global/homes/a/akumar25/repos/uoicorr'
         sbatch_array = []
         for j, sbatch_file in enumerate(split_sbatch_files):
             s = {
             'arg_file' : split_param_files[j],
             'ntasks' : 34,            
             'exp_type' : exp_type,
-            'job_time' : job_time
+            'job_time' : job_time,
+            'sbname' : 'sbatch%d_split%d.sh' % (jobnums[i], j), 
+            'jobname' : '%s_split%d' % (jobname, j)
             }
             sbatch_array.append(s)
 

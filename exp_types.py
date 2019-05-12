@@ -116,9 +116,9 @@ class GTV():
     def run(self, X, y, args, groups = None):
         print('started run')
         cv_splits = 5
-        lambda_S = args['reg_params']['lambda_S']
-        lambda_TV = args['reg_params']['lambda_TV']
-        lambda_1 = args['reg_params']['lambda_1']
+        lambda_S = np.linspace(0, 1, 10)
+        lambda_TV = np.linspace(0, 1, 10)
+        lambda_1 = np.linspace(0, 1, 10)
 
         cov = args['cov']
 
