@@ -363,7 +363,7 @@ def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
 # By default, edits an attribute
 # To replace a specific line with exact match to string, set edit_attribute
 # to None, and pass in linestring instead
-def edit_job_attribute(run_files, edit_attribute, linestring = None, exp_type = None):
+def set_job_attribute(run_files, edit_attribute, linestring = None, exp_type = None):
     
     for run_file in run_files:
         start = time.time()
@@ -394,6 +394,23 @@ def edit_job_attribute(run_files, edit_attribute, linestring = None, exp_type = 
         f.close()
         print('Iteration time: %f' % (time.time() - start))
 
+# Open up an sbatch file and grab an attributes like job time that cannot be read off from 
+# anywhere else
+def get_job_attribute(run_files, attribute, exp_type = None):
+
+    attribute_vals = []
+
+    for run_file in run_files:  
+        with open(run_file, 'r') as f:
+            contents = f.readlines()
+
+        attribute_string = [s for s in contents if ' %s' % attribute in s][0]
+        attribute_value = attribute_string.split('%s ' % attribute)[1].split('\n')[0]
+
+        attribute_vals.append(attribute_value)
+
+    return attribute_vals
+ 
 # Remove line
 def remove_line(run_files, index):
     
@@ -463,65 +480,70 @@ def paths_from_nums(jobdir, exp_type, nums, type_):
             paths.append('%s/%s_job%d.e' % (base_path, exp_type, n))
     return paths
 
-# Upon running this command, check which jobs have been successfully completed, and 
-# submit another batch of jobs to be run
-def evaluate_job_structure(root_dir):
 
-    # Load log:
-    with open('%s/log.dat' % root_dir) as f:
-        pickle.load(f)
+# Split the jobs given by jobnums into nsplits.
+def split_job(jobdir, exp_type, jobnums, nsplits):
 
-    # For each job directory, the directory has either not been submitted, 
-    # only partially completed, or completely completed
+    # Grab the param files and sbatch files
+    param_files = []
+    for j in jobnums:
+        param_files.append(grab_files(jobdir, 'params%d.dat' % j, 'master'))
 
-    # If not submitted, mark for submission
+    sbatch_files = []
+    for j in jobnums:
+        sbatch_files.append(grab_files(jobdir, 'sbatch%d.sh' % j, 'master'))
 
-    # Also keep track of jobs currently running (WARNING this will not account for jobs that
-    # are running on )
-    currently_running = np.zeros(run_status.shape)
+    # Load the param files
+    for i, param_file in enumerate(param_files):
+        f = open(param_file, 'rb')
+        index_loc = f.read(8)
+        index_loc = struct.unpack('L', index_loc)[0]
+        total_tasks = pickle.load(f)
+        n_features = pickle.load(f)
+        f.seek(index_loc, 0)
+        index = pickle.load(f)
 
-    # If only partially complete, record indices of jobs that must be re-submitted
-    for i in range(len(job_array_chunks)):
-        for j in range(len(job_array_chunks[i])):
-            jobdir = job_array_chunks[i][j][0]['jobdir']
-            # Get all output files in directory:
-            out_files = glob.glob('%s/*.o')
-            if out_files == []:
-                continue
-            else:
-                check_outout(run_status[i, j, :], completion_status[i, j, :], out_files)
-
-    ## TO-DO: mark jobs that are currently running
-
-    # Everytime this script is called, submit an additional 1000 jobs to the queue
-
-    # In order of priority:
-    # Directories that have not yet been run
-    # Directories that have been run, are not currently running, and have jobs that
-    # were not successfully completed
-    
+        # Distribute parameters across multiple files
+        task_splits = np.array_split(np.arange(total_tasks), n_splits)
         
+        split_param_files = ['%s_split%d' % (param_file, ii) for ii in range(n_splits)]
 
-# # Read through all the out files 
-# # and determine whether a given job
-# # has finished successfully
-# def check_output(rstatus, cstatus, out_files):
-    
-#     for i in range(rstatus.size):
-#         # Trust that if the job has been marked completed, it has been:
-#         if cstatus[i]:
-#             continue
-#         # If the job has run, determine whether or not it has been completed
-#         if rstatus[i]:
-#             if 'job%d.o' % i in out_files:
-#                 # Check the last line for completed message
-#                 with open('job%d.o' % i, 'r') as f:
-#                     first = f.readline()        # Read the first line.
-#                     f.seek(-2, os.SEEK_END)     # Jump to the second last byte.
-#                     while f.read(1) != b"\n":   # Until EOL is found...
-#                         f.seek(-2, os.SEEK_CUR) # ...jump back the read byte plus one more.
-#                     last = f.readline()         # Read last line.
-#                 if 'Job completed!' in last:
-#                     cstatus[i] = 1
+        for j, split_param_file in enumerate(split_param_files):
+            with open(split_param_file, 'wb') as f2:
+                
+                f2.write(struct.pack('L', 0))                
+                f2.write(pickle.dumps(len(task_splits[j])))
+                f2.write(pickle.dumps(n_features))
 
+                split_index = []
+                # Load the needed param dict from f:
+                for task in task_splits[j]:
+                    f.seek(index[task], 0)
+                    params = pickle.load(f)
+                    split_index.append(f2.tell())
+                    f2.write(pickle.dumps(params))
+                split_index_loc = f2.tell()
+                f2.write(pickle.dumps(split_index))
+                f2.seek(0, 0)
+                f2.write(struct.pack('L', split_index_loc))
 
+        f.seek(0, 0)
+        f.close()
+
+        # Create corresponding sbatch files
+        split_sbatch_files = ['%s_split%d.sh' % (sbatch_files[i], ii) for ii in range(n_splits)]
+
+        job_time = get_job_attribute([sbatch_files[i]], '-t', exp_type = exp_type)[0]
+
+        sbatch_array = []
+        for j, sbatch_file in enumerate(split_sbatch_files):
+            s = {
+            'arg_file' : split_param_files[j],
+            'ntasks' : 34,            
+            'exp_type' : exp_type,
+            'job_time' : job_time
+            }
+            sbatch_array.append(s)
+
+        generate_sbatch_scripts(sbatch_array, '%s/%s' % (jobdir, exp_type), script_dir)
+        
