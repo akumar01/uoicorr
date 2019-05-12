@@ -24,7 +24,7 @@ from pyuoi.mpi_utils import Bcast_from_root, Gatherv_rows
 from utils import gen_data
 from utils import FNR, FPR, selection_accuracy, estimation_error
 
-p = parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser()
 
 parser.add_argument('data_file')
 parser.add_argument('results_file', default = 'results.h5')
