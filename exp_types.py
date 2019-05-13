@@ -120,7 +120,7 @@ class GTV():
         lambda_TV = np.linspace(0, 1, 10)
         lambda_1 = np.linspace(0, 1, 10)
 
-        cov = args['cov']
+        cov = args['sigma']
 
         if not isinstance(lambda_S, np.ndarray):
             if np.isscalar(lambda_S):

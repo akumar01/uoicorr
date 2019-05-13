@@ -147,7 +147,7 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
     for i, sbatch in enumerate(sbatch_array):
         
         if 'sbname' not in list(sbatch.keys()):
-            sbname = 'sbatch%d.sh' % (sbatch_dir, i)
+            sbname = 'sbatch%d.sh' % i
         else:
             sbname = sbatch['sbname']
             

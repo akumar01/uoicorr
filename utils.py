@@ -480,6 +480,43 @@ def estimation_error(beta, beta_hat, threshold = False):
 
     return ee, median_ee
 
+
+# Calculate the estimation error, separately measuring the contribution 
+# from selection mismatch (magnitude of false negatives + false positives)
+# and estimatione rror (magnitude of error in correctly selected for coefficients)
+def stratified_estimation_error(beta, beta_hat, threshold = False):
+    beta, beta_hat = tile_beta(beta, beta_hat)
+
+    if threshold:
+        beta_hat[beta_hat < 1e-6] = 0
+
+    fn_ee = np.zeros(beta_hat.shape[0])
+    fp_ee = np.zeros(beta_hat.shape[0])
+    estimation_ee = np.zeros(beta_hat.shape[0])
+    
+    for i in range(beta_hat.shape[0]):
+        b = beta[i, :].squeeze()
+        bhat = beta_hat[i, :].squeeze()
+
+        common_support = np.bitwise_and(b != 0, bhat != 0)
+        
+        zerob = bhat[(b == 0)].ravel()
+        false_positives = zerob[np.nonzero(zerob)]
+        
+        zerobhat = b[(bhat == 0).ravel()]
+        false_negatives = zerobhat[np.nonzero(zerobhat)]
+        fn_ee[i] = np.sum(np.abs(false_negatives))
+        fp_ee[i] = np.sum(np.abs(false_positives))
+        p = bhat[common_support].size
+        if p > 0:
+            estimation_ee[i] = np.sqrt(np.sum(np.power(b[common_support] - \
+                                  bhat[common_support], 2)))
+        else:
+            estimation_ee[i] = 0
+
+    return fn_ee, fp_ee, estimation_ee
+
+
 def tile_beta(beta, beta_hat):
 
     if np.ndim(beta_hat) == 1:
