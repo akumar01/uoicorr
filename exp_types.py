@@ -46,7 +46,7 @@ class UoILasso():
             forward_selection = False
 
         uoi = UoI_Lasso(
-            normalize=True,
+            normalize=False,
             n_boots_sel=int(args['n_boots_sel']),
             n_boots_est=int(args['n_boots_est']),
             estimation_score=args['est_score'],
