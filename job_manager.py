@@ -7,6 +7,7 @@ import pickle
 import struct
 import time
 import traceback
+import natsort
 import pandas as pd
 from glob import glob
 from subprocess import check_output
@@ -473,6 +474,7 @@ def grab_files(root_dir, file_str, exp_type = None):
                     run_files.extend(glob('%s/%s' % (p, file_str)))
             else:
                 run_files.extend(glob('%s/%s' % (p, file_str)))
+    run_files = natsort.natsorted(run_files)
     return run_files
 
 # Return the full path to the file type given a list of jobIDs

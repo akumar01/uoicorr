@@ -10,6 +10,7 @@ import struct
 import pdb
 from job_manager import grab_files
 
+
 # Common postprocessing operations on a single data file
 def postprocess(data_file, param_file, fields = None):
 
