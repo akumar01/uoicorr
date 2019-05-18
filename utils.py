@@ -37,7 +37,9 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
 # New version of gen_beta that uses the betawidth parameter:
 # A betawidth of 0 gives features that take on the same value
 # A betawidth of inf is a uniform distribution on the range 0-10
-def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6, betawidth = np.inf):
+def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6, 
+            betawidth = np.inf, sparsity_profile = 'uniform', 
+            n_active_blocks = None):
     n_blocks = int(np.floor(n_features/block_size))
 
     n_nonzero_beta = int(sparsity * block_size)
@@ -55,13 +57,43 @@ def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6, betawidth = np.i
             beta = np.concatenate((beta, accepted), axis=0)
         beta = beta[:n_features] 
         beta = beta[:, np.newaxis]   # we probably got more than needed, so discard extra ones
-    # Apply sparsity separately to each block
-    mask = np.array([])
-    for block in range(n_blocks):
-        block_mask = np.zeros(block_size)
-        block_mask[:n_nonzero_beta] = np.ones(n_nonzero_beta)
-        np.random.shuffle(block_mask)
-        mask = np.concatenate((mask, block_mask))
+
+    if sparsity_profile == 'uniform':
+        # Apply sparsity uniformly across blocks
+        mask = np.array([])
+        for block in range(n_blocks):
+            block_mask = np.zeros(block_size)
+            block_mask[:n_nonzero_beta] = np.ones(n_nonzero_beta)
+            np.random.shuffle(block_mask)
+            mask = np.concatenate((mask, block_mask))
+    elif sparsity_profile == 'block':
+        # Choose blocks to be either all active or all inactive
+        n_active_blocks = np.int(_nonzero_beta/block_size)
+        active_blocks = np.random.choice(np.arange(n_blocks))
+        mask = np.array([])
+        for block in range(n_blocks):
+            if block in active_blocks:
+                block_mask = np.ones(block_size)
+            else:
+                block_mask = np.zeros(block_size)
+            mask = np.concatenate((mask, block_mask))
+
+    elif sparsity_profile == 'block_sparse':
+        # Choose blocks to be all active or all inactive, and then 
+        # apply sparsity uniformly within blocks
+        if n_active_blocks is None:
+            print('Need n_active_blocks!\n')
+        active_blocks = np.random.choice(np.arange(n_blocks))
+        mask = np.array([])
+        for block in range(n_blocks):
+            if block in active_blocks:
+                block_mask = np.ones(block_size)
+                block_mask[:n_nonzero_beta] = np.ones(n_nonzero_beta)
+                np.random.shuffle(block_mask)
+            else:
+                block_mask = np.zeros(block_size)
+            mask = np.concatenate((mask, block_mask))
+
     mask = mask[..., np.newaxis]
     beta = beta * mask
     return beta
@@ -137,8 +169,6 @@ def interpolated_dist(lmbda, t, sigma, n_features = 60, low = -5, high = 5):
     
     return betas 
 
-
-
 # Generate toy data to fit given number of features, covariance structure, signal to noise, and sparsity
 # Note that sparsity is applied within blocks. When this is not desired, set the block size to equal n_features
 def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 3,
@@ -173,8 +203,7 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 3,
 #     y = y - np.mean(y)
 #     y_test = y_test - np.mean(y_test)
 
-
-    return X, X_test, y, y_test
+    return X, X_test, y, y_test, noise_variance
 
 # Given a vector of desired average correlations, return a set of covariance
 # matrices from each of the block, exp, and interpolated classes
