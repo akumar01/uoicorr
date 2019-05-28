@@ -65,10 +65,11 @@ def generate_arg_files(argfile_array, jobdir):
         # Generate the full set of data/metadata required to run the job
 
         sub_iter_params = arg_['sub_iter_params']
-        for key in sub_iter_params:
-            if not hasattr(arg_[key], '__len__'):
-                arg_[key] = [arg_[key]]
-            arg_[key] = list(arg_[key])
+        if sub_iter_params: 
+            for key in sub_iter_params:
+                if not hasattr(arg_[key], '__len__'):
+                    arg_[key] = [arg_[key]]
+                arg_[key] = list(arg_[key])
 
         # Complement of the sub_iter_params:
         const_keys = list(set(arg_.keys()) - set(sub_iter_params))
@@ -137,9 +138,12 @@ def generate_arg_files(argfile_array, jobdir):
     return paths, ntasks
 
 # Store the metadata as an easily searchable pandas dataframe
-def generate_log_file(argfile_array, jobdir):
+def generate_log_file(argfile_array, jobdir, desc = None):
     metadata = pd.DataFrame(argfile_array)
+    # Description of simulation
+    metadata.desc = desc
     metadata.to_pickle('%s/log.dat' % jobdir)
+
     
 def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
 
@@ -206,6 +210,11 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
     algorithm_times = args.algorithm_times
     script_dir = args.script_dir
 
+    if hasattr(args, desc):
+        desc = args.desc
+    else:
+        desc = 'No description available.'
+
     if not skip_argfiles:
         # Common master list of arg file parameters
         argfile_array = []
@@ -227,7 +236,7 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
                 break
 
         # Generate log file
-        generate_log_file(argfile_array, jobdir)
+        generate_log_file(argfile_array, jobdir, desc)
 
         # Master directory with all arg files
         if not os.path.exists('%s/master' % jobdir):
