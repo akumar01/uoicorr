@@ -106,6 +106,7 @@ def create_job_structure(datapath, jobdir, dataset, n_chunks = 10):
                     sb.write('#SBATCH -q shared\n')
                     sb.write('#SBATCH -t %s\n' % job_time)
                     sb.write('#SBATCH -n 1\n')
+                    sb.write('#SBATCH -C haswell\n')
                     sb.write('#SBATCH --job-name=%s\n' % jobname)
                     sb.write('#SBATCH --out=%s\n' % outfile)
                     sb.write('#SBATCH --error=%s\n' % errfile)

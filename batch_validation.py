@@ -56,19 +56,19 @@ p['n_alphas'] = 48
 p['n_boots_sel'] = 48
 p['n_boots_est'] = 48
 p['est_score'] = 'r2'
-p['stability_selection'] = 1
+p['stability_selection'] = 1.0
 p['l1_ratios'] = [0.1, 0.2, 0.5, 0.75, 0.9, 0.95, 0.99]
 p['reg_params'] = {}
 p['reg_params']['lambda_S'] = np.linspace(0, 1, 10)
 p['reg_params']['lambda_1'] = np.linspace(0, 1, 10)
 p['reg_params']['lambda_TV'] = np.linspace(0, 1, 10)
-p['cov'] = sigma_test
+p['sigma'] = sigma_train
 
 for i, idx in enumerate(idxs):
     t0 = time.time()
     exp = locate('exp_types.%s' % exp_type)
     X = train_data[:, np.arange(train_data.shape[1]) != idx]
-    X_test = test_data[:, np.arange(test_data.shape[1]) != 0]
+    X_test = test_data[:, np.arange(test_data.shape[1]) != idx]
     y = train_data[:, idx]
     y_test = test_data[:, idx]
     model = exp.run(X, y, p)

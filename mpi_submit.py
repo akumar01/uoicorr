@@ -123,7 +123,7 @@ for i in range(num_tasks):
     seed = params['seed']
     if subrank == 0:
         # Generate data
-        X, X_test, y, y_test = gen_data(params['n_samples'], params['n_features'],
+        X, X_test, y, y_test, _ = gen_data(params['n_samples'], params['n_features'],
                                         params['kappa'], sigma, beta, seed)
     else:
         X = None

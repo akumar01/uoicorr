@@ -8,6 +8,7 @@ import itertools
 import importlib
 import struct
 import pdb
+import time
 from job_manager import grab_files
 
 
@@ -55,14 +56,12 @@ def postprocess_dir(jobdir, exp_type = None, fields = None):
     data_list = []
 
     for data_file in data_files:
-
         _, fname = os.path.split(data_file)
         jobno = fname.split('.dat')[0].split('job')[1]
         with h5py.File(data_file, 'r') as f1:
             with open('%s/master/params%s.dat' % (jobdir, jobno), 'rb') as f2:
                 d = postprocess(f1, f2, fields)
                 data_list.extend(d)
-
     # Copy to dataframe
     dataframe = pd.DataFrame(data_list)
 
