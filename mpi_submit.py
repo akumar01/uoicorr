@@ -145,7 +145,7 @@ for i in range(num_tasks):
         beta_hats[i, :] = beta_hat.ravel()
         fn_results[i] = np.count_nonzero(beta[beta_hat == 0, 0])
         fp_results[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
-        r2_results[i] = r2_score(y_test, model.predict(X_test))
+        r2_results[i] = r2_score(y_test, X_test @ beta)
         r2_true_results[i] = r2_score(y_test, model.predict(X_test))
     # Score functions have been modified, requiring us to first calculate log-likelihood
     
