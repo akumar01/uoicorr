@@ -56,6 +56,7 @@ class UoILasso():
             n_boots_est=int(args['n_boots_est']),
             estimation_score=args['est_score'],
             stability_selection = args['stability_selection'],
+            manual_penalty = manual_penalty,
             comm = comm
             )
 

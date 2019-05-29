@@ -219,21 +219,27 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
         # Common master list of arg file parameters
         argfile_array = []
 
-        iter_keys = list(iter_params.keys())
+        if iter_params:
+        
+            iter_keys = list(iter_params.keys())
 
-        # Iterate over all combinations of parameters in iter_params and combine them
-        # with comm_params to produce a unique argument dictionary for each individual job
-        for arg_comb in itertools.product(*list(iter_params.values())):
-            arg = {}
-            for j in range(len(arg_comb)):
-                arg[iter_keys[j]] = arg_comb[j]         
-            for key, value in comm_params.items():
-                arg[key] = value
+            # Iterate over all combinations of parameters in iter_params and combine them
+            # with comm_params to produce a unique argument dictionary for each individual job
+            for arg_comb in itertools.product(*list(iter_params.values())):
+                arg = {}
+                for j in range(len(arg_comb)):
+                    arg[iter_keys[j]] = arg_comb[j]         
+                for key, value in comm_params.items():
+                    arg[key] = value
 
-            argfile_array.append(arg)
-            # Create only a single file for testing purposes
-            if single_test:
-                break
+                argfile_array.append(arg)
+                # Create only a single file for testing purposes
+                if single_test:
+                    break
+        else: 
+            # No iter params (generate just a single arg file)
+            argfile_array = [comm_params]
+
 
         # Generate log file
         generate_log_file(argfile_array, jobdir, desc)

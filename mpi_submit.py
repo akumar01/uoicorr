@@ -89,6 +89,7 @@ chunk_idx = rank
 num_tasks = len(chunk_param_list[chunk_idx])
 
 print('rank: %d, subrank: %d, color: %d' % (comm.rank, subrank, color))
+print('num_tasks: %d' % num_tasks)
 
 # Initialize arrays to store data in. Assumes that n_features
 # is held constant across all iterations
@@ -112,6 +113,15 @@ if subrank == 0:
     ee_results = np.zeros(num_tasks)
     median_ee_results = np.zeros(num_tasks)
     
+    alt_beta_hats = np.zeros((num_tasks, n_features))
+    alt_FNR_results = np.zeros(num_tasks)
+    alt_FPR_results = np.zeros(num_tasks)
+    alt_sa_results = np.zeros(num_tasks)
+    alt_ee_results = np.zeros(num_tasks)
+    alt_median_ee_results = np.zeros(num_tasks)
+
+    record_alt = False
+
 for i in range(num_tasks):
     start = time.time()
     
@@ -172,10 +182,22 @@ for i in range(num_tasks):
                 
         ee_results[i] = ee
         median_ee_results[i] = median_ee
+        
+        if hasattr(model, 'alt_coef_'):
+            record_alt = True
+            beta_hat = model.alt_coef_.ravel()
+            alt_beta_hats[i, :] = beta_hat.ravel()
+            alt_FNR_results[i] = FNR(beta.ravel(), beta_hat)
+            alt_FPR_results[i] = FPR(beta.ravel(), beta_hat)
+            alt_sa_results[i] = selection_accuracy(beta.ravel(), beta_hat)
+            ee, median_ee = estimation_error(beta.ravel(), beta_hat)
+            alt_ee_results[i] = ee
+            median_ee_results[i] = median_ee
+
         print('Process group %d completed outer loop %d/%d' % (rank, i, num_tasks -1))
         print(time.time() - start)
     del params
-  
+    
 # Gather across root nodes
 if subrank == 0:
     fn_results = np.array(fn_results)
@@ -217,6 +239,25 @@ if subrank == 0:
     median_ee_results = np.array(median_ee_results)
     median_ee_results = Gatherv_rows(median_ee_results, roots_comm, root = 0)
 
+    if record_alt:
+        alt_beta_hats = np.array(alt_beta_hats)
+        alt_beta_hats = Gatherv_rows(alt_beta_hats, roots_comm, root = 0)
+        
+        alt_FNR_results = np.array(alt_FNR_results)
+        alt_FNR_results = Gatherv_rows(alt_FNR_results, roots_comm, root = 0)
+        
+        alt_FPR_results = np.array(alt_FPR_results)
+        alt_FPR_results = Gatherv_rows(alt_FPR_results, roots_comm, root = 0)
+
+        alt_sa_results = np.array(alt_sa_results)
+        alt_sa_results = Gatherv_rows(alt_sa_results, roots_comm, root = 0)
+
+        alt_ee_results = np.array(alt_ee_results)
+        alt_ee_results = Gatherv_rows(alt_ee_results, roots_comm, root = 0)
+        
+        alt_median_ee_results = np.array(alt_median_ee_results)
+        alt_median_ee_results = Gatherv_rows(alt_median_ee_results, roots_comm, root = 0)        
+
 f.close()    
 if comm.rank == 0:
     # Save results
@@ -236,6 +277,15 @@ if comm.rank == 0:
         results['sa'] = sa_results
         results['ee'] = ee_results
         results['median_ee'] = median_ee_results
+
+        if record_alt: 
+            results['alt_beta_hats'] = alt_beta_hats
+            results['alt_FNR_results'] = alt_FNR_results
+            results['alt_FPR_results'] = alt_FPR_results
+            results['alt_sa_results'] = alt_sa_results
+            results['alt_ee_results'] = alt_ee_results
+            results['alt_median_ee_results'] = alt_median_ee_results
+
     print('Total time: %f' % (time.time() - total_start))
     print('Job completed!')
     

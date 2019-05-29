@@ -25,7 +25,6 @@ def postprocess(data_file, param_file, fields = None):
     n_features = pickle.load(param_file)
     param_file.seek(index_loc, 0)
     index = pickle.load(param_file)
-
     for i, loc in enumerate(index):
         
         param_file.seek(loc, 0)
@@ -33,7 +32,6 @@ def postprocess(data_file, param_file, fields = None):
         data_dict = params.copy()
         # Do not store Sigma to save memory
         data_dict['sigma'] = []
-
         if fields is None:
             for key in data_file.keys():
                 data_dict[key] = data_file[key][i] 
@@ -54,7 +52,7 @@ def postprocess_dir(jobdir, exp_type = None, fields = None):
     data_files = grab_files(jobdir, '*.dat', exp_type)
     # List to store all data
     data_list = []
-
+    pdb.set_trace()
     for data_file in data_files:
         _, fname = os.path.split(data_file)
         jobno = fname.split('.dat')[0].split('job')[1]

@@ -31,8 +31,6 @@ cov_list, _ = get_cov_list(n_features, 60, correlation, block_sizes, L, n_supple
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 
 iter_params = {
-'sparsity' : np.linspace(0.05, 1, 15),
-'manual_penalty' : np.linspace(0, 2, 20)
 }
 
 #############################################################
@@ -41,6 +39,8 @@ iter_params = {
 comm_params = {
 # Sparsity
 'cov_params' : {'correlation': 0, 'block_size' : 100, 'L' : 1, 't' : 0},
+'sparsity' : np.linspace(0.05, 1, 15),
+'manual_penalty' : np.linspace(0, 2, 20),
 'cov_type' : 'interpolation',
 'reg_params': [],
 'n_models': 1,
@@ -48,14 +48,14 @@ comm_params = {
 # n/p ratio #
 'np_ratio': 5,
 'est_score': 'MIC',
-'reps' : 1,
+'reps' : 10,
 'stability_selection' : 1.,
 'n_boots_sel': 48,
 'n_boots_est' : 48,
 'betawidth' : np.inf,
 # Inverse Signal to noise ratio
 'kappa' : 5,
-'sub_iter_params': {}
+'sub_iter_params': ['sparsity', 'manual_penalty']
 }
 
 # Parameters for ElasticNet
