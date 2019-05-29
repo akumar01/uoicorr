@@ -45,6 +45,11 @@ class UoILasso():
         else:
             forward_selection = False
 
+        if 'manual_penalty' in list(args.keys()):
+            manual_penalty = args['manual_penalty']
+        else: 
+            manual_penalty = 2
+
         uoi = UoI_Lasso(
             normalize=False,
             n_boots_sel=int(args['n_boots_sel']),

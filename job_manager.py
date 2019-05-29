@@ -210,7 +210,7 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
     algorithm_times = args.algorithm_times
     script_dir = args.script_dir
 
-    if hasattr(args, desc):
+    if hasattr(args, 'desc'):
         desc = args.desc
     else:
         desc = 'No description available.'

@@ -40,7 +40,7 @@ iter_params = {
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
 # Sparsity
-'cov_params' : {'correlation': 0, 'block_size' : 100, 'L' : 1, 't' : 0}
+'cov_params' : {'correlation': 0, 'block_size' : 100, 'L' : 1, 't' : 0},
 'cov_type' : 'interpolation',
 'reg_params': [],
 'n_models': 1,
