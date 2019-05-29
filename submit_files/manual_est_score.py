@@ -5,15 +5,13 @@ from misc import get_cov_list
 
 script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
-
 desc = 'Sweep over a range of possible model complexity penalties, as well as a range of different correlation\
 		designs, in order to determine whether adaptive model selection criteria, suitably chosen, would be\
 		sensitive to the sparsity of the underlying model'
 
-
-exp_types =  ['UoILasso']
+exp_types =  ['UoILasso', 'UoIElasticNet']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['8:00:00']
+algorithm_times = ['2:00:00', '10:00:00']
 
 n_features = 100
 
@@ -31,14 +29,13 @@ cov_list, _ = get_cov_list(n_features, 60, correlation, block_sizes, L, n_supple
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 
 iter_params = {
+'cov_params' : cov_params
 }
 
 #############################################################
 
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
-# Sparsity
-'cov_params' : {'correlation': 0, 'block_size' : 100, 'L' : 1, 't' : 0},
 'sparsity' : np.linspace(0.05, 1, 15),
 'manual_penalty' : np.linspace(0, 2, 20),
 'cov_type' : 'interpolation',
