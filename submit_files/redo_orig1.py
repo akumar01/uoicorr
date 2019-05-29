@@ -10,7 +10,7 @@ desc = 'Redo the original 60 feature simulations'
 
 exp_types =  ['UoILasso', 'UoIElasticNet', 'CV_Lasso', 'EN']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['8:00:00']
+algorithm_times = ['8:00:00', '8:00:00', '8:00:00', '8:00:00']
 
 n_features = 60
 
@@ -18,14 +18,14 @@ n_features = 60
 block_sizes = [6, 12, 20, 30]
 
 # Block correlation
-correlation = [0, 0.2 0.4, 0.6, 0.8, 1]
+correlation = [0, 0.2, 0.4, 0.6, 0.8, 1]
 
 # Exponential length scales
 L = [0.1, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-cov_list, _ = get_cov_list(n_features, 288, correlation, block_sizes, L, n_supplement = 0)
+cov_list, _ = get_cov_list(n_features, 36, correlation, block_sizes, L, n_supplement = 0)
 
-
+pdb.set_trace()
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 
 # Interpolation
@@ -58,7 +58,7 @@ comm_params = {
 'betawidth' : np.inf,
 # Inverse Signal to noise ratio
 'kappa' : 1./0.3,
-'sub_iter_params': {}
+'sub_iter_params': ['sparsity']
 }
 
 # Parameters for ElasticNet

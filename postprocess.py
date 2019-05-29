@@ -52,7 +52,6 @@ def postprocess_dir(jobdir, exp_type = None, fields = None):
     data_files = grab_files(jobdir, '*.dat', exp_type)
     # List to store all data
     data_list = []
-    pdb.set_trace()
     for data_file in data_files:
         _, fname = os.path.split(data_file)
         jobno = fname.split('.dat')[0].split('job')[1]
