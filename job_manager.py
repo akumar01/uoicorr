@@ -157,7 +157,7 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
             sbname = sbatch['sbname']
             
         sbname = '%s/%s' % (sbatch_dir, sbname)
-        
+
         if 'jobname' not in list(sbatch.keys()):
             jobname = '%s_job%d' % (sbatch['exp_type'], i)
         else:
