@@ -5,9 +5,8 @@ from misc import get_cov_list
 
 script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
-desc = 'Sweep over a range of possible model complexity penalties, as well as a range of different correlation\
-		designs, in order to determine whether adaptive model selection criteria, suitably chosen, would be\
-		sensitive to the sparsity of the underlying model'
+desc = 'Benchmark with inverse exponentially distriubted coefficients to benchmark MIC\
+		approaches against'
 
 exp_types =  ['CV_Lasso', 'EN']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
@@ -15,21 +14,19 @@ algorithm_times = ['02:00:00', '04:00:00']
 
 n_features = 100
 
-# Block sizes
-block_sizes = [5, 10, 20]
 
-# Block correlation
-correlation = [0, 0.08891397, 0.15811388, 0.28117066, 0.5]
-
-# Exponential length scales
-L = [2, 5, 10, 20]
-
-cov_list, _ = get_cov_list(n_features, 65, correlation, block_sizes, L, n_supplement = 15)
-
-cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
+# Manual spread of cov_params
+cov_params = [{'correlation': 0, 'block_size': 20, 'L': 1, 't': 0},
+       {'correlation': 0.08891397, 'block_size': 20, 'L': 1, 't': 0},
+       {'correlation': 0.28117066, 'block_size': 20, 'L': 1, 't': 0},
+       {'correlation': 0.5, 'block_size': 20, 'L': 1, 't': 0},
+       {'correlation': 1, 'block_size': 100, 'L': 2, 't': 1},
+       {'correlation': 1, 'block_size': 100, 'L': 5, 't': 1},
+       {'correlation': 1, 'block_size': 100, 'L': 10, 't': 1},
+       {'correlation': 1, 'block_size': 100, 'L': 20, 't': 1},
+       {'correlation': 0.5, 'block_size': 20, 'L': 20, 't': 0.9506632753385218}]
 
 iter_params = {
-'cov_params' : np.array_split(cov_params, 5) 
 }
 
 #############################################################
@@ -37,6 +34,7 @@ iter_params = {
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
 'sparsity' : np.linspace(0.05, 1, 15),
+'cov_params' : np.array_split(cov_params, 5),
 'cov_type' : 'interpolation',
 'reg_params': [],
 'n_models': 1,
@@ -48,7 +46,9 @@ comm_params = {
 'stability_selection' : 1.,
 'n_boots_sel': 48,
 'n_boots_est' : 48,
-'betawidth' : np.inf,
+# Negative betawidth gives inverse exponential distribution between
+# -5 and 5
+'betawidth' : -10,
 # Inverse Signal to noise ratio
 'kappa' : 5,
 'sub_iter_params': ['sparsity', 'cov_params']

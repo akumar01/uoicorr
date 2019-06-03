@@ -50,6 +50,8 @@ def invexp_dist(low, high, n_samples):
     for ux in u:
             y = np.append(y, x[np.argwhere(Fx == min(Fx[(Fx - ux) > 0])).ravel()])
 
+    y = np.reshape(y, (n_samples, 1))
+
     return y
 
 # Return samples clustered around a set of points

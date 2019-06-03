@@ -44,11 +44,13 @@ def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6,
 
     n_nonzero_beta = int(sparsity * block_size)
         
-    # Handle 0 and np.inf as special cases
+    # Handle 0, np.inf, and < 0 (inverted exponential) as special cases
     if betawidth == np.inf:
         beta = np.random.uniform(low = 0, high = 10, size = (n_features, 1))
     elif betawidth == 0:
         beta = 5 * np.ones((n_features, 1))
+    elif betawidth < 0:
+        beta = invexp_dist(-5, 5, n_features)
     else:
         beta = np.zeros((0,))    # empty for now
         while beta.shape[0] < n_features: 
