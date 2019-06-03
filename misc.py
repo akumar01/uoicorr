@@ -9,6 +9,30 @@ import networkx as nx
 from networkx.algorithms.cluster import average_clustering
 import utils
 
+# For a list of dictionaries, group them by sets in which the entries differ by only the 
+# value of the given key
+def group_dictionaries(dicts, key):
+
+    # Collect all the unique combinations of values, excluding the value of key
+    groups = []
+    group_idxs = []
+
+    for i, dict_ in enumerate(dicts):
+        values = []
+        for k, v in dict_.items():
+            if k == key:
+                continue
+            values.append(v)
+
+        # Does this combination of values exist in groups?
+        if values in groups:
+            group_idxs[groups.index(values)].append
+        else:
+            groups.append(values)
+            group_idxs.append([i])
+
+    return groups, group_idxs
+
 # Solve for the L needed to yield a desired average correlation
 # for exponential falloff design
 def solve_L(p, avg_cov):

@@ -39,11 +39,15 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
 # A betawidth of inf is a uniform distribution on the range 0-10
 def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6, 
             betawidth = np.inf, sparsity_profile = 'uniform', 
-            n_active_blocks = None):
+            n_active_blocks = None, seed = None):
     n_blocks = int(np.floor(n_features/block_size))
 
     n_nonzero_beta = int(sparsity * block_size)
-        
+    
+    # Repeatable coefficients
+    if seed is not None:
+        np.random.seed(seed)
+
     # Handle 0, np.inf, and < 0 (inverted exponential) as special cases
     if betawidth == np.inf:
         beta = np.random.uniform(low = 0, high = 10, size = (n_features, 1))

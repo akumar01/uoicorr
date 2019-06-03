@@ -12,6 +12,7 @@ import pandas as pd
 from glob import glob
 from subprocess import check_output
 from utils import gen_covariance, gen_beta2, gen_data
+from misc import group_dictionaries
 
 def chunk_list(l, n):
     # For item i in a range that is a length of l,
@@ -85,6 +86,12 @@ def generate_arg_files(argfile_array, jobdir):
             [arg_dict.update({arg_['sub_iter_params'][j]: arg_comb[i][j] for j in range(len(arg_['sub_iter_params']))})]
             iter_param_list.append(arg_dict)
 
+        # For parameter combinations that are identical save for the manual estimation penalty, we would like 
+        # to have identical betas. Group iter_param_list by such combinations, and then assign identical 
+        # beta seeds to each group
+        if 'manual_penalty' in list(iter_param_list[0].keys()):
+            _, penalty_groups = group_dictionaries(iter_param_list, 'manual_penalty')
+
 
         for i, param_comb in enumerate(iter_param_list):
 
@@ -98,8 +105,11 @@ def generate_arg_files(argfile_array, jobdir):
                                    param_comb['cov_params']['block_size'],
                                    param_comb['cov_params']['L'],
                                    param_comb['cov_params']['t'])
+
+
             betas = gen_beta2(param_comb['n_features'], param_comb['cov_params']['block_size'],
-                              param_comb['sparsity'], param_comb['betawidth'])            
+                              param_comb['sparsity'], param_comb['betawidth'])           
+
             if np.count_nonzero(betas) == 0:
                 print('Warning, all betas were 0!')
                 print(param_comb)
