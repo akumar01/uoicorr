@@ -92,7 +92,12 @@ def generate_arg_files(argfile_array, jobdir):
         if 'manual_penalty' in list(iter_param_list[0].keys()):
             _, penalty_groups = group_dictionaries(iter_param_list, 'manual_penalty')
 
-
+            beta_seeds = np.zeros(len(iter_param_list))
+            for pidx, penalty_group in enumerate(penalty_groups):
+                beta_seeds[penalty_group] = pidx
+        else:
+            beta_seeds = np.empty(len(iter_param_list))
+            beta_seeds.fill(None)
         for i, param_comb in enumerate(iter_param_list):
 
             if 'n_samples' in list(param_comb.keys()):
@@ -100,6 +105,10 @@ def generate_arg_files(argfile_array, jobdir):
             elif 'np_ratio' in list(param_comb.keys()):
                 n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
                 param_comb['n_samples'] = n_samples
+
+
+            param_comb['beta_seed'] = beta_seeds[i]
+
             sigma = gen_covariance(param_comb['n_features'],
                                    param_comb['cov_params']['correlation'], 
                                    param_comb['cov_params']['block_size'],
@@ -108,7 +117,7 @@ def generate_arg_files(argfile_array, jobdir):
 
 
             betas = gen_beta2(param_comb['n_features'], param_comb['cov_params']['block_size'],
-                              param_comb['sparsity'], param_comb['betawidth'])           
+                              param_comb['sparsity'], param_comb['betawidth'], param_comb['beta_seed'])           
 
             if np.count_nonzero(betas) == 0:
                 print('Warning, all betas were 0!')

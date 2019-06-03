@@ -23,10 +23,10 @@ def group_dictionaries(dicts, key):
             if k == key:
                 continue
             values.append(v)
-
+        
         # Does this combination of values exist in groups?
         if values in groups:
-            group_idxs[groups.index(values)].append
+            group_idxs[groups.index(values)].append(i)
         else:
             groups.append(values)
             group_idxs.append([i])
