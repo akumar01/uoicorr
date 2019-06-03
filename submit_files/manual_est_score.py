@@ -24,7 +24,7 @@ correlation = [0, 0.08891397, 0.15811388, 0.28117066, 0.5]
 # Exponential length scales
 L = [2, 5, 10, 20]
 
-cov_list, _ = get_cov_list(n_features, 60, correlation, block_sizes, L, n_supplement = 15)
+cov_list, _ = get_cov_list(n_features, 65, correlation, block_sizes, L, n_supplement = 15)
 
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 

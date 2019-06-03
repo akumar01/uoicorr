@@ -127,6 +127,13 @@ for i in range(num_tasks):
     
     f.seek(index[chunk_param_list[chunk_idx][i]], 0)
     params = pickle.load(f)
+    
+    # Skip this guy because for the particular combination of parameters, 
+    # all betas end up being zero
+    if 'skip' in list(params.keys()):
+        if params['skip']:
+            continue 
+    
     params['comm'] = subcomm
     sigma = params['sigma']
     beta = params['betas']

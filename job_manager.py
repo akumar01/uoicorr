@@ -56,14 +56,11 @@ def generate_arg_files(argfile_array, jobdir):
     paths = []
     ntasks = []
 
-    for i, arg_ in enumerate(argfile_array):
+    for j, arg_ in enumerate(argfile_array):
         start = time.time()
 
-        arg_file = '%s/master/params%d.dat' % (jobdir, i)
-        paths.append(arg_file)
-
         # Generate the full set of data/metadata required to run the job
-
+        
         sub_iter_params = arg_['sub_iter_params']
         if sub_iter_params: 
             for key in sub_iter_params:
@@ -88,7 +85,6 @@ def generate_arg_files(argfile_array, jobdir):
             [arg_dict.update({arg_['sub_iter_params'][j]: arg_comb[i][j] for j in range(len(arg_['sub_iter_params']))})]
             iter_param_list.append(arg_dict)
 
-        ntasks.append(len(iter_param_list))
 
         for i, param_comb in enumerate(iter_param_list):
 
@@ -107,11 +103,19 @@ def generate_arg_files(argfile_array, jobdir):
             if np.count_nonzero(betas) == 0:
                 print('Warning, all betas were 0!')
                 print(param_comb)
-                sys.exit(0)
-            param_comb['sigma'] = sigma
-            param_comb['betas'] = betas
+                param_comb['skip'] = True
+            else:
+                param_comb['sigma'] = sigma
+                param_comb['betas'] = betas
+                param_comb['skip'] = False
             # Save a seed that will be used to generate the same data for every process
             param_comb['seed'] = i 
+            
+        
+        ntasks.append(len(iter_param_list))
+        arg_file = '%s/master/params%d.dat' % (jobdir, j)
+        paths.append(arg_file)
+        
         with open(arg_file, 'wb') as f:
             # Sequentially pickle the elements of iter_param_list so they can be 
             # sequentially unpickled
@@ -145,10 +149,14 @@ def generate_log_file(argfile_array, jobdir, desc = None):
     metadata.to_pickle('%s/log.dat' % jobdir)
 
     
-def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
+def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir, 
+                            qos = 'regular'):
 
     # Generate sbatch scripts for the given directory
 
+    # Quality of service: If running on shared queue, then do not
+    # set up MPI parameters and request only a single core
+    
     for i, sbatch in enumerate(sbatch_array):
         
         if 'sbname' not in list(sbatch.keys()):
@@ -169,9 +177,13 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
         with open(sbname, 'w') as sb:
             # Arguments common across jobs
             sb.write('#!/bin/bash\n')
-            sb.write('#SBATCH -q regular\n')
-            sb.write('#SBATCH -N 1\n')
-
+            if qos == 'regular':
+                sb.write('#SBATCH --qos=regular\n')
+                sb.write('#SBATCH -N 1\n')
+            else:
+                sb.write('#SBATCH --qos=shared\n')
+                sb.write('#SBATCH -n 1\n')
+                
             sb.write('#SBATCH -t %s\n' % sbatch['job_time'])
 
             sb.write('#SBATCH --job-name=%s\n' % jobname)
@@ -185,17 +197,23 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
             sb.write('source ~/anaconda3/bin/activate\n')
             sb.write('source activate nse\n')
             
-            # Critical to prevent threads competing for resources
-            sb.write('export OMP_NUM_THREADS=1\n')
-            sb.write('export KMP_AFFINITY=disabled\n')
+            if qos == 'regular':
+                # Critical to prevent threads competing for resources
+                sb.write('export OMP_NUM_THREADS=1\n')
+                sb.write('export KMP_AFFINITY=disabled\n')
 
-            sb.write('srun -n 34 -c 8 python3 -u %s/%s %s %s %s' 
-                    % (script_dir, script, sbatch['arg_file'],
-                       results_file, sbatch['exp_type']))
-
+                sb.write('srun -n 34 -c 8 python3 -u %s/%s %s %s %s' 
+                        % (script_dir, script, sbatch['arg_file'],
+                        results_file, sbatch['exp_type']))
+            else:
+                
+                sb.write('srun python -u %s/%s %s %s %s'
+                        % (script_dir, script, sbatch['arg_file'],
+                        results_file, sbatch['exp_type']))
 # Use skip_argfiles if arg_files have already been generated and just need to 
 # re-gen sbatch files
-def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test = False):
+def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test = False, 
+                        qos = 'regular'):
 
     if not os.path.exists(jobdir):
         os.makedirs(jobdir)
@@ -247,19 +265,12 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
         # Master directory with all arg files
         if not os.path.exists('%s/master' % jobdir):
             os.mkdir('%s/master' % jobdir)
-
         # Generate the arg_files:
         paths, ntasks = generate_arg_files(argfile_array, jobdir)
 
     else:
-#         # Need to get paths and ntasks
+        # Need to get paths and ntasks
         paths = glob('%s/master/*.dat' % jobdir)
-#         # Go through and count the length of the dictionary contained within each argfile
-#         # to get ntasks
-#         ntasks = []
-#         for path in paths:
-#             with open(path, 'rb') as f:
-#                 ntasks.append(pickle.load(f))
         
     # Create an sbatch_array used to generate sbatch files that specifies exp_type, job_time, 
     # num_tasks, and the path to the corresponding arg_file
@@ -284,7 +295,7 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
             os.mkdir('%s/%s' % (jobdir, exp_type))
 
         generate_sbatch_scripts(sbatch_array[i], '%s/%s' % (jobdir, exp_type),
-                               script_dir)        
+                               script_dir, qos)        
 
 # Jobdir: Directory to crawl through
 # size: only submit this many jobs (if exp_type specified, this
@@ -317,7 +328,7 @@ def run_jobs(jobdir, constraint, size = None, nums = None, run_files = None,
             f = open(run_file, 'r')
             contents = f.readlines()
             f.close()
-
+            
             constraint_string = [s for s in contents if '--constraint' in s]
 
             # First remove any existing constraint strings
@@ -325,13 +336,12 @@ def run_jobs(jobdir, constraint, size = None, nums = None, run_files = None,
                 for c in constraint_string:
                     contents.remove(c)
             
-            # Add constraint to the 2nd line (index 1) so it is the first
-            # thing after #/bin/bash
+            # Add constraint after declaration of qos
             if constraint == 'haswell':
-                contents.insert(1, '#SBATCH --constraint=haswell\n')
+                contents.insert(2, '#SBATCH --constraint=haswell\n')
               
             if constraint == 'knl':
-                contents.insert(1, '#SBATCH --constraint=knl\n')                  
+                contents.insert(2, '#SBATCH --constraint=knl\n')                  
             
             f = open(run_file, "w")
             contents = "".join(contents)

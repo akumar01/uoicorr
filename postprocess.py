@@ -44,9 +44,9 @@ def postprocess(data_file, param_file, fields = None):
 
 # Postprocess an entire directory of data, will assume standard nomenclature of
 # associated parameter files
-# old_format: back when we were using the .py param files
-# skip_bad: Skip over files that cannot be processed without raising errors
-# arg_flag: Only return dataframes for data files that match arg_flag {key: value}
+# exp_type: only postprocess results for the given exp_type
+# fields (list): only return data for the fields given in fields (useful for saving
+# memory)
 def postprocess_dir(jobdir, exp_type = None, fields = None):
     # Collect all .h5 files
     data_files = grab_files(jobdir, '*.dat', exp_type)
