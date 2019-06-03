@@ -100,6 +100,7 @@ def generate_arg_files(argfile_array, jobdir):
             elif 'np_ratio' in list(param_comb.keys()):
                 n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
                 param_comb['n_samples'] = n_samples
+            
             sigma = gen_covariance(param_comb['n_features'],
                                    param_comb['cov_params']['correlation'], 
                                    param_comb['cov_params']['block_size'],

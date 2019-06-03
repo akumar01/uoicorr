@@ -7,9 +7,9 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['UoILasso', 'UoIElasticNet']
+exp_types =  ['GTV']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['8:00:00', '12:00:00']
+algorithm_times = ['24:00:00']
 
 n_features = 1000
 
@@ -31,7 +31,7 @@ iter_params = {
 'cov_params' : cov_params,
 
 # Sparsity
-'sparsity' : np.array_split(np.logspace(np.log10(0.02), 0, 15), 15)
+'sparsity' : np.array_split(np.logspace(np.log10(0.02), 0, 15), 5)
 
 }
 

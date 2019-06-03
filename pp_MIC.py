@@ -20,7 +20,7 @@ def postprocess(data_file, param_file, fields = None):
     # Load pickled data file. It should contain a single list with the
     # same length as index
     with open(data_file, 'rb') as f:
-        sa = pickle.load(data_file)
+        sa = pickle.load(f)
 
     # Indexed pickle file
     param_file.seek(0, 0)

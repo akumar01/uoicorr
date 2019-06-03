@@ -131,7 +131,7 @@ for i in range(num_tasks):
 
         for i1 in range(n_boots_sel):
             for i2 in range(n_supports):
-                sa[i1, i2] = selection_accuracy(beta.ravel(), model.estimates_[i, j, :])
+                sa[i1, i2] = selection_accuracy(beta.ravel(), model.estimates_[i1, i2, :])
 
         estimates_sa.append(sa)
 
@@ -146,7 +146,7 @@ f.close()
 if comm.rank == 0:
     # Pickle away results
     with open(results_file, 'wb') as results:
-        results.write(pickle.dump(estimates_sa))
+        results.write(pickle.dumps(estimates_sa))
 
     print('Total time: %f' % (time.time() - total_start))
     print('Job completed!')

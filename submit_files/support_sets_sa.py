@@ -7,7 +7,7 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 desc = 'Recording estimates of support sets'
 
-exp_types =  ['UoILasso', 'UoIElasticNet']
+exp_types =  ['UoIElasticNet']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
 algorithm_times = ['2:00:00', '10:00:00']
 
@@ -27,14 +27,14 @@ cov_params = [{'correlation': 0, 'block_size': 20, 'L': 1, 't': 0},
        {'correlation': 1, 'block_size': 100, 'L': 20, 't': 1},
        {'correlation': 0.5, 'block_size': 20, 'L': 20, 't': 0.9506632753385218}]
 iter_params = {
+'sparsity' : np.array_split(np.linspace(0.05, 1, 15), 2)
 }
 
 #############################################################
 
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
-'sparsity' : np.linspace(0.05, 1, 15),
-'cov_params' : cov_params
+'cov_params' : cov_params,
 'cov_type' : 'interpolation',
 'reg_params': [],
 'n_models': 1,

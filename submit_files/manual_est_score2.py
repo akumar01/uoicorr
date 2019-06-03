@@ -8,12 +8,11 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 desc = 'Benchmark with inverse exponentially distriubted coefficients to benchmark MIC\
 		approaches against'
 
-exp_types =  ['CV_Lasso', 'EN']
+exp_types =  ['CV_Lasso, EN']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
 algorithm_times = ['02:00:00', '04:00:00']
 
 n_features = 100
-
 
 # Manual spread of cov_params
 cov_params = [{'correlation': 0, 'block_size': 20, 'L': 1, 't': 0},
@@ -27,6 +26,7 @@ cov_params = [{'correlation': 0, 'block_size': 20, 'L': 1, 't': 0},
        {'correlation': 0.5, 'block_size': 20, 'L': 20, 't': 0.9506632753385218}]
 
 iter_params = {
+'cov_params' : cov_params
 }
 
 #############################################################
