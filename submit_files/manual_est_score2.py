@@ -34,7 +34,7 @@ iter_params = {
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
 'sparsity' : np.linspace(0.05, 1, 15),
-'cov_params' : np.array_split(cov_params, 5),
+'cov_params' : cov_params,
 'cov_type' : 'interpolation',
 'reg_params': [],
 'n_models': 1,
