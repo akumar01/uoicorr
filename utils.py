@@ -43,10 +43,9 @@ def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6,
     n_blocks = int(np.floor(n_features/block_size))
 
     n_nonzero_beta = int(sparsity * block_size)
-    
     # Repeatable coefficients
     if seed is not None:
-        np.random.seed(seed)
+        np.random.seed(int(seed))
 
     # Handle 0, np.inf, and < 0 (inverted exponential) as special cases
     if betawidth == np.inf:
@@ -182,7 +181,7 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 3,
 
     # For consistency across different runs
     if seed is not None:
-        np.random.seed(seed)
+        np.random.seed(int(seed))
         
     # draw samples from a multivariate normal distribution cenetered around 0
     X = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)

@@ -8,9 +8,12 @@ import struct
 import networkx as nx
 from networkx.algorithms.cluster import average_clustering
 import utils
+    
 
 # For a list of dictionaries, group them by sets in which the entries differ by only the 
-# value of the given key
+# value of the given key. If key is not contained in the dictionaries, the behavior of
+# this function is to return the unique list of dictionaries and the indices that those values
+# are found in the original list
 def group_dictionaries(dicts, key):
 
     # Collect all the unique combinations of values, excluding the value of key
@@ -23,13 +26,15 @@ def group_dictionaries(dicts, key):
             if k == key:
                 continue
             values.append(v)
-
+        
         # Does this combination of values exist in groups?
         if values in groups:
-            group_idxs[groups.index(values)].append
+            group_idxs[groups.index(values)].append(i)
         else:
             groups.append(values)
             group_idxs.append([i])
+
+        pdb.set_trace()
 
     return groups, group_idxs
 
