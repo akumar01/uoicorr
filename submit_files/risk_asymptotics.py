@@ -10,7 +10,7 @@ desc = 'Consider increasingly larger sample sizes, calculating the exact risk, M
 
 exp_types =  ['UoILasso']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['2:00:00']
+algorithm_times = ['6:00:00']
 
 n_features = 100
 
@@ -36,7 +36,7 @@ iter_params = {
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
 'sparsity' : np.linspace(0.05, 1, 15),
-'manual_penalty' : np.linspace(0, 2, 20),
+'manual_penalty' : np.linspace(0, 5, 50),
 'cov_type' : 'interpolation',
 'reg_params': [],
 'n_models': 1,
