@@ -23,6 +23,8 @@ from pyuoi.mpi_utils import Bcast_from_root, Gatherv_rows
 from utils import gen_data
 from utils import FNR, FPR, selection_accuracy, estimation_error
 
+import risk
+
 total_start = time.time()
 
 ###### Command line arguments #######
@@ -122,6 +124,10 @@ if subrank == 0:
 
     record_alt = False
 
+    # Risk calculations
+    exact_risk = []
+    MIC_risk = []
+
 for i in range(num_tasks):
     start = time.time()
     
@@ -140,18 +146,21 @@ for i in range(num_tasks):
     seed = params['seed']
     if subrank == 0:
         # Generate data
-        X, X_test, y, y_test, _ = gen_data(params['n_samples'], params['n_features'],
+        X, X_test, y, y_test, ss = gen_data(params['n_samples'], params['n_features'],
                                         params['kappa'], sigma, beta, seed)
     else:
         X = None
         X_test = None
         y = None 
         y_test = None
-        
+        ss = None
+
     X = Bcast_from_root(X, subcomm)
     X_test = Bcast_from_root(X_test, subcomm)
     y = Bcast_from_root(y, subcomm)
     y_test = Bcast_from_root(y_test, subcomm)
+    ss = Bcast_from_root(ss, subcomm)
+
     exp = locate('exp_types.%s' % exp_type)
     print('Going into exp')
     model = exp.run(X, y, params)
@@ -189,7 +198,7 @@ for i in range(num_tasks):
                 
         ee_results[i] = ee
         median_ee_results[i] = median_ee
-        
+
         if hasattr(model, 'alt_coef_'):
             record_alt = True
             beta_hat = model.alt_coef_.ravel()
@@ -201,69 +210,57 @@ for i in range(num_tasks):
             alt_ee_results[i] = ee
             median_ee_results[i] = median_ee
 
+        n_estimates = models.estimates_.shape[0]
+
+        # Record the sresults on both the train and the test data
+        exact_risk_ = np.zeros((n_estimates, 2))
+        MIC_risk_ = np.zeros((n_estimates, 2))
+
+        for eidx in range(n_estimates):
+
+            n_features = np.count_nonzero(model.estimates[eidx, :])
+
+            mu_hat = X @ model.estimates_[eidx, :]
+            sigma_hat = np.mean(np.linalg.norm(y.ravel() - mu_hat.ravel())**2)
+
+            exact_risk_[i, 0] = risk.calc_KL_div(y.ravel(), sigma_hat, ss)
+            MIC_risk_[i, 0] = risk.MIC(y.ravel(), mu_hat.ravel(), sigma_hat, 
+                                        n_features, params['manual_penalty'])
+
+            mu_hat = X_test @ model.estimates_[eidx, :]
+            sigma_hat = np.mean(np.linalg.norm(y_test.ravel() - mu_hat.ravel())**2)
+
+            exact_risk_[i, 1] = risk.calc_KL_div(y_test.ravel(), sigma_hat, ss)
+            MIC_risk_[i, 1] = risk.MIC(y_test.ravel(), mu_hat.ravel(), sigma_hat, 
+                                        n_features, params['manual_penalty'])
+
+        exact_risk.append(exact_risk_)
+        MIC_risk.append(MIC_risk_)
+
         print('Process group %d completed outer loop %d/%d' % (rank, i, num_tasks -1))
         print(time.time() - start)
     del params
-    
+
 # Gather across root nodes
 if subrank == 0:
-    fn_results = np.array(fn_results)
-    fn_results = Gatherv_rows(fn_results, roots_comm, root = 0)
 
-    fp_results = np.array(fp_results)
-    fp_results = Gatherv_rows(fp_results, roots_comm, root = 0)
+    v_list = [fn_results, fp_results, r2_results, r2_true_results, beta_hats, BIC_results,
+             AIC_results, AICc_results, FNR_results, FPR_results, sa_results, ee_results,
+             median_ee_results]
 
-    r2_results = np.array(r2_results)
-    r2_results = Gatherv_rows(r2_results, roots_comm, root = 0)
-
-    r2_true_results = np.array(r2_true_results)
-    r2_true_results = Gatherv_rows(r2_true_results, roots_comm, root = 0)
-
-    beta_hats = np.array(beta_hats)
-    beta_hats = Gatherv_rows(beta_hats, roots_comm, root = 0)
-
-    BIC_results = np.array(BIC_results)
-    BIC_results = Gatherv_rows(BIC_results, roots_comm, root = 0)
-
-    AIC_results = np.array(AIC_results)
-    AIC_results = Gatherv_rows(AIC_results, roots_comm, root = 0)
-
-    AICc_results = np.array(AICc_results)
-    AICc_results = Gatherv_rows(AICc_results, roots_comm, root = 0)
-
-    FNR_results = np.array(FNR_results)
-    FNR_results = Gatherv_rows(FNR_results, roots_comm, root = 0)
-
-    FPR_results = np.array(FPR_results)
-    FPR_results = Gatherv_rows(FPR_results, roots_comm, root = 0)
-
-    sa_results = np.array(sa_results)
-    sa_results = Gatherv_rows(sa_results, roots_comm, root = 0)
-
-    ee_results = np.array(ee_results)
-    ee_results = Gatherv_rows(ee_results, roots_comm, root = 0)
-
-    median_ee_results = np.array(median_ee_results)
-    median_ee_results = Gatherv_rows(median_ee_results, roots_comm, root = 0)
+    for v in v_list:
+        v = np.array(v)
+        v = Gatherv_rows(v, roots_comm, root = 0)
 
     if record_alt:
-        alt_beta_hats = np.array(alt_beta_hats)
-        alt_beta_hats = Gatherv_rows(alt_beta_hats, roots_comm, root = 0)
-        
-        alt_FNR_results = np.array(alt_FNR_results)
-        alt_FNR_results = Gatherv_rows(alt_FNR_results, roots_comm, root = 0)
-        
-        alt_FPR_results = np.array(alt_FPR_results)
-        alt_FPR_results = Gatherv_rows(alt_FPR_results, roots_comm, root = 0)
 
-        alt_sa_results = np.array(alt_sa_results)
-        alt_sa_results = Gatherv_rows(alt_sa_results, roots_comm, root = 0)
+        alt_v_list = [alt_beta_hats, alt_FNR_results, alt_FPR_results, alt_sa_results, 
+                      alt_ee_results, alt_median_ee_results]
 
-        alt_ee_results = np.array(alt_ee_results)
-        alt_ee_results = Gatherv_rows(alt_ee_results, roots_comm, root = 0)
-        
-        alt_median_ee_results = np.array(alt_median_ee_results)
-        alt_median_ee_results = Gatherv_rows(alt_median_ee_results, roots_comm, root = 0)        
+        for v in alt_v_list:
+            v = np.array(v)
+            v = Gatherv_rows(v, roots_comm, root = 0)
+
 
 f.close()    
 if comm.rank == 0:

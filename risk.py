@@ -37,9 +37,7 @@ def empirical_KL_estimate(y, mu_hat, sigma_hat):
 
 	n = y.size
 
-	empirical_KL_div = np.array([np.array([np.log(1/np.sqrt(2 * np.pi * sigma_hat**2) * np.exp(-(y[i] - mu_hat[j])**2/(2 * sigma_hat**2))) for j in range(n)]) for i in range(n)])
-
-	empirical_KL_div = np.mean(np.sum(empirical_KL_div, axis = 1))
+	empirical_KL_div = 1/2 * (n * np.log(2 * np.pi) - n * np.log(n) + n + 2 * np.log(y - mu_hat))
 
 	return -1 * empirical_KL_div
 
@@ -50,13 +48,17 @@ def AIC(y_true, mu_hat, sigma_hat, n_features):
 
 	eKLe = empirical_KL_estimate(y_true, mu_hat, sigma_hat)
 
-	AIC = eKLe + n_features/n_samples
+	AIC = eKLe + n_features
 
 	return AIC
 
-# Calculate "univariate" AIC
-def naive_AIC(y_true, mu_hat, sigma_hat, n_features):
+# Manually specify a model complexity penalty.
+def MIC(y_true, mu_hat, sigma_hat, n_features, penalty):
 
-	llhood = log_likelihood_glm(model = 'normal', y_true = y_true, y_pred = mu_hat)
-	AIC = AIC_(llhood, n_features)
-	return -1 * AIC
+	n_samples = y_true.size
+
+	eKLe = empirical_KL_estimate(y_true, mu_hat, sigma_hat)
+
+	MIC = eKLe + penalty * n_features
+
+	return MIC

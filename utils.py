@@ -469,7 +469,6 @@ def FPR(beta, beta_hat, threshold = False):
 
     return false_positive_rate
 
-
 def selection_accuracy(beta, beta_hat, threshold = False):
 
     beta, beta_hat = tile_beta(beta, beta_hat)
