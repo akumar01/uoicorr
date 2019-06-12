@@ -37,9 +37,9 @@ def empirical_KL_estimate(y, mu_hat, sigma_hat):
 
 	n = y.size
 
-	empirical_KL_div = 1/2 * (n * np.log(2 * np.pi) - n * np.log(n) + n + 2 * np.log(y - mu_hat))
+	empirical_KL_div = n/2 * (np.log(2 * np.pi) - np.log(n) + 1 + 2 * np.log(np.linalg.norm(y - mu_hat)))
 
-	return -1 * empirical_KL_div
+	return empirical_KL_div
 
 # Calculate the AIC estimate of the KL div term above. AIC contains bias correction
 def AIC(y_true, mu_hat, sigma_hat, n_features):

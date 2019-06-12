@@ -34,6 +34,7 @@ parser.add_argument('arg_file')
 parser.add_argument('results_file', default = 'results.h5')
 parser.add_argument('exp_type', default = 'UoILasso')
 parser.add_argument('--comm_splits', type=int, default = None)
+parser.add_argument('-t', '--test', action = 'store_true')
 args = parser.parse_args()
 #######################################
 
@@ -209,25 +210,26 @@ for i in range(num_tasks):
             ee, median_ee = estimation_error(beta.ravel(), beta_hat)
             alt_ee_results[i] = ee
             median_ee_results[i] = median_ee
-
-        n_estimates = models.estimates_.shape[0]
+        
+        estimates = model.estimates_.reshape((-1, params['n_features']))
+        n_estimates = estimates.shape[0]
 
         # Record the sresults on both the train and the test data
         exact_risk_ = np.zeros((n_estimates, 2))
         MIC_risk_ = np.zeros((n_estimates, 2))
-
+        
         for eidx in range(n_estimates):
 
-            n_features = np.count_nonzero(model.estimates[eidx, :])
+            n_features = params['n_features']
 
-            mu_hat = X @ model.estimates_[eidx, :]
+            mu_hat = X @ estimates[eidx, :]
             sigma_hat = np.mean(np.linalg.norm(y.ravel() - mu_hat.ravel())**2)
 
             exact_risk_[i, 0] = risk.calc_KL_div(y.ravel(), sigma_hat, ss)
             MIC_risk_[i, 0] = risk.MIC(y.ravel(), mu_hat.ravel(), sigma_hat, 
                                         n_features, params['manual_penalty'])
 
-            mu_hat = X_test @ model.estimates_[eidx, :]
+            mu_hat = X_test @ estimates[eidx, :]
             sigma_hat = np.mean(np.linalg.norm(y_test.ravel() - mu_hat.ravel())**2)
 
             exact_risk_[i, 1] = risk.calc_KL_div(y_test.ravel(), sigma_hat, ss)
@@ -237,10 +239,12 @@ for i in range(num_tasks):
         exact_risk.append(exact_risk_)
         MIC_risk.append(MIC_risk_)
 
-        print('Process group %d completed outer loop %d/%d' % (rank, i, num_tasks -1))
+        print('Process group %d completed outer loop %d/%d' % (rank, i, num_tasks))
         print(time.time() - start)
+    
     del params
-
+    if args.test:
+        break
 # Gather across root nodes
 if subrank == 0:
 

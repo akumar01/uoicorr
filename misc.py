@@ -34,7 +34,7 @@ def group_dictionaries(dicts, key):
             groups.append(values)
             group_idxs.append([i])
 
-        pdb.set_trace()
+    
 
     return groups, group_idxs
 
