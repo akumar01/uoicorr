@@ -1,4 +1,4 @@
-import numpy as np 
+import numpy as np
 from scipy.integrate import quad
 import pdb
 from pyuoi.utils import log_likelihood_glm
@@ -53,7 +53,7 @@ def AIC(y_true, mu_hat, sigma_hat, n_features):
 	return AIC
 
 # Manually specify a model complexity penalty.
-def MIC(y_true, mu_hat, sigma_hat, n_features, penalty):
+def MIC(y_true, mu_hat, sigma_hat, k, penalty):
 
 	n_samples = y_true.size
 

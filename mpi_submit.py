@@ -11,6 +11,7 @@ import struct
 import importlib
 import subprocess
 import numpy as np
+from risk import exact_risk, AIC_risk,
 from mpi4py import MPI
 import h5py
 import time
@@ -19,7 +20,7 @@ from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
 
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
-from pyuoi.mpi_utils import Bcast_from_root, Gatherv_rows
+from mpi_utils.ndarray import Bcast_from_root, Gatherv_rows, Gather_ndlist
 from utils import gen_data
 from utils import FNR, FPR, selection_accuracy, estimation_error
 
@@ -44,10 +45,10 @@ results_file = args.results_file
 # Create an MPI comm object
 comm = MPI.COMM_WORLD
 rank = comm.rank
-numproc = comm.Get_size()    
+numproc = comm.Get_size()
 
-# If specified, split the comm object into subcommunicators. The number of splits will 
-# determine the number of parallel executions of the outer loop. This is useful for UoI 
+# If specified, split the comm object into subcommunicators. The number of splits will
+# determine the number of parallel executions of the outer loop. This is useful for UoI
 # to parallelize over both bootstraps and repetitions
 
 if args.comm_splits is None:
@@ -69,7 +70,7 @@ nchunks = args.comm_splits
 subrank = subcomm.rank
 numproc = subcomm.Get_size()
 
-# Create a group including the root of each subcomm. 
+# Create a group including the root of each subcomm.
 global_group = comm.Get_group()
 root_group = MPI.Group.Incl(global_group, subcomm_roots)
 roots_comm = comm.Create(root_group)
@@ -88,7 +89,7 @@ index = pickle.load(f)
 
 # Chunk up iter_param_list to distribute across iterations
 chunk_param_list = np.array_split(np.arange(total_tasks), nchunks)
-chunk_idx = rank 
+chunk_idx = rank
 num_tasks = len(chunk_param_list[chunk_idx])
 
 print('rank: %d, subrank: %d, color: %d' % (comm.rank, subrank, color))
@@ -97,7 +98,7 @@ print('num_tasks: %d' % num_tasks)
 # Initialize arrays to store data in. Assumes that n_features
 # is held constant across all iterations
 if subrank == 0:
-    
+
     beta_hats = np.zeros((num_tasks, n_features))
 
     # result arrays: scores
@@ -115,7 +116,7 @@ if subrank == 0:
     sa_results = np.zeros(num_tasks)
     ee_results = np.zeros(num_tasks)
     median_ee_results = np.zeros(num_tasks)
-    
+
     alt_beta_hats = np.zeros((num_tasks, n_features))
     alt_FNR_results = np.zeros(num_tasks)
     alt_FPR_results = np.zeros(num_tasks)
@@ -131,16 +132,16 @@ if subrank == 0:
 
 for i in range(num_tasks):
     start = time.time()
-    
+
     f.seek(index[chunk_param_list[chunk_idx][i]], 0)
     params = pickle.load(f)
-    
-    # Skip this guy because for the particular combination of parameters, 
+
+    # Skip this guy because for the particular combination of parameters,
     # all betas end up being zero
     if 'skip' in list(params.keys()):
         if params['skip']:
-            continue 
-    
+            continue
+
     params['comm'] = subcomm
     sigma = params['sigma']
     beta = params['betas']
@@ -152,7 +153,7 @@ for i in range(num_tasks):
     else:
         X = None
         X_test = None
-        y = None 
+        y = None
         y_test = None
         ss = None
 
@@ -175,7 +176,7 @@ for i in range(num_tasks):
         r2_results[i] = r2_score(y_test, X_test @ beta)
         r2_true_results[i] = r2_score(y_test, model.predict(X_test))
     # Score functions have been modified, requiring us to first calculate log-likelihood
-    
+
         llhood = log_likelihood_glm('normal', y_test, model.predict(X_test))
         try:
             BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), y_test.size)
@@ -196,7 +197,7 @@ for i in range(num_tasks):
         FPR_results[i] = FPR(beta.ravel(), beta_hat.ravel())
         sa_results[i] = selection_accuracy(beta.ravel(), beta_hat.ravel())
         ee, median_ee = estimation_error(beta.ravel(), beta_hat.ravel())
-                
+
         ee_results[i] = ee
         median_ee_results[i] = median_ee
 
@@ -226,14 +227,14 @@ for i in range(num_tasks):
             sigma_hat = np.mean(np.linalg.norm(y.ravel() - mu_hat.ravel())**2)
 
             exact_risk_[i, 0] = risk.calc_KL_div(y.ravel(), sigma_hat, ss)
-            MIC_risk_[i, 0] = risk.MIC(y.ravel(), mu_hat.ravel(), sigma_hat, 
+            MIC_risk_[i, 0] = risk.MIC(y.ravel(), mu_hat.ravel(), sigma_hat,
                                         n_features, params['manual_penalty'])
 
             mu_hat = X_test @ estimates[eidx, :]
             sigma_hat = np.mean(np.linalg.norm(y_test.ravel() - mu_hat.ravel())**2)
 
             exact_risk_[i, 1] = risk.calc_KL_div(y_test.ravel(), sigma_hat, ss)
-            MIC_risk_[i, 1] = risk.MIC(y_test.ravel(), mu_hat.ravel(), sigma_hat, 
+            MIC_risk_[i, 1] = risk.MIC(y_test.ravel(), mu_hat.ravel(), sigma_hat,
                                         n_features, params['manual_penalty'])
 
         exact_risk.append(exact_risk_)
@@ -258,15 +259,19 @@ if subrank == 0:
 
     if record_alt:
 
-        alt_v_list = [alt_beta_hats, alt_FNR_results, alt_FPR_results, alt_sa_results, 
+        alt_v_list = [alt_beta_hats, alt_FNR_results, alt_FPR_results, alt_sa_results,
                       alt_ee_results, alt_median_ee_results]
 
         for v in alt_v_list:
             v = np.array(v)
             v = Gatherv_rows(v, roots_comm, root = 0)
 
+    # Gather risk calculations
+    exact_risk = Gather_ndlist(exact_risk, root = 0)
+    MIC_risk = Gather_ndlist(MIC_risk, root = 0)
 
-f.close()    
+
+f.close()
 if comm.rank == 0:
     # Save results
     with h5py.File(results_file, 'w') as results:
@@ -286,7 +291,7 @@ if comm.rank == 0:
         results['ee'] = ee_results
         results['median_ee'] = median_ee_results
 
-        if record_alt: 
+        if record_alt:
             results['alt_beta_hats'] = alt_beta_hats
             results['alt_FNR_results'] = alt_FNR_results
             results['alt_FPR_results'] = alt_FPR_results
@@ -294,6 +299,15 @@ if comm.rank == 0:
             results['alt_ee_results'] = alt_ee_results
             results['alt_median_ee_results'] = alt_median_ee_results
 
+        # Need to split up the list of arrays into separate datasets
+        er = results.create_group('exact_risk')
+        for i, exact_risk_ in enumerate(exact_risk):
+            er.create_dataset(str(i), data = exact_risk_)
+        mic = results.create_group('MIC_risk')
+        for i, MIC_risk_ in enumerate(MIC):
+            mic.create_dataset(str(i), data = MIC_risk_)
+
+
     print('Total time: %f' % (time.time() - total_start))
     print('Job completed!')
-    
+
