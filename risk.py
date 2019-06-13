@@ -18,6 +18,14 @@ def calc_KL_div(mu_hat, sigma_hat, sigma):
 
 	return exact_KL_div
 
+# Exact risk function with penalty term
+def exact_penalized_KL(beta_hat, penalty, mu_hat, sigma_hat, sigma):
+
+	eKD = calc_KL_div(mu_hat, sigma_hat, sigma)
+	penalized_KL = eKD + penalty * np.linalg.norm(beta_hat, 1)
+
+	return penalized_KL
+
 # Use MC to estimate the KL div
 def MC_KL_estimate(mu_hat, sigma_hat, sigma):
 	n = mu_hat.size
