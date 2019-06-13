@@ -67,6 +67,6 @@ def MIC(y_true, mu_hat, sigma_hat, k, penalty):
 
 	eKLe = empirical_KL_estimate(y_true, mu_hat, sigma_hat)
 
-	MIC = eKLe + penalty * n_features
+	MIC = eKLe + penalty * k
 
 	return MIC
