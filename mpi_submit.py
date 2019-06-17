@@ -176,22 +176,22 @@ for i in range(num_tasks):
         fn_results[i] = np.count_nonzero(beta[beta_hat == 0, 0])
         fp_results[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
         r2_results[i] = r2_score(y_test, X_test @ beta)
-        r2_true_results[i] = r2_score(y_test, model.predict(X_test))
+        # r2_true_results[i] = r2_score(y_test, model.predict(X_test))
     # Score functions have been modified, requiring us to first calculate log-likelihood
 
-        llhood = log_likelihood_glm('normal', y_test, model.predict(X_test))
-        try:
-            BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), y_test.size)
-        except:
-            BIC_results[i] = np.nan
-        try:
-            AIC_results[i] = AIC(llhood, np.count_nonzero(beta_hat))
-        except:
-            AIC_results[i] = np.nan
-        try:
-            AICc_results[i] = AICc(llhood, np.count_nonzero(beta_hat), y_test.size)
-        except:
-            AICc_results[i] = np.nan
+        # llhood = log_likelihood_glm('normal', y_test, model.predict(X_test))
+        # try:
+        #    BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), y_test.size)
+        #except:
+        #    BIC_results[i] = np.nan
+        #try:
+        #    AIC_results[i] = AIC(llhood, np.count_nonzero(beta_hat))
+        #except:
+        #    AIC_results[i] = np.nan
+        #try:
+        #    AICc_results[i] = AICc(llhood, np.count_nonzero(beta_hat), y_test.size)
+        #except:
+        #    AICc_results[i] = np.nan
         # Perform calculation of FNR, FPR, selection accuracy, and estimation error
         # here:
 
@@ -216,8 +216,8 @@ for i in range(num_tasks):
 
 
         # Record the sresults on both the train and the test data
-        MIC_risk_ = model.scores_.ravel()
-        exact_risk_ = model.alt_scores_.ravel()
+        MIC_risk_ = model.scores_.astype(float)
+        exact_risk_ = model.alt_scores_.astype(float)
 
         exact_risk.append(exact_risk_)
         MIC_risk.append(MIC_risk_)
@@ -249,7 +249,7 @@ if subrank == 0:
             v = Gatherv_rows(v, roots_comm, root = 0)
 
     # Gather risk calculations
-    pdb.set_trace()
+
     exact_risk = Gather_ndlist(exact_risk, roots_comm, root = 0)
     MIC_risk = Gather_ndlist(MIC_risk, roots_comm, root = 0)
 
@@ -288,7 +288,7 @@ if comm.rank == 0:
         for i, exact_risk_ in enumerate(exact_risk):
             er.create_dataset(str(i), data = exact_risk_)
         mic = results.create_group('MIC_risk')
-        for i, MIC_risk_ in enumerate(MIC):
+        for i, MIC_risk_ in enumerate(MIC_risk):
             mic.create_dataset(str(i), data = MIC_risk_)
 
 

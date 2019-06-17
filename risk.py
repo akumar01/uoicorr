@@ -70,10 +70,10 @@ def AIC(y_true, mu_hat, sigma_hat, n_features):
 # Manually specify a model complexity penalty.
 def MIC(y_true, mu_hat, sigma_hat, k, penalty):
 
-	n_samples = y_true.size
+    n_samples = y_true.size
 
-	eKLe = empirical_KL_estimate(y_true, mu_hat, sigma_hat)
+    eKLe = empirical_KL_estimate(y_true, mu_hat, sigma_hat)
 
-	MIC = eKLe + penalty * k
+    MIC = eKLe + penalty * k
 
-	return MIC
+    return MIC
