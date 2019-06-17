@@ -29,7 +29,7 @@ class CV_Lasso():
         lasso = LassoCV(cv = cv_splits, n_alphas = n_alphas).fit(X, y.ravel())
 
         return lasso
-        
+
 class UoILasso():
 
     @classmethod
@@ -38,7 +38,7 @@ class UoILasso():
         if 'comm' in list(args.keys()):
             comm = args['comm']
         else:
-            comm = None 
+            comm = None
 
         if 'forward_selection' in list(args.keys()):
             forward_selection = args['forward_selection']
@@ -47,8 +47,13 @@ class UoILasso():
 
         if 'manual_penalty' in list(args.keys()):
             manual_penalty = args['manual_penalty']
-        else: 
+        else:
             manual_penalty = 2
+
+        if 'ss' in list(args.keys()):
+            noise_level = args['ss']
+        else:
+            noise_level = 0
 
         uoi = UoI_Lasso(
             normalize=False,
@@ -57,12 +62,13 @@ class UoILasso():
             estimation_score=args['est_score'],
             stability_selection = args['stability_selection'],
             manual_penalty = manual_penalty,
+            noise_level = noise_level,
             comm = comm
             )
 
         uoi.fit(X, y.ravel())
 
-        return uoi    
+        return uoi
 
 class UoIElasticNet():
 
@@ -93,9 +99,9 @@ class UoIElasticNet():
             stability_selection=args['stability_selection'],
             comm = comm
         )
-        
+
         uoi.fit(X, y.ravel())
-        return uoi    
+        return uoi
 
 class EN():
 
@@ -111,7 +117,7 @@ class EN():
             else:
                 l1_ratios = np.array(l1_ratios)
 
-        en = ElasticNetCV(cv = 5, n_alphas = 48, 
+        en = ElasticNetCV(cv = 5, n_alphas = 48,
                         l1_ratio = l1_ratios).fit(X, y.ravel())
 
         return en
@@ -159,7 +165,7 @@ class GTV():
         if 'threshold' in list(args.keys()):
             threshold = args['threshold']
         else:
-            threshold = False 
+            threshold = False
 
         scores = np.zeros((lambda_S.size, lambda_TV.size, lambda_1.size))
 
@@ -170,7 +176,7 @@ class GTV():
         hparamlist = list(itertools.product(lambda_S, lambda_TV, lambda_1))
 
         if comm is not None:
-            numproc = comm.Get_size() 
+            numproc = comm.Get_size()
             rank = comm.rank
             chunk_hparamlist = np.array_split(hparamlist, numproc)
             chunk_idx = rank
@@ -185,8 +191,8 @@ class GTV():
         cv_scores = np.zeros(len(chunk_hparamlist[chunk_idx]))
         for i, hparam in enumerate(chunk_hparamlist[chunk_idx]):
             t0 = time.time()
-            gtv = GraphTotalVariance(lambda_S = hparam[0], lambda_TV = hparam[1], 
-                                     lambda_1 = hparam[2], normalize=True, 
+            gtv = GraphTotalVariance(lambda_S = hparam[0], lambda_TV = hparam[1],
+                                     lambda_1 = hparam[2], normalize=True,
                                      warm_start = False, use_skeleton = use_skeleton,
                                      threshold = threshold, minimizer = 'lbfgs')
             scores = np.zeros(cv_splits)
@@ -207,9 +213,9 @@ class GTV():
             best_idx = np.argmax(cv_scores)
             best_hparam = hparamlist[best_idx]
             # Return GTV fit the best hparam
-            model = GraphTotalVariance(lambda_S = best_hparam[0], 
-                                     lambda_TV = best_hparam[1], 
-                                     lambda_1 = best_hparam[2], normalize=True, 
+            model = GraphTotalVariance(lambda_S = best_hparam[0],
+                                     lambda_TV = best_hparam[1],
+                                     lambda_1 = best_hparam[2], normalize=True,
                                      warm_start = False, use_skeleton = use_skeleton,
                                      threshold = threshold, minimizer = 'lbfgs')
             model.fit(X, y, cov)
