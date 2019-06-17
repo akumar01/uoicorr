@@ -11,7 +11,6 @@ import struct
 import importlib
 import subprocess
 import numpy as np
-from risk import exact_risk, AIC_risk,
 from mpi4py import MPI
 import h5py
 import time
@@ -267,8 +266,8 @@ if subrank == 0:
             v = Gatherv_rows(v, roots_comm, root = 0)
 
     # Gather risk calculations
-    exact_risk = Gather_ndlist(exact_risk, root = 0)
-    MIC_risk = Gather_ndlist(MIC_risk, root = 0)
+    # exact_risk = Gather_ndlist(exact_risk, roots_comm, root = 0)
+    # MIC_risk = Gather_ndlist(MIC_risk, roots_comm, root = 0)
 
 
 f.close()
@@ -300,12 +299,12 @@ if comm.rank == 0:
             results['alt_median_ee_results'] = alt_median_ee_results
 
         # Need to split up the list of arrays into separate datasets
-        er = results.create_group('exact_risk')
-        for i, exact_risk_ in enumerate(exact_risk):
-            er.create_dataset(str(i), data = exact_risk_)
-        mic = results.create_group('MIC_risk')
-        for i, MIC_risk_ in enumerate(MIC):
-            mic.create_dataset(str(i), data = MIC_risk_)
+        # er = results.create_group('exact_risk')
+        # for i, exact_risk_ in enumerate(exact_risk):
+        #     er.create_dataset(str(i), data = exact_risk_)
+        # mic = results.create_group('MIC_risk')
+        # for i, MIC_risk_ in enumerate(MIC):
+        #     mic.create_dataset(str(i), data = MIC_risk_)
 
 
     print('Total time: %f' % (time.time() - total_start))

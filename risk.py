@@ -67,6 +67,10 @@ def MIC(y_true, mu_hat, sigma_hat, k, penalty):
 
 	eKLe = empirical_KL_estimate(y_true, mu_hat, sigma_hat)
 
+<<<<<<< Updated upstream
 	MIC = eKLe - penalty * k
+=======
+	MIC = eKLe + penalty * k
+>>>>>>> Stashed changes
 
 	return MIC

@@ -26,7 +26,6 @@ cov_params = [{'correlation': 0, 'block_size': 20, 'L': 1, 't': 0},
        {'correlation': 0.5, 'block_size': 20, 'L': 20, 't': 0.9506632753385218}]
 
 iter_params = {
-'cov_params' : cov_params
 }
 
 #############################################################
