@@ -22,7 +22,7 @@ def calc_KL_div(mu_hat, sigma_hat, sigma):
 def exact_penalized_KL(beta_hat, penalty, mu_hat, sigma_hat, sigma):
 
 	eKD = calc_KL_div(mu_hat, sigma_hat, sigma)
-	penalized_KL = eKD + penalty * np.linalg.norm(beta_hat, 1)
+	penalized_KL = eKD - penalty * np.linalg.norm(beta_hat, 0)
 
 	return penalized_KL
 
@@ -67,6 +67,6 @@ def MIC(y_true, mu_hat, sigma_hat, k, penalty):
 
 	eKLe = empirical_KL_estimate(y_true, mu_hat, sigma_hat)
 
-	MIC = eKLe + penalty * k
+	MIC = eKLe - penalty * k
 
 	return MIC
