@@ -480,9 +480,14 @@ def selection_accuracy(beta, beta_hat, threshold = False):
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
         bhat = beta_hat[i, :].squeeze()
+
+        # Define support sets in1 terms of indices
+        Sb = set(np.nonzero(b)[0].tolist())
+        Sbhat = set(np.nonzero(bhat)[0].tolist())
+
         selection_accuracy[i] = 1 - \
-        np.count_nonzero(1 * np.logical_xor(bhat != 0, b != 0))\
-        /(bhat.size + b.size)
+        float(len((Sb.difference(Sbhat)).union(Sbhat.difference(Sb))))\
+        /float((len(Sb) + len(Sbhat))) 
     return selection_accuracy
 
 # Calculate estimation error

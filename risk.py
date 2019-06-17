@@ -1,4 +1,4 @@
-import numpy as np 
+import numpy as np
 from scipy.integrate import quad
 import pdb
 from pyuoi.utils import log_likelihood_glm
@@ -12,18 +12,33 @@ def calc_KL_div(mu_hat, sigma_hat, sigma):
 
 	n = mu_hat.size
 
+	mu_hat = mu_hat.ravel()
+
 	exact_KL_div = \
 	1/2 * (n * np.log(2 * np.pi * sigma_hat**2) + \
-		   n * sigma**2/(sigma_hat**2) + 1/(sigma_hat**2) * np.linalg.norm(mu_hat)**2)
+		   n * sigma**2/(sigma_hat**2) + 1/(sigma_hat**2) * np.sum(mu_hat**2))
 
 	return exact_KL_div
+
+# Exact risk function with penalty term
+def exact_penalized_KL(beta_hat, penalty, mu_hat, sigma_hat, sigma):
+
+	eKD = calc_KL_div(mu_hat, sigma_hat, sigma)
+	penalized_KL = eKD - penalty * np.linalg.norm(beta_hat, 0)
+
+	return penalized_KL
 
 # Use MC to estimate the KL div
 def MC_KL_estimate(mu_hat, sigma_hat, sigma):
 	n = mu_hat.size
 	n_samples = n
+
+	mu_hat = mu_hat.ravel()
+
 	# Draw y from the true distribution to evaluate the expectation
 	y = np.random.normal(0, sigma, size = n_samples)
+
+	y = y.ravel()
 
 	MC_KL_div = 0
 
@@ -37,9 +52,9 @@ def empirical_KL_estimate(y, mu_hat, sigma_hat):
 
 	n = y.size
 
-	empirical_KL_div = 1/2 * (n * np.log(2 * np.pi) - n * np.log(n) + n + 2 * np.log(y - mu_hat))
+	empirical_KL_div = n/2 * (np.log(2 * np.pi) + 1 + np.log(np.mean((y - mu_hat)**2)))
 
-	return -1 * empirical_KL_div
+	return empirical_KL_div
 
 # Calculate the AIC estimate of the KL div term above. AIC contains bias correction
 def AIC(y_true, mu_hat, sigma_hat, n_features):
@@ -53,12 +68,12 @@ def AIC(y_true, mu_hat, sigma_hat, n_features):
 	return AIC
 
 # Manually specify a model complexity penalty.
-def MIC(y_true, mu_hat, sigma_hat, n_features, penalty):
+def MIC(y_true, mu_hat, sigma_hat, k, penalty):
 
 	n_samples = y_true.size
 
 	eKLe = empirical_KL_estimate(y_true, mu_hat, sigma_hat)
 
-	MIC = eKLe + penalty * n_features
+	MIC = eKLe + penalty * k
 
 	return MIC
