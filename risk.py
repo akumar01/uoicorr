@@ -4,6 +4,7 @@ import pdb
 from pyuoi.utils import log_likelihood_glm
 from pyuoi.utils import AIC as AIC_
 
+from utils import gen_data
 
 # Exact model selection relevant portion of the KL divergence
 def calc_KL_div(mu_hat, sigma_hat, sigma):
@@ -15,8 +16,9 @@ def calc_KL_div(mu_hat, sigma_hat, sigma):
 	mu_hat = mu_hat.ravel()
 
 	exact_KL_div = \
-	1/2 * (n * np.log(2 * np.pi * sigma_hat**2) + \
-		   n * sigma**2/(sigma_hat**2) + 1/(sigma_hat**2) * np.sum(mu_hat**2))
+	1/2 * (n * np.log(2 * np.pi * sigma**2) + \
+		   n * sigma_hat**2/(sigma**2) + 1/(sigma**2) * np.sum(mu_hat**2))
+
 
 	return exact_KL_div
 
@@ -29,28 +31,32 @@ def exact_penalized_KL(beta_hat, penalty, mu_hat, sigma_hat, sigma):
 	return penalized_KL
 
 # Use MC to estimate the KL div
-def MC_KL_estimate(mu_hat, sigma_hat, sigma):
-	n = mu_hat.size
-	n_samples = n
+def MC_KL_estimate(mu_hat, sigma_hat, ss, covariance, beta):
 
 	mu_hat = mu_hat.ravel()
 
-	# Draw y from the true distribution to evaluate the expectation
-	y = np.random.normal(0, sigma, size = n_samples)
-
-	y = y.ravel()
-
+	n_features = beta.size
+	n_samples = mu_hat.size
+	n_MC_batches = 1000
 	MC_KL_div = 0
+	for n in range(n_MC_batches):
+		# generate data from the true model:
+		x = np.random.multivariate_normal(mean = np.zeros(n_features), cov = covariance, size = n_samples)
+		noise = np.random.normal(loc = 0, scale = np.sqrt(ss), size = (n_samples, 1))
+		y =  x @ beta + noise
 
-	MC_KL_div = np.array([np.array([np.log(1/np.sqrt(2 * np.pi * sigma_hat**2) * np.exp(-(y[i] - mu_hat[j])**2/(2 * sigma_hat**2))) for j in range(n)]) for i in range(n_samples)])
-	MC_KL_div = np.mean(np.sum(MC_KL_div, axis = 1))
+		y = y.ravel()
+		MC_KL_div += 1/n_MC_batches * empirical_KL_estimate(y, mu_hat)
 
-	return -1 * MC_KL_div
+	return MC_KL_div
 
 # Now, use the data used to fit the model to also estimate the KL_div. This should reveal a systematic bias
-def empirical_KL_estimate(y, mu_hat, sigma_hat):
+def empirical_KL_estimate(y, mu_hat):
 
 	n = y.size
+
+	y = y.ravel()
+	mu_hat = mu_hat.ravel()
 
 	empirical_KL_div = n/2 * (np.log(2 * np.pi) + 1 + np.log(np.mean((y - mu_hat)**2)))
 
@@ -68,12 +74,13 @@ def AIC(y_true, mu_hat, sigma_hat, n_features):
 	return AIC
 
 # Manually specify a model complexity penalty.
-def MIC(y_true, mu_hat, sigma_hat, k, penalty):
+def MIC(y_true, mu_hat, k, penalty):
 
-    n_samples = y_true.size
+	y_true = y_true.ravel()
+	mu_hat = mu_hat.ravel()
 
-    eKLe = empirical_KL_estimate(y_true, mu_hat, sigma_hat)
+	eKLe = empirical_KL_estimate(y_true, mu_hat)
 
-    MIC = eKLe + penalty * k
+	MIC = eKLe + penalty * k
 
-    return MIC
+	return MIC
