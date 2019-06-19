@@ -35,6 +35,8 @@ parser.add_argument('results_file', default = 'results.h5')
 parser.add_argument('exp_type', default = 'UoILasso')
 parser.add_argument('--comm_splits', type=int, default = None)
 parser.add_argument('-t', '--test', action = 'store_true')
+# Number of reps to break after if we are just testing
+parser.add_argument('--ntest', type = int, default = 1)
 args = parser.parse_args()
 #######################################
 
@@ -226,7 +228,7 @@ for i in range(num_tasks):
         print(time.time() - start)
 
     del params
-    if args.test:
+    if args.test and i == args.ntest:
         break
 # Gather across root nodes
 if subrank == 0:
