@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.optimize import broyden1
 import itertools
 import pdb
 from scipy.optimize import minimize

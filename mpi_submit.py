@@ -11,7 +11,6 @@ import struct
 import importlib
 import subprocess
 import numpy as np
-from risk import exact_risk, AIC_risk,
 from mpi4py import MPI
 import h5py
 import time
@@ -36,6 +35,8 @@ parser.add_argument('results_file', default = 'results.h5')
 parser.add_argument('exp_type', default = 'UoILasso')
 parser.add_argument('--comm_splits', type=int, default = None)
 parser.add_argument('-t', '--test', action = 'store_true')
+# Number of reps to break after if we are just testing
+parser.add_argument('--ntest', type = int, default = 1)
 args = parser.parse_args()
 #######################################
 
@@ -157,11 +158,14 @@ for i in range(num_tasks):
         y_test = None
         ss = None
 
+
     X = Bcast_from_root(X, subcomm)
     X_test = Bcast_from_root(X_test, subcomm)
     y = Bcast_from_root(y, subcomm)
     y_test = Bcast_from_root(y_test, subcomm)
     ss = Bcast_from_root(ss, subcomm)
+
+    params['ss'] = ss
 
     exp = locate('exp_types.%s' % exp_type)
     print('Going into exp')
@@ -174,22 +178,22 @@ for i in range(num_tasks):
         fn_results[i] = np.count_nonzero(beta[beta_hat == 0, 0])
         fp_results[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
         r2_results[i] = r2_score(y_test, X_test @ beta)
-        r2_true_results[i] = r2_score(y_test, model.predict(X_test))
+        # r2_true_results[i] = r2_score(y_test, model.predict(X_test))
     # Score functions have been modified, requiring us to first calculate log-likelihood
 
-        llhood = log_likelihood_glm('normal', y_test, model.predict(X_test))
-        try:
-            BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), y_test.size)
-        except:
-            BIC_results[i] = np.nan
-        try:
-            AIC_results[i] = AIC(llhood, np.count_nonzero(beta_hat))
-        except:
-            AIC_results[i] = np.nan
-        try:
-            AICc_results[i] = AICc(llhood, np.count_nonzero(beta_hat), y_test.size)
-        except:
-            AICc_results[i] = np.nan
+        # llhood = log_likelihood_glm('normal', y_test, model.predict(X_test))
+        # try:
+        #    BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), y_test.size)
+        #except:
+        #    BIC_results[i] = np.nan
+        #try:
+        #    AIC_results[i] = AIC(llhood, np.count_nonzero(beta_hat))
+        #except:
+        #    AIC_results[i] = np.nan
+        #try:
+        #    AICc_results[i] = AICc(llhood, np.count_nonzero(beta_hat), y_test.size)
+        #except:
+        #    AICc_results[i] = np.nan
         # Perform calculation of FNR, FPR, selection accuracy, and estimation error
         # here:
 
@@ -211,40 +215,20 @@ for i in range(num_tasks):
             ee, median_ee = estimation_error(beta.ravel(), beta_hat)
             alt_ee_results[i] = ee
             median_ee_results[i] = median_ee
-        
-        estimates = model.estimates_.reshape((-1, params['n_features']))
-        n_estimates = estimates.shape[0]
+
 
         # Record the sresults on both the train and the test data
-        exact_risk_ = np.zeros((n_estimates, 2))
-        MIC_risk_ = np.zeros((n_estimates, 2))
-        
-        for eidx in range(n_estimates):
-
-            n_features = params['n_features']
-
-            mu_hat = X @ estimates[eidx, :]
-            sigma_hat = np.mean(np.linalg.norm(y.ravel() - mu_hat.ravel())**2)
-
-            exact_risk_[i, 0] = risk.calc_KL_div(y.ravel(), sigma_hat, ss)
-            MIC_risk_[i, 0] = risk.MIC(y.ravel(), mu_hat.ravel(), sigma_hat,
-                                        n_features, params['manual_penalty'])
-
-            mu_hat = X_test @ estimates[eidx, :]
-            sigma_hat = np.mean(np.linalg.norm(y_test.ravel() - mu_hat.ravel())**2)
-
-            exact_risk_[i, 1] = risk.calc_KL_div(y_test.ravel(), sigma_hat, ss)
-            MIC_risk_[i, 1] = risk.MIC(y_test.ravel(), mu_hat.ravel(), sigma_hat,
-                                        n_features, params['manual_penalty'])
+        MIC_risk_ = model.scores_.astype(float)
+        exact_risk_ = model.alt_scores_.astype(float)
 
         exact_risk.append(exact_risk_)
         MIC_risk.append(MIC_risk_)
 
         print('Process group %d completed outer loop %d/%d' % (rank, i, num_tasks))
         print(time.time() - start)
-    
+
     del params
-    if args.test:
+    if args.test and i == args.ntest:
         break
 # Gather across root nodes
 if subrank == 0:
@@ -267,8 +251,10 @@ if subrank == 0:
             v = Gatherv_rows(v, roots_comm, root = 0)
 
     # Gather risk calculations
-    exact_risk = Gather_ndlist(exact_risk, root = 0)
-    MIC_risk = Gather_ndlist(MIC_risk, root = 0)
+
+    exact_risk = Gather_ndlist(exact_risk, roots_comm, root = 0)
+    MIC_risk = Gather_ndlist(MIC_risk, roots_comm, root = 0)
+
 
 
 f.close()
@@ -304,7 +290,7 @@ if comm.rank == 0:
         for i, exact_risk_ in enumerate(exact_risk):
             er.create_dataset(str(i), data = exact_risk_)
         mic = results.create_group('MIC_risk')
-        for i, MIC_risk_ in enumerate(MIC):
+        for i, MIC_risk_ in enumerate(MIC_risk):
             mic.create_dataset(str(i), data = MIC_risk_)
 
 

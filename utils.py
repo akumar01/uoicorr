@@ -4,12 +4,12 @@ from misc import *
 import pdb
 import traceback
 import time
-        
+
 def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'uniform'):
     n_blocks = int(np.floor(n_features/block_size))
-    
+
     n_nonzero_beta = int(sparsity * block_size)
-    
+
     # Choose model coefficients to be uniformly distributed
     if betadist == 'uniform':
         beta = np.random.uniform(low=0, high=10, size=(n_features, 1))
@@ -19,7 +19,7 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
     elif betadist == 'laplace':
         beta = np.random.laplace(scale = 1, size=(n_features, 1))
     elif betadist == 'clustered':
-        beta = cluster_dist(low = 0, high = 25, n_clusters = 5, 
+        beta = cluster_dist(low = 0, high = 25, n_clusters = 5,
             cluster_width = 1, size = (n_features, 1))
     elif betadist == 'equal':
         beta = np.ones((n_features, 1))
@@ -37,8 +37,8 @@ def gen_beta(n_features = 60, block_size = 6, sparsity = 0.6, betadist = 'unifor
 # New version of gen_beta that uses the betawidth parameter:
 # A betawidth of 0 gives features that take on the same value
 # A betawidth of inf is a uniform distribution on the range 0-10
-def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6, 
-            betawidth = np.inf, sparsity_profile = 'uniform', 
+def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6,
+            betawidth = np.inf, sparsity_profile = 'uniform',
             n_active_blocks = None, seed = None):
     n_blocks = int(np.floor(n_features/block_size))
 
@@ -56,11 +56,11 @@ def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6,
         beta = invexp_dist(-5, 5, n_features)
     else:
         beta = np.zeros((0,))    # empty for now
-        while beta.shape[0] < n_features: 
+        while beta.shape[0] < n_features:
             b = np.random.laplace(scale = betawidth, loc = 5, size=(n_features,))
             accepted = b[(b >= 0) & (b <= 10)]
             beta = np.concatenate((beta, accepted), axis=0)
-        beta = beta[:n_features] 
+        beta = beta[:n_features]
         beta = beta[:, np.newaxis]   # we probably got more than needed, so discard extra ones
 
     if sparsity_profile == 'uniform':
@@ -84,7 +84,7 @@ def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6,
             mask = np.concatenate((mask, block_mask))
 
     elif sparsity_profile == 'block_sparse':
-        # Choose blocks to be all active or all inactive, and then 
+        # Choose blocks to be all active or all inactive, and then
         # apply sparsity uniformly within blocks
         if n_active_blocks is None:
             print('Need n_active_blocks!\n')
@@ -116,13 +116,13 @@ def equal_beta(low = 0, high = 10, n_features = 60, block_size = 6):
     return beta
 
 def interpolated_dist(lmbda, t, sigma, n_features = 60, low = -5, high = 5):
-    # Return samples according to a mixture model of a Laplacian and Gaussian distribution. 
+    # Return samples according to a mixture model of a Laplacian and Gaussian distribution.
     # (1 - t) * Exp[-Abs[x]/lmbda] + t * Exp[-x^2/sigma]
 
     bad_sample =  lambda low, high, x: np.logical_or(x >= high, x <= low)
 
     beta_dist = lambda t, lmbda, sigma, x: (1 - t) * np.exp(-np.abs(x)/lmbda) + t * np.exp(-x**2/sigma)
-    
+
     # Pure Laplacian case
     if t == 0:
         betas = np.random.laplace(scale = lmbda, size = (n_features, 1))
@@ -136,7 +136,7 @@ def interpolated_dist(lmbda, t, sigma, n_features = 60, low = -5, high = 5):
                 x = np.random.laplace(scale = lmbda)
                 while bad_sample(low, high, x):
                     x = np.random.laplace(scale = lmbda)
-                betas[bad_idx] = x                
+                betas[bad_idx] = x
 
     # Pure Gaussian case
     elif t == 1:
@@ -151,13 +151,13 @@ def interpolated_dist(lmbda, t, sigma, n_features = 60, low = -5, high = 5):
                 x = np.random.uniform(scale = np.sqrt(sigma/2))
                 while bad_sample(low, high, x):
                     x = np.random.laplace(scale = np.sqrt(sigma/2))
-                betas[bad_idx] = x                
+                betas[bad_idx] = x
 
     # Mixture: use rejection sampling:
     # Just use uniform distribution over the interval as the sampling function
-    else: 
+    else:
         betas = np.zeros(n_features)
-        
+
         # Our desired distrbution will be bounded above by 1
         scale_factor = np.abs(high - low)
 
@@ -171,8 +171,8 @@ def interpolated_dist(lmbda, t, sigma, n_features = 60, low = -5, high = 5):
                 y = beta_dist(t, lmbda, sigma, x)
 
             betas[i] = x
-    
-    return betas 
+
+    return betas
 
 # Generate toy data to fit given number of features, covariance structure, signal to noise, and sparsity
 # Note that sparsity is applied within blocks. When this is not desired, set the block size to equal n_features
@@ -182,7 +182,7 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 3,
     # For consistency across different runs
     if seed is not None:
         np.random.seed(int(seed))
-        
+
     # draw samples from a multivariate normal distribution cenetered around 0
     X = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)
     X_test = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)
@@ -195,7 +195,7 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 3,
 
     # draw noise
     noise = np.random.normal(loc=0, scale=np.sqrt(noise_variance), size=(n_samples, 1))
-    
+
     signal = np.var(X_test @ beta)
     noise_variance = signal/kappa
 
@@ -219,10 +219,10 @@ def cov_spread(avg_covs, cov_type, num, n_features=1000):
     # Filter possible block sizes given n_features
     block_sizes = np.arange(5, int(n_features/2) + 2)
     block_sizes = np.array([b for b in block_sizes if not np.mod(n_features, b)])
-    
+
     for i, avg_cov in enumerate(avg_covs):
         start = time.time()
-        sigmas.append([])        
+        sigmas.append([])
 
         if cov_type == 'block':
 
@@ -251,7 +251,7 @@ def cov_spread(avg_covs, cov_type, num, n_features=1000):
         elif cov_type == 'exp_falloff':
             # Exponential correlation matrix
             try:
-                ss = gen_avg_covariance('exp_falloff', avg_cov, n_features) 
+                ss = gen_avg_covariance('exp_falloff', avg_cov, n_features)
                 print(ss.shape)
                 sigmas[i].append({'sigma': ss,
                                     'avg_cov': avg_cov, 'cov_type': cov_type})
@@ -260,10 +260,10 @@ def cov_spread(avg_covs, cov_type, num, n_features=1000):
                 #traceback.print_exc()
 
         elif cov_type == 'interpolate':
-        
+
             # Interpolation
             # Interpolate between a sets of block_diagonal and exponential matrices
-            L = np.linspace(1, n_features, 10)        
+            L = np.linspace(1, n_features, 10)
             corr = np.linspace(0.05, 0.5, 10)
             block_covs = []
             for block_size in block_sizes:
@@ -276,11 +276,11 @@ def cov_spread(avg_covs, cov_type, num, n_features=1000):
                 for ec in exp_covs:
                     try:
                         ss = gen_avg_covariance('interpolate', avg_cov = avg_cov, n_features = n_features,
-                            cov_type1='block_covariance', cov_type2='exp_falloff', cov_type1_args=bc, 
+                            cov_type1='block_covariance', cov_type2='exp_falloff', cov_type1_args=bc,
                             cov_type2_args=ec)
                         print(ss.shape)
                         sigmas[i].append({'sigma': ss,
-                            'avg_cov': avg_cov, 'cov_type': cov_type}) 
+                            'avg_cov': avg_cov, 'cov_type': cov_type})
                     except:
                         pass
 
@@ -288,7 +288,7 @@ def cov_spread(avg_covs, cov_type, num, n_features=1000):
             # Random covariance matrix with varying degrees of sparsity
 
             # Subtract off diagonal contribution
-            residual_correlation = n_features**2 * avg_cov - n_features 
+            residual_correlation = n_features**2 * avg_cov - n_features
             if residual_correlation < 0:
                 raise Exception('The desired avg_cov cannot be achieved by a random matrix of this feature size')
 
@@ -304,7 +304,7 @@ def cov_spread(avg_covs, cov_type, num, n_features=1000):
                 entries *= residual_correlation/(sum(entries))
 
                 # Distribute the entries randomly in off-diagonal locations
-                idx = np.array([np.unravel_index(ii, (n_features, n_features)) 
+                idx = np.array([np.unravel_index(ii, (n_features, n_features))
                                     for ii in np.arange(n_features**2)])
 
                 offdiagidx = idx[[ii[0] != ii[1] for ii in idx]]
@@ -350,7 +350,7 @@ def gen_avg_covariance(cov_type, avg_cov = 0.1, n_features = 60, **kwargs):
             if block_size > n_features or block_size < 1:
                 raise Exception('Desired average correlation is incompatible with\
                     block structure')
-        return block_covariance(n_features, 
+        return block_covariance(n_features,
             block_size = block_size, correlation = correlation)
     elif cov_type == 'exp_falloff':
         L = solve_L(n_features, avg_cov)
@@ -386,17 +386,17 @@ def gen_covariance(n_features, correlation, block_size, L, t, threshold = 0):
     s0 = block_covariance(n_features, correlation, block_size)
     s1 = exp_falloff(n_features, L)
     s = (1 - t) * s0 + t * s1
-    if threshold > 0: 
+    if threshold > 0:
         s[s < threshold] = 0
     return s
 
-# Create a block diagonal covariance matrix 
+# Create a block diagonal covariance matrix
 def block_covariance(n_features = 60, correlation = 0, block_size = 6):
 
     n_blocks = int(n_features/block_size)
 
     # create covariance matrix for block
-    block_sigma = correlation * np.ones((block_size, block_size)) 
+    block_sigma = correlation * np.ones((block_size, block_size))
     np.fill_diagonal(block_sigma, np.ones(block_size))
     # populate entire covariance matrix
     rep_block_sigma = [block_sigma] * n_blocks
@@ -417,7 +417,7 @@ def interpolate_covariance(interp_coeffs = np.linspace(0, 1, 11),
     cov_0 = block_covariance(n_features, **cov_type1_args)
     cov_n = exp_falloff(n_features, **cov_type2_args)
     cov = []
-    
+
     if not hasattr(interp_coeffs, '__len__'):
         interp_coeffs = [interp_coeffs]
 
@@ -480,14 +480,19 @@ def selection_accuracy(beta, beta_hat, threshold = False):
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
         bhat = beta_hat[i, :].squeeze()
+
+        # Define support sets in terms of indices
+        Sb = set(np.nonzero(b)[0].tolist())
+        Sbhat = set(np.nonzero(bhat)[0].tolist())
+
         selection_accuracy[i] = 1 - \
-        np.count_nonzero(1 * np.logical_xor(bhat != 0, b != 0))\
-        /(bhat.size + b.size)
+        float(len((Sb.difference(Sbhat)).union(Sbhat.difference(Sb))))\
+        /float((len(Sb) + len(Sbhat)))
     return selection_accuracy
 
 # Calculate estimation error
 # Do so using only the overlap of the estimated and true support sets
-def estimation_error(beta, beta_hat, threshold = False):        
+def estimation_error(beta, beta_hat, threshold = False):
     beta, beta_hat = tile_beta(beta, beta_hat)
 
     if threshold:
@@ -514,7 +519,7 @@ def estimation_error(beta, beta_hat, threshold = False):
     return ee, median_ee
 
 
-# Calculate the estimation error, separately measuring the contribution 
+# Calculate the estimation error, separately measuring the contribution
 # from selection mismatch (magnitude of false negatives + false positives)
 # and estimatione rror (magnitude of error in correctly selected for coefficients)
 def stratified_estimation_error(beta, beta_hat, threshold = False):
@@ -526,16 +531,16 @@ def stratified_estimation_error(beta, beta_hat, threshold = False):
     fn_ee = np.zeros(beta_hat.shape[0])
     fp_ee = np.zeros(beta_hat.shape[0])
     estimation_ee = np.zeros(beta_hat.shape[0])
-    
+
     for i in range(beta_hat.shape[0]):
         b = beta[i, :].squeeze()
         bhat = beta_hat[i, :].squeeze()
 
         common_support = np.bitwise_and(b != 0, bhat != 0)
-        
+
         zerob = bhat[(b == 0)].ravel()
         false_positives = zerob[np.nonzero(zerob)]
-        
+
         zerobhat = b[(bhat == 0).ravel()]
         false_negatives = zerobhat[np.nonzero(zerobhat)]
         fn_ee[i] = np.sum(np.abs(false_negatives))
@@ -558,7 +563,7 @@ def tile_beta(beta, beta_hat):
     if np.ndim(beta) == 1:
         beta = beta[np.newaxis, :]
 
-    if beta.shape != beta_hat.shape: 
+    if beta.shape != beta_hat.shape:
         beta = np.tile(beta, [int(beta_hat.shape[0]/beta.shape[0]), 1])
 
     return beta, beta_hat
