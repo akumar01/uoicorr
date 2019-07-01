@@ -1,5 +1,6 @@
 import numpy as np
 import importlib
+import re
 import itertools
 import pdb
 import sys, os
@@ -12,7 +13,7 @@ import pandas as pd
 from glob import glob
 from subprocess import check_output
 from utils import gen_covariance, gen_beta2, gen_data
-from misc import group_dictionaries
+from misc import group_dictionaries, unique_obj
 
 def chunk_list(l, n):
     # For item i in a range that is a length of l,
@@ -610,3 +611,76 @@ def split_job(jobdir, exp_type, jobnums, n_splits):
 
         generate_sbatch_scripts(sbatch_array, '%s/%s' % (jobdir, exp_type), script_dir)
         
+# Back out a submit file from the log file. 
+# logfile: path to log
+def submit_from_log(logfile, submit_file):
+
+    # Load the log file
+    log = pd.read_pickle(logfile)
+
+    # For each column, gather the unique values
+    unique_attributes = {}
+    for col in list(logfile.columns):
+        unique_attributes[col] = unique_obj(np.array(log[col].values).ravel())
+
+    # The sub_iter_params provide some clue as to which things one iterated
+    # over within a given arg_file. The assumption we make is that any unique
+    # values with > 1 element (except l1_ratios)
+
+    iter_params = {}
+
+    excluded_keys = ['l1_ratios']
+
+    if 'sub_iter_params' in list(unique_attributes.keys()):
+        
+        excluded_keys.extend(unique_attributes['sub_iter_params'])
+
+    for key, value in unique_attributes.items():
+
+        if key not in excluded_keys and not np.isscalar(value):
+
+            iter_params[key] = value
+
+    # Remove the keys in iter_params from unique_attributes and let these
+    # be the comm_params
+
+    comm_params = unique_attributes.copy()
+    for key in list(iter_params.keys()): 
+        del comm_params[key]
+
+    pdb.set_trace()
+
+    # Write to file
+    with open('%s.py' % submit_file, 'w') as f:       
+
+        # Some default lines which can be changed after the fact
+        f.write('import numpy as np\n')
+        f.write('import itertools\n')
+        f.write('import pdb\n')
+        f.write('from misc import get_cov_list\n')
+        f.write('\n')
+
+        f.write("script_dir  = '/global/homes/a/akumar25/repos/uoicorr'\n")
+        f.write("exp_types = ['UoILasso']\n")
+        f.write("algorithm_times = ['24:00:00']\n")
+
+        # repr produces the string corresponding to the variable stdout. Then, 
+        # use reg expr to insert a newline character prior to every new dictionary
+        # key for nice formatting   
+        iter_param_string = repr(iter_params)
+
+        for k in list(iter_params.keys()):
+            iter_param_string.insert('\n', iter_param_string.find(k))
+
+        f.write('iter_params = %s\n' % iter_param_string)
+
+        # same thing for comm_params
+        comm_param_string = repr(comm_params)
+
+        for k in list(comm_params.keys()):
+            comm_param_string.insert('\n', comm_param_string.find(k))
+
+        f.write('comm_params = %s\n' % comm_param_string)
+
+
+

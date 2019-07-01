@@ -8,6 +8,20 @@ import networkx as nx
 from networkx.algorithms.cluster import average_clustering
 import utils
 
+# Return the unique elements of a list, even if the list contains dictionaries
+def unique_obj(obj_list):
+
+    obj_list = np.array(obj_list)
+
+    if obj_list.dtype == 'O':
+
+        unique_obj, _ = group_dictionaries(obj_list, None)
+    else:
+
+        unique_obj = np.unique(obj_list)
+
+    return unique_obj
+
 
 # For a list of dictionaries, group them by sets in which the entries differ by only the
 # value of the given key. If key is not contained in the dictionaries, the behavior of
