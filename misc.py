@@ -4,8 +4,6 @@ import pdb
 from scipy.optimize import minimize
 import pickle
 import struct
-import networkx as nx
-from networkx.algorithms.cluster import average_clustering
 import utils
 
 # Return the unique elements of a list, even if the list contains dictionaries
