@@ -13,3 +13,5 @@ data/
 *.h5
 cori/
 .mat
+.dat
+/submit_files

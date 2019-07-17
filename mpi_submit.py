@@ -17,11 +17,13 @@ import time
 from pydoc import locate
 from scipy.linalg import block_diag
 from sklearn.metrics import r2_score
+from sklearn.preprocessing import StandardScaler
 
 from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
 from mpi_utils.ndarray import Bcast_from_root, Gatherv_rows, Gather_ndlist
 from utils import gen_data
 from utils import FNR, FPR, selection_accuracy, estimation_error
+from results_manager import init_results_container
 
 import risk
 
@@ -79,7 +81,6 @@ roots_comm = comm.Create(root_group)
 # Open the arg file and read out the index array, number of
 # total_tasks and n_features
 
-
 f = open(args.arg_file, 'rb')
 index_loc = f.read(8)
 index_loc = struct.unpack('L', index_loc)[0]
@@ -100,36 +101,13 @@ print('num_tasks: %d' % num_tasks)
 # is held constant across all iterations
 if subrank == 0:
 
-    beta_hats = np.zeros((num_tasks, n_features))
+    fields = ['FNR', 'FPR', 'sa', 'ee', 'median_ee', 'r2', 'beta_hats', 
+            'MSE', 'AIC', 'BIC']
 
-    # result arrays: scores
-    fn_results = np.zeros(num_tasks)
-    fp_results = np.zeros(num_tasks)
-    r2_results = np.zeros(num_tasks)
-    r2_true_results = np.zeros(num_tasks)
+    selection_methods = ['CV', 'AIC', 'BIC', 'mBIC', 'eBIC', 'OIC']
 
-    BIC_results = np.zeros(num_tasks)
-    AIC_results = np.zeros(num_tasks)
-    AICc_results = np.zeros(num_tasks)
-
-    FNR_results = np.zeros(num_tasks)
-    FPR_results = np.zeros(num_tasks)
-    sa_results = np.zeros(num_tasks)
-    ee_results = np.zeros(num_tasks)
-    median_ee_results = np.zeros(num_tasks)
-
-    alt_beta_hats = np.zeros((num_tasks, n_features))
-    alt_FNR_results = np.zeros(num_tasks)
-    alt_FPR_results = np.zeros(num_tasks)
-    alt_sa_results = np.zeros(num_tasks)
-    alt_ee_results = np.zeros(num_tasks)
-    alt_median_ee_results = np.zeros(num_tasks)
-
-    record_alt = False
-
-    # Risk calculations
-    exact_risk = []
-    MIC_risk = []
+    results_dict = init_results_container(selection_methods, fields, 
+                                          num_tasks, n_features)
 
 for i in range(num_tasks):
     start = time.time()
@@ -147,10 +125,18 @@ for i in range(num_tasks):
     sigma = params['sigma']
     beta = params['betas']
     seed = params['seed']
+
     if subrank == 0:
         # Generate data
         X, X_test, y, y_test, ss = gen_data(params['n_samples'], params['n_features'],
                                         params['kappa'], sigma, beta, seed)
+
+        # Standardize
+        X = StandardScaler().fit_transform(X)
+        X_test = StandardScaler().fit_transform(X_test)
+        y -= np.mean(y)
+        y_test -= np.mean(y_test)
+
     else:
         X = None
         X_test = None
@@ -169,41 +155,54 @@ for i in range(num_tasks):
 
     exp = locate('exp_types.%s' % exp_type)
     print('Going into exp')
-    model = exp.run(X, y, params)
+
+    # How do we accommodate the different selection methods?
+    # This requires an additional run of the algorithm beyond
+    # CV on the full dataset. Create a selector object that is
+    # initialized in exp_types for each selection method, and
+    # return the selector object with coefficients for each 
+    # selection method easily attainable. OIC should store the 
+    # maximum attainable selection accuracy as well as the 
+    # corresponding penalty parameter requried to obtain that 
+    # selection accuracy
+
+    selected_models = exp.run(X, y, params, selection_methods)
 
     if subrank == 0:
-        #### Calculate and log results
-        beta_hat = model.coef_.ravel()
-        beta_hats[i, :] = beta_hat.ravel()
-        fn_results[i] = np.count_nonzero(beta[beta_hat == 0, 0])
-        fp_results[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
-        r2_results[i] = r2_score(y_test, X_test @ beta)
-        # r2_true_results[i] = r2_score(y_test, model.predict(X_test))
-    # Score functions have been modified, requiring us to first calculate log-likelihood
+        #### Calculate and log results for each selection method
+        for selection_method in selection_methods:
 
-        # llhood = log_likelihood_glm('normal', y_test, model.predict(X_test))
-        # try:
-        #    BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), y_test.size)
-        #except:
-        #    BIC_results[i] = np.nan
-        #try:
-        #    AIC_results[i] = AIC(llhood, np.count_nonzero(beta_hat))
-        #except:
-        #    AIC_results[i] = np.nan
-        #try:
-        #    AICc_results[i] = AICc(llhood, np.count_nonzero(beta_hat), y_test.size)
-        #except:
-        #    AICc_results[i] = np.nan
-        # Perform calculation of FNR, FPR, selection accuracy, and estimation error
-        # here:
+            beta_hat = model.coef_.ravel()
+            beta_hats[i, :] = beta_hat.ravel()
+            fn_results[i] = np.count_nonzero(beta[beta_hat == 0, 0])
+            fp_results[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
+            r2_results[i] = r2_score(y_test, X_test @ beta)
+            # Score functions have been modified, requiring us to first calculate log-likelihood
 
-        FNR_results[i] = FNR(beta.ravel(), beta_hat.ravel())
-        FPR_results[i] = FPR(beta.ravel(), beta_hat.ravel())
-        sa_results[i] = selection_accuracy(beta.ravel(), beta_hat.ravel())
-        ee, median_ee = estimation_error(beta.ravel(), beta_hat.ravel())
+            # llhood = log_likelihood_glm('normal', y_test, model.predict(X_test))
+            # try:
+            #    BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), y_test.size)
+            #except:
+            #    BIC_results[i] = np.nan
+            #try:
+            #    AIC_results[i] = AIC(llhood, np.count_nonzero(beta_hat))
+            #except:
+            #    AIC_results[i] = np.nan
+            #try:
+            #    AICc_results[i] = AICc(llhood, np.count_nonzero(beta_hat), y_test.size)
+            #except:
+            #    AICc_results[i] = np.nan
 
-        ee_results[i] = ee
-        median_ee_results[i] = median_ee
+            # Perform calculation of FNR, FPR, selection accuracy, and estimation error
+            # here:
+
+            FNR_results[i] = FNR(beta.ravel(), beta_hat.ravel())
+            FPR_results[i] = FPR(beta.ravel(), beta_hat.ravel())
+            sa_results[i] = selection_accuracy(beta.ravel(), beta_hat.ravel())
+            ee, median_ee = estimation_error(beta.ravel(), beta_hat.ravel())
+
+            ee_results[i] = ee
+            median_ee_results[i] = median_ee
 
         if hasattr(model, 'alt_coef_'):
             record_alt = True
