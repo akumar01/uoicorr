@@ -7,11 +7,11 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['GTV']
+exp_types =  ['CV_Lasso', 'UoI_Lasso']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['24:00:00']
+algorithm_times = ['4:00:00', '12:00:00']
 
-n_features = 1000
+n_features = 500
 
 # Block sizes
 block_sizes = [50, 100, 200]
@@ -40,19 +40,17 @@ iter_params = {
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
 'cov_type' : 'interpolation',
-'reg_params': [],
-'n_models': 1,
 'n_features' : n_features,
 # n/p ratio #
 'np_ratio': 5,
-'est_score': 'r2',
-'reps' : 1,
+'est_score': 'BIC',
+'reps' : 20,
 'stability_selection' : [1.0],
 'n_boots_sel': 48,
 'n_boots_est' : 48,
-'betawidth' : [0.1, 0.5, 2.5, np.inf],
+'betawidth' : [0.1, np.inf, -1],
 # Inverse Signal to noise ratio
-'kappa' : [10, 5, 2, 1],
+'kappa' : [100, 10, 5, 2],
 'sub_iter_params': ['kappa', 'betawidth', 'sparsity']
 }
 
