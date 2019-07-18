@@ -89,7 +89,8 @@ print('num_tasks: %d' % num_tasks)
 # Initialize arrays to store data in. Assumes that n_features
 # is held constant across all iterations
 
-selection_methods = ['CV', 'AIC', 'BIC', 'eBIC', 'OIC']
+#selection_methods = ['CV', 'AIC', 'BIC', 'eBIC', 'OIC']
+selection_methods = ['CV', 'BIC', 'AIC']
 
 if subrank == 0:
 
@@ -115,7 +116,6 @@ for i in range(num_tasks):
     sigma = params['sigma']
     beta = params['betas']
     seed = params['seed']
-
     if subrank == 0:
         # Generate data
         X, X_test, y, y_test, ss = gen_data(params['n_samples'], params['n_features'],
