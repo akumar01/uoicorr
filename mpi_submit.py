@@ -1,31 +1,20 @@
 import sys, os
-from datetime import datetime
-import subprocess
-import shlex
 import pdb
 import itertools
 import glob
 import argparse
 import pickle
 import struct
-import importlib
-import subprocess
 import numpy as np
 from mpi4py import MPI
-import h5py
+import h5py_wrapper
 import time
 from pydoc import locate
-from scipy.linalg import block_diag
-from sklearn.metrics import r2_score
 from sklearn.preprocessing import StandardScaler
 
-from pyuoi.utils import BIC, AIC, AICc, log_likelihood_glm
 from mpi_utils.ndarray import Bcast_from_root, Gatherv_rows, Gather_ndlist
 from utils import gen_data
-from utils import FNR, FPR, selection_accuracy, estimation_error
-from results_manager import init_results_container
-
-import risk
+from results_manager import init_results_container, calc_result, gather_results
 
 total_start = time.time()
 
@@ -99,12 +88,13 @@ print('num_tasks: %d' % num_tasks)
 
 # Initialize arrays to store data in. Assumes that n_features
 # is held constant across all iterations
+
+selection_methods = ['CV', 'AIC', 'BIC', 'eBIC', 'OIC']
+
 if subrank == 0:
 
     fields = ['FNR', 'FPR', 'sa', 'ee', 'median_ee', 'r2', 'beta_hats', 
-            'MSE', 'AIC', 'BIC']
-
-    selection_methods = ['CV', 'AIC', 'BIC', 'mBIC', 'eBIC', 'OIC']
+            'MSE', 'reg_param', 'oracle_penalty']
 
     results_dict = init_results_container(selection_methods, fields, 
                                           num_tasks, n_features)
@@ -156,72 +146,16 @@ for i in range(num_tasks):
     exp = locate('exp_types.%s' % exp_type)
     print('Going into exp')
 
-    # How do we accommodate the different selection methods?
-    # This requires an additional run of the algorithm beyond
-    # CV on the full dataset. Create a selector object that is
-    # initialized in exp_types for each selection method, and
-    # return the selector object with coefficients for each 
-    # selection method easily attainable. OIC should store the 
-    # maximum attainable selection accuracy as well as the 
-    # corresponding penalty parameter requried to obtain that 
-    # selection accuracy
-
-    selected_models = exp.run(X, y, params, selection_methods)
+    exp_results = exp.run(X, y, params, selection_methods)
 
     if subrank == 0:
         #### Calculate and log results for each selection method
         for selection_method in selection_methods:
 
-            beta_hat = model.coef_.ravel()
-            beta_hats[i, :] = beta_hat.ravel()
-            fn_results[i] = np.count_nonzero(beta[beta_hat == 0, 0])
-            fp_results[i] = np.count_nonzero(beta_hat[beta.ravel() == 0])
-            r2_results[i] = r2_score(y_test, X_test @ beta)
-            # Score functions have been modified, requiring us to first calculate log-likelihood
-
-            # llhood = log_likelihood_glm('normal', y_test, model.predict(X_test))
-            # try:
-            #    BIC_results[i] = BIC(llhood, np.count_nonzero(beta_hat), y_test.size)
-            #except:
-            #    BIC_results[i] = np.nan
-            #try:
-            #    AIC_results[i] = AIC(llhood, np.count_nonzero(beta_hat))
-            #except:
-            #    AIC_results[i] = np.nan
-            #try:
-            #    AICc_results[i] = AICc(llhood, np.count_nonzero(beta_hat), y_test.size)
-            #except:
-            #    AICc_results[i] = np.nan
-
-            # Perform calculation of FNR, FPR, selection accuracy, and estimation error
-            # here:
-
-            FNR_results[i] = FNR(beta.ravel(), beta_hat.ravel())
-            FPR_results[i] = FPR(beta.ravel(), beta_hat.ravel())
-            sa_results[i] = selection_accuracy(beta.ravel(), beta_hat.ravel())
-            ee, median_ee = estimation_error(beta.ravel(), beta_hat.ravel())
-
-            ee_results[i] = ee
-            median_ee_results[i] = median_ee
-
-        if hasattr(model, 'alt_coef_'):
-            record_alt = True
-            beta_hat = model.alt_coef_.ravel()
-            alt_beta_hats[i, :] = beta_hat.ravel()
-            alt_FNR_results[i] = FNR(beta.ravel(), beta_hat)
-            alt_FPR_results[i] = FPR(beta.ravel(), beta_hat)
-            alt_sa_results[i] = selection_accuracy(beta.ravel(), beta_hat)
-            ee, median_ee = estimation_error(beta.ravel(), beta_hat)
-            alt_ee_results[i] = ee
-            median_ee_results[i] = median_ee
-
-
-        # Record the sresults on both the train and the test data
-        MIC_risk_ = model.scores_.astype(float)
-        exact_risk_ = model.alt_scores_.astype(float)
-
-        exact_risk.append(exact_risk_)
-        MIC_risk.append(MIC_risk_)
+            for field in fields:
+                results_dict[selection_method][field][i] = calc_result(X, X_test, y, y_test,
+                                                                       beta.ravel(), field,
+                                                                       exp_results[selection_method])
 
         print('Process group %d completed outer loop %d/%d' % (rank, i, num_tasks))
         print(time.time() - start)
@@ -229,69 +163,17 @@ for i in range(num_tasks):
     del params
     if args.test and i == args.ntest:
         break
-# Gather across root nodes
+
+# Gather across root nodes (using Gatherv rows)
 if subrank == 0:
 
-    v_list = [fn_results, fp_results, r2_results, r2_true_results, beta_hats, BIC_results,
-             AIC_results, AICc_results, FNR_results, FPR_results, sa_results, ee_results,
-             median_ee_results]
-
-    for v in v_list:
-        v = np.array(v)
-        v = Gatherv_rows(v, roots_comm, root = 0)
-
-    if record_alt:
-
-        alt_v_list = [alt_beta_hats, alt_FNR_results, alt_FPR_results, alt_sa_results,
-                      alt_ee_results, alt_median_ee_results]
-
-        for v in alt_v_list:
-            v = np.array(v)
-            v = Gatherv_rows(v, roots_comm, root = 0)
-
-    # Gather risk calculations
-
-    exact_risk = Gather_ndlist(exact_risk, roots_comm, root = 0)
-    MIC_risk = Gather_ndlist(MIC_risk, roots_comm, root = 0)
-
+    results_dict = gather_results(results_dict, roots_comm)
 
 
 f.close()
 if comm.rank == 0:
-    # Save results
-    with h5py.File(results_file, 'w') as results:
 
-        results['fn'] = fn_results
-        results['fp'] = fp_results
-        results['r2'] = r2_results
-        results['r2_true'] = r2_true_results
-        results['beta_hats'] = beta_hats
-        results['BIC'] = BIC_results
-        results['AIC'] = AIC_results
-        results['AICc'] = AICc_results
-
-        results['FNR'] = FNR_results
-        results['FPR'] = FPR_results
-        results['sa'] = sa_results
-        results['ee'] = ee_results
-        results['median_ee'] = median_ee_results
-
-        if record_alt:
-            results['alt_beta_hats'] = alt_beta_hats
-            results['alt_FNR_results'] = alt_FNR_results
-            results['alt_FPR_results'] = alt_FPR_results
-            results['alt_sa_results'] = alt_sa_results
-            results['alt_ee_results'] = alt_ee_results
-            results['alt_median_ee_results'] = alt_median_ee_results
-
-        # Need to split up the list of arrays into separate datasets
-        er = results.create_group('exact_risk')
-        for i, exact_risk_ in enumerate(exact_risk):
-            er.create_dataset(str(i), data = exact_risk_)
-        mic = results.create_group('MIC_risk')
-        for i, MIC_risk_ in enumerate(MIC_risk):
-            mic.create_dataset(str(i), data = MIC_risk_)
-
+    h5py_wrapper.save(results_file, results_dict, write_mode = 'w')
 
     print('Total time: %f' % (time.time() - total_start))
     print('Job completed!')

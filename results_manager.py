@@ -1,21 +1,91 @@
 import numpy as np
+from utils import FNR, FPR, selection_accuracy, estimation_error
+from sklearn.metrics import r2_score, mean_squared_error
+from mpi_utils.ndarray import Gatherv_rows
+import pdb
+
 
 # Categorize results according to selection method
 def init_results_container(selection_methods, fields, num_tasks, n_features):
 
-	# Use a nested dict
-	results = {selection_method: {} for selection_method in selection_methods}
+    # Use a nested dict
+    results = {selection_method: {} for selection_method in selection_methods}
 
-	# # For each selection method, record the following quantities:
-	# fields = ['FNR', 'FPR', 'sa', 'ee', 'median_ee', 'r2', 'beta_hats', 
-	# 		  'MSE', 'AIC', 'BIC']
+    # # For each selection method, record the following quantities:
+    # fields = ['FNR', 'FPR', 'sa', 'ee', 'median_ee', 'r2', 'beta_hats', 
+    #         'MSE', 'AIC', 'BIC']
 
-	for selection_method in selection_methods:
-		# For all except beta_hat, initialize arrays of size num_tasks
-		for field in Diff(fields, 'beta_hats'):
-			results[selection_method][field] = np.zeros(num_tasks)
-		results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
+    for selection_method in selection_methods:
+        # For all except beta_hat, initialize arrays of size num_tasks
+        for field in fields:
+            results[selection_method][field] = np.zeros(num_tasks)
+        results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
 
-	return results
+    return results
 
-def gather_results
+# Define here how to calculate various quantities of interest. Stay consistent 
+# with field names
+def calc_result(X, X_test, y, y_test, beta, field, exp_results): 
+
+
+    y = y.ravel()
+    y_test = y_test.ravel()
+    beta = beta.ravel()
+    beta_hat = exp_results['coefs'].ravel()
+
+    if field == 'beta_hats':
+
+        result = beta_hat
+
+    elif field == 'FNR':
+
+        result = FNR(beta.ravel(), beta_hat.ravel())
+
+    elif field == 'FPR':
+
+        result = FPR(beta.ravel(), beta_hat.ravel())
+
+    elif field == 'sa':
+
+        result = selection_accuracy(beta.ravel(), beta_hat.ravel())
+
+    elif field == 'ee':
+
+        result, _ = estimation_error(beta.ravel(), beta_hat.ravel())
+
+    elif field == 'median_ee':
+
+        _, result = estimation_error(beta.ravel(), beta_hat.ravel())
+
+    elif field == 'r2':
+
+        result = r2_score(y_test, X_test @ beta)
+
+    elif field == 'MSE':
+
+        result = mean_squared_error(y_test, X_test @ beta)
+
+    elif field == 'reg_param': 
+
+        result = exp_results['reg_param']
+
+    elif field == 'oracle_penalty':
+
+        result = exp_results['oracle_penalty']
+
+    return result
+
+# Gather each entry of results and return the final dictionary
+def gather_results(results, comm): 
+
+    gathered_results = {}
+
+    for selection_method in results.keys():
+        gathered_results[selection_method] = {}
+        for field in results[selection_method].keys():
+
+            value = Gatherv_rows(results[selection_method][field], comm, root = 0)
+    
+            gathered_results[selection_method][field] = value 
+
+    return gathered_results
