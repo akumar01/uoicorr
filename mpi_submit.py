@@ -113,10 +113,28 @@ for i in range(num_tasks):
             continue
 
     params['comm'] = subcomm
-    sigma = params['sigma']
-    beta = params['betas']
     seed = params['seed']
     if subrank == 0:
+        # Generate covariance
+        sigma = gen_covariance(params['n_features'],
+                               params['cov_params']['correlation'], 
+                               params['cov_params']['block_size'],
+                               params['cov_params']['L'],
+                               params['cov_params']['t'])
+
+        betas = gen_beta2(params['n_features'], params['cov_params']['block_size'],
+                          params['sparsity'], params['betawidth'], 
+                          seed = beta_seed)           
+
+    # If all betas end up zero for this sparsity level, output a warning and skip
+    # this iteration (Make sure all ranks are instructed to continue!)
+    if np.count_nonzero(betas) == 0:
+        print('Warning, all betas were 0!')
+        print(param_comb)
+        continue
+
+    if subrank == 0:
+
         # Generate data
         X, X_test, y, y_test, ss = gen_data(params['n_samples'], params['n_features'],
                                         params['kappa'], sigma, beta, seed)

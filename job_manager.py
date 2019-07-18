@@ -70,70 +70,66 @@ def generate_arg_files(argfile_array, jobdir):
                     arg_[key] = [arg_[key]]
                 arg_[key] = list(arg_[key])
 
+        
         # Complement of the sub_iter_params:
         const_keys = list(set(arg_.keys()) - set(sub_iter_params))
 
         const_args = {k: arg_[k] for k in const_keys}
-
-        # Combine reps and parameters to be cycled through into a single iterable. Store
-        # the indices pointing to the corresponding rep/parameter list for easy unpacking
-        # later on
-    
+            
         arg_comb = arg_['reps']\
                             * list(itertools.product(*[arg_[key] for key in arg_['sub_iter_params']]))
+
         iter_param_list = []
         for i in range(len(arg_comb)):
             arg_dict = const_args.copy()
             [arg_dict.update({arg_['sub_iter_params'][j]: arg_comb[i][j] for j in range(len(arg_['sub_iter_params']))})]
             iter_param_list.append(arg_dict)
 
-        # For parameter combinations that are identical save for the manual estimation penalty, we would like 
-        # to have identical betas. Group iter_param_list by such combinations, and then assign identical 
-        # beta seeds to each group
-        if 'manual_penalty' in list(iter_param_list[0].keys()):
-            _, penalty_groups = group_dictionaries(iter_param_list, 'manual_penalty')
-
-            beta_seeds = np.zeros(len(iter_param_list))
-            for pidx, penalty_group in enumerate(penalty_groups):
-                beta_seeds[penalty_group] = pidx
-        else:
-            beta_seeds = np.empty(len(iter_param_list))
-            beta_seeds.fill(None)
+        # Multiply the iter_param_list by the number of reps. Before doing so, however, 
+        # assign a unique index to each entry that will be used to (1) seed the coefficients 
+        # and the generated data, and (2) to identify unique parameter combinations to 
+        # later average over repetitions of these parameters.
         for i, param_comb in enumerate(iter_param_list):
+            param_comb['seed'] = i
 
-            if 'n_samples' in list(param_comb.keys()):
-                n_samples = param_comb['n_samples']
-            elif 'np_ratio' in list(param_comb.keys()):
-                n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
-                param_comb['n_samples'] = n_samples
+        iter_param_list = arg_['reps'] * iter_param_list
 
-            sigma = gen_covariance(param_comb['n_features'],
-                                   param_comb['cov_params']['correlation'], 
-                                   param_comb['cov_params']['block_size'],
-                                   param_comb['cov_params']['L'],
-                                   param_comb['cov_params']['t'])
+        # # --> All of this can go
 
-            if np.isnan(beta_seeds[i]):
-                beta_seed = None
-            else:
-                beta_seed = beta_seeds[i]
+        # for i, param_comb in enumerate(iter_param_list):
 
-            betas = gen_beta2(param_comb['n_features'], param_comb['cov_params']['block_size'],
-                              param_comb['sparsity'], param_comb['betawidth'], 
-                              seed = beta_seed)           
+        #     if 'n_samples' in list(param_comb.keys()):
+        #         n_samples = param_comb['n_samples']
+        #     elif 'np_ratio' in list(param_comb.keys()):
+        #         n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
+        #         param_comb['n_samples'] = n_samples
 
-            if np.count_nonzero(betas) == 0:
-                print('Warning, all betas were 0!')
-                print(param_comb)
-                param_comb['skip'] = True
-            else:
-                param_comb['sigma'] = sigma
-                param_comb['betas'] = betas
-                param_comb['skip'] = False
-            # Save a seed that will be used to generate the same data for every process
-            param_comb['seed'] = i 
-            # Save the beta seed used for referenc
-            param_comb['seed'] = beta_seeds[i]
+        #     # Defer generation of sigma to mpi_submit
+        #     # sigma = gen_covariance(param_comb['n_features'],
+        #     #                        param_comb['cov_params']['correlation'], 
+        #     #                        param_comb['cov_params']['block_size'],
+        #     #                        param_comb['cov_params']['L'],
+        #     #                        param_comb['cov_params']['t'])
+
+        #     beta_seed = i
+
+
+        #     betas = gen_beta2(param_comb['n_features'], param_comb['cov_params']['block_size'],
+        #                       param_comb['sparsity'], param_comb['betawidth'], 
+        #                       seed = beta_seed)           
+
+        #     if np.count_nonzero(betas) == 0:
+        #         print('Warning, all betas were 0!')
+        #         print(param_comb)
+        #         param_comb['skip'] = True
+        #     else:
+        #         param_comb['sigma'] = sigma
+        #         param_comb['betas'] = betas
+        #         param_comb['skip'] = False
+        #     # Save a seed that will be used to generate the same data for every process
+        #     param_comb['seed'] = i 
+        #     # Save the beta seed used for referenc
+        #     param_comb['seed'] = beta_seeds[i]
         
         ntasks.append(len(iter_param_list))
         arg_file = '%s/master/params%d.dat' % (jobdir, j)
@@ -233,6 +229,7 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir,
                 sb.write('srun python -u %s/%s %s %s %s'
                         % (script_dir, script, sbatch['arg_file'],
                         results_file, sbatch['exp_type']))
+
 # Use skip_argfiles if arg_files have already been generated and just need to 
 # re-gen sbatch files
 def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test = False, 
