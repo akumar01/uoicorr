@@ -7,9 +7,9 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['CV_Lasso', 'UoI_Lasso']
+exp_types =  ['CV_Lasso', 'UoILasso']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['5:00:00', '5:00:00']
+algorithm_times = ['1:00:00', '6:00:00']
 
 n_features = 500
 

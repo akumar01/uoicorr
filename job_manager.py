@@ -76,8 +76,7 @@ def generate_arg_files(argfile_array, jobdir):
 
         const_args = {k: arg_[k] for k in const_keys}
             
-        arg_comb = arg_['reps']\
-                            * list(itertools.product(*[arg_[key] for key in arg_['sub_iter_params']]))
+        arg_comb = list(itertools.product(*[arg_[key] for key in arg_['sub_iter_params']]))
 
         iter_param_list = []
         for i in range(len(arg_comb)):
@@ -91,45 +90,12 @@ def generate_arg_files(argfile_array, jobdir):
         # later average over repetitions of these parameters.
         for i, param_comb in enumerate(iter_param_list):
             param_comb['seed'] = i
-
+            if 'n_samples' in list(param_comb.keys()):
+                n_samples = param_comb['n_samples']
+            elif 'np_ratio' in list(param_comb.keys()):
+                n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
+                param_comb['n_samples'] = n_samples
         iter_param_list = arg_['reps'] * iter_param_list
-
-        # # --> All of this can go
-
-        # for i, param_comb in enumerate(iter_param_list):
-
-        #     if 'n_samples' in list(param_comb.keys()):
-        #         n_samples = param_comb['n_samples']
-        #     elif 'np_ratio' in list(param_comb.keys()):
-        #         n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
-        #         param_comb['n_samples'] = n_samples
-
-        #     # Defer generation of sigma to mpi_submit
-        #     # sigma = gen_covariance(param_comb['n_features'],
-        #     #                        param_comb['cov_params']['correlation'], 
-        #     #                        param_comb['cov_params']['block_size'],
-        #     #                        param_comb['cov_params']['L'],
-        #     #                        param_comb['cov_params']['t'])
-
-        #     beta_seed = i
-
-
-        #     betas = gen_beta2(param_comb['n_features'], param_comb['cov_params']['block_size'],
-        #                       param_comb['sparsity'], param_comb['betawidth'], 
-        #                       seed = beta_seed)           
-
-        #     if np.count_nonzero(betas) == 0:
-        #         print('Warning, all betas were 0!')
-        #         print(param_comb)
-        #         param_comb['skip'] = True
-        #     else:
-        #         param_comb['sigma'] = sigma
-        #         param_comb['betas'] = betas
-        #         param_comb['skip'] = False
-        #     # Save a seed that will be used to generate the same data for every process
-        #     param_comb['seed'] = i 
-        #     # Save the beta seed used for referenc
-        #     param_comb['seed'] = beta_seeds[i]
         
         ntasks.append(len(iter_param_list))
         arg_file = '%s/master/params%d.dat' % (jobdir, j)
@@ -169,7 +135,7 @@ def generate_log_file(argfile_array, jobdir, desc = None):
 
     
 def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir, 
-                            qos = 'regular'):
+                            qos, srun_opts):
 
     # Generate sbatch scripts for the given directory
 
@@ -221,19 +187,21 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir,
                 sb.write('export OMP_NUM_THREADS=1\n')
                 sb.write('export KMP_AFFINITY=disabled\n')
 
-                sb.write('srun -n 34 -c 8 python3 -u %s/%s %s %s %s' 
-                        % (script_dir, script, sbatch['arg_file'],
+                sb.write('srun %s python3 -u %s/%s %s %s %s' 
+                        % (srun_opts, script_dir, script, sbatch['arg_file'],
                         results_file, sbatch['exp_type']))
             else:
                 
-                sb.write('srun python -u %s/%s %s %s %s'
-                        % (script_dir, script, sbatch['arg_file'],
+                sb.write('srun %s python -u %s/%s %s %s %s'
+                        % (srun_opts, script_dir, script, sbatch['arg_file'],
                         results_file, sbatch['exp_type']))
 
 # Use skip_argfiles if arg_files have already been generated and just need to 
 # re-gen sbatch files
+
+# srun_opts: options to feed into the srun command (for example, n tasks, n cpus per task)
 def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test = False, 
-                        qos = 'regular'):
+                         qos = 'regular', srun_opts = '-n 34 -c 8'):
 
     if not os.path.exists(jobdir):
         os.makedirs(jobdir)
@@ -315,7 +283,7 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
             os.mkdir('%s/%s' % (jobdir, exp_type))
 
         generate_sbatch_scripts(sbatch_array[i], '%s/%s' % (jobdir, exp_type),
-                               script_dir, qos)        
+                               script_dir, qos, srun_opts)        
 
 # Jobdir: Directory to crawl through
 # size: only submit this many jobs (if exp_type specified, this

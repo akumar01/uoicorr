@@ -13,7 +13,7 @@ from pydoc import locate
 from sklearn.preprocessing import StandardScaler
 
 from mpi_utils.ndarray import Bcast_from_root, Gatherv_rows, Gather_ndlist
-from utils import gen_data
+from utils import gen_covariance, gen_beta2, gen_data
 from results_manager import init_results_container, calc_result, gather_results
 
 total_start = time.time()
@@ -122,13 +122,23 @@ for i in range(num_tasks):
                                params['cov_params']['L'],
                                params['cov_params']['t'])
 
-        betas = gen_beta2(params['n_features'], params['cov_params']['block_size'],
+        beta = gen_beta2(params['n_features'], params['cov_params']['block_size'],
                           params['sparsity'], params['betawidth'], 
-                          seed = beta_seed)           
+                          seed = seed)     
+    else:
+        
+        sigma = None
+        beta = None
+
+    sigma = Bcast_from_root(sigma, subcomm)
+    beta = Bcast_from_root(beta, subcomm)
+
+    params['sigma'] = sigma
+    params['betas'] = beta      
 
     # If all betas end up zero for this sparsity level, output a warning and skip
     # this iteration (Make sure all ranks are instructed to continue!)
-    if np.count_nonzero(betas) == 0:
+    if np.count_nonzero(beta) == 0:
         print('Warning, all betas were 0!')
         print(param_comb)
         continue
@@ -162,8 +172,7 @@ for i in range(num_tasks):
     params['ss'] = ss
 
     exp = locate('exp_types.%s' % exp_type)
-    print('Going into exp')
-
+    
     exp_results = exp.run(X, y, params, selection_methods)
 
     if subrank == 0:

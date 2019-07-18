@@ -12,8 +12,9 @@ from sklearn.preprocessing import normalize
 from pyuoi.linear_model.cassolasso import UoI_Lasso
 from pyuoi.linear_model.cassolasso import PycassoLasso
 from pyuoi.linear_model.elasticnet import UoI_ElasticNet
-from pyuoi.mpi_utils import Gatherv_rows
 from pyuoi.lbfgs import fmin_lbfgs
+
+from mpi_utils.ndarray import Gatherv_rows
 
 from info_criteria import GIC, eBIC
 from utils import selection_accuracy
@@ -169,8 +170,8 @@ class UoISelector(Selector):
 
         for boot in range(n_boots):
             # Test data
-            xx = X[boots[boot][1], :]
-            yy = y[boots[boot][1]]
+            xx = X[boots[1][boot], :]
+            yy = y[boots[1][boot]]
             y_pred = solutions[boot, ...] @ xx.T
 
             scores[boot, :] = np.array([r2_score(yy, y_pred[j, :]) for j in range(n_supports)])
@@ -188,8 +189,8 @@ class UoISelector(Selector):
         for boot in range(n_boots):
 
             # Train data
-            xx = X[boots[boot][0], :]
-            yy = y[boots[boot][0]]
+            xx = X[boots[0][boot], :]
+            yy = y[boots[0][boot]]
 
             selected_idxs[boot] = super(UoISelector, self).GIC_selector(solutions[boot, ...],
                                                                      np.arange(n_supports),
@@ -208,8 +209,8 @@ class UoISelector(Selector):
         for boot in range(n_boots):
 
             # Train data
-            xx = X[boots[boot][0], :]
-            yy = y[boots[boot][0]]
+            xx = X[boots[0][boot], :]
+            yy = y[boots[0][boot]]
 
             selected_idxs[boot] = super(UoISelector, self).eBIC_selector(solutions[boot, ...],
                                                                      np.arange(n_supports),
@@ -225,8 +226,8 @@ class UoISelector(Selector):
         for boot in range(n_boots):
 
             # Train data
-            xx = X[boots[boot][0], :]
-            yy = y[boots[boot][0]]
+            xx = X[boots[0][boot], :]
+            yy = y[boots[0][boot]]
 
             sidx, op = super(UoISelector, self).OIC_selector(solutions[boot, ...],
                                                                      np.arange(n_supports),
@@ -258,7 +259,8 @@ class CV_Lasso():
         true_model = args['betas'].ravel()
         for selection_method in selection_methods:
             self.fit_and_select(X, y.ravel(), selection_method, true_model)
-
+        
+        del self.fitted_estimator
         return self.results
 
     @classmethod
@@ -307,6 +309,9 @@ class UoILasso():
         for selection_method in selection_methods:
             self.fit_and_select(args, comm, rank, X, y.ravel(), selection_method)
 
+        # Make sure to delete the fitted estimator, otherwise on subsequent calls
+        # we won't end up re-fitting to the new data!
+        del self.fitted_estimator
         return self.results
 
     @classmethod 
@@ -314,6 +319,7 @@ class UoILasso():
                        X, y, selection_method):
 
         if not hasattr(self, 'fitted_estimator'):
+            
             # If not yet fitted, run the pycasso lasso
             uoi = UoI_Lasso(
                 n_boots_sel=int(args['n_boots_sel']),
@@ -322,9 +328,21 @@ class UoILasso():
                 stability_selection = args['stability_selection'],
                 comm = comm
                 )
-
+            
+            print('Fitting!')
             uoi.fit(X, y.ravel())
             self.fitted_estimator = uoi
+
+            # Gather bootstrap information, which is currently 
+            # distributed
+            
+            train_boots = np.array([uoi.boots[k][0] for k in uoi.boots.keys()])
+            test_boots = np.array([uoi.boots[k][1] for k in uoi.boots.keys()])
+
+            train_boots = Gatherv_rows(train_boots, comm = comm, root = 0)
+            test_boots = Gatherv_rows(test_boots, comm = comm, root = 0)
+            
+            self.boots = [train_boots, test_boots]
 
         # Use the fact that UoI stores all of its estimates to
         # manually go in and select models and then take the union
@@ -333,8 +351,9 @@ class UoILasso():
         if rank == 0:
             true_model = args['betas'].ravel()
             selector = UoISelector(selection_method = selection_method)
+            
             coefs, ops = selector.select(self.fitted_estimator.estimates_, X, y, 
-                            self.fitted_estimator.boots, true_model)
+                                         self.boots, true_model)
             self.results[selection_method]['coefs'] = coefs
             self.results[selection_method]['reg_param'] = -1
             self.results[selection_method]['oracle_penalty'] = np.mean(ops)
