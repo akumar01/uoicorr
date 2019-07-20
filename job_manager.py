@@ -134,8 +134,7 @@ def generate_log_file(argfile_array, jobdir, desc = None):
     metadata.to_pickle('%s/log.dat' % jobdir)
 
     
-def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir, 
-                            qos, srun_opts):
+def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
 
     # Generate sbatch scripts for the given directory
 
@@ -143,7 +142,8 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir,
     # set up MPI parameters and request only a single core
     
     for i, sbatch in enumerate(sbatch_array):
-        
+        qos = sbatch['qos']    
+       
         if 'sbname' not in list(sbatch.keys()):
             sbname = 'sbatch%d.sh' % i
         else:
@@ -167,8 +167,9 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir,
                 sb.write('#SBATCH -N 1\n')
             else:
                 sb.write('#SBATCH --qos=shared\n')
-                sb.write('#SBATCH -n 1\n')
-                
+            
+            sb.write('#SBATCH -n %d\n' % sbatch['ntasks'])
+            sb.write('#SBATCH -c %d\n' % sbatch['cpt'])    
             sb.write('#SBATCH -t %s\n' % sbatch['job_time'])
 
             sb.write('#SBATCH --job-name=%s\n' % jobname)
@@ -187,21 +188,17 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir,
                 sb.write('export OMP_NUM_THREADS=1\n')
                 sb.write('export KMP_AFFINITY=disabled\n')
 
-                sb.write('srun %s python3 -u %s/%s %s %s %s' 
-                        % (srun_opts, script_dir, script, sbatch['arg_file'],
-                        results_file, sbatch['exp_type']))
-            else:
+            sb.write('srun python3 -u %s/%s %s %s %s' 
+                     % (script_dir, script, sbatch['arg_file'],
+                     results_file, sbatch['exp_type']))
                 
-                sb.write('srun %s python -u %s/%s %s %s %s'
-                        % (srun_opts, script_dir, script, sbatch['arg_file'],
-                        results_file, sbatch['exp_type']))
-
 # Use skip_argfiles if arg_files have already been generated and just need to 
 # re-gen sbatch files
 
 # srun_opts: options to feed into the srun command (for example, n tasks, n cpus per task)
-def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test = False, 
-                         qos = 'regular', srun_opts = '-n 34 -c 8'):
+def create_job_structure(submit_file, jobdir, qos, numtasks, cpu_per_task,
+                         skip_argfiles = False, single_test = False): 
+                         
 
     if not os.path.exists(jobdir):
         os.makedirs(jobdir)
@@ -269,7 +266,9 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
         for j in range(len(paths)):
             sbatch_dict = {
             'arg_file' : paths[j],
-            'ntasks' : 34,
+            'ntasks' : numtasks,
+            'qos' : qos,
+            'cpt' : cpu_per_task,
             'exp_type' : exp_type,
             'job_time' : algorithm_times[i]
             }
@@ -283,7 +282,7 @@ def create_job_structure(submit_file, jobdir, skip_argfiles = False, single_test
             os.mkdir('%s/%s' % (jobdir, exp_type))
 
         generate_sbatch_scripts(sbatch_array[i], '%s/%s' % (jobdir, exp_type),
-                               script_dir, qos, srun_opts)        
+                                script_dir)        
 
 # Jobdir: Directory to crawl through
 # size: only submit this many jobs (if exp_type specified, this

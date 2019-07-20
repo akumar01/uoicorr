@@ -7,22 +7,22 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['CV_Lasso', 'UoILasso']
+exp_types =  ['UoILasso']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['1:00:00', '6:00:00']
+algorithm_times = ['6:00:00']
 
 n_features = 500
 
 # Block sizes
-block_sizes = [50, 100, 200]
+block_sizes = [25, 50, 100]
 
 # Block correlation
 correlation = [0, 0.08891397, 0.15811388, 0.28117066, 0.5]
 
 # Exponential length scales
-L = [20, 50, 100, 200]
+L = [10, 25, 50, 100]
 
-cov_list, _ = get_cov_list(n_features, 60, correlation, block_sizes, L, n_supplement = 15)
+cov_list, _ = get_cov_list(n_features, 60, correlation, block_sizes, L, n_supplement = 20)
 
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 

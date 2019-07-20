@@ -140,7 +140,7 @@ for i in range(num_tasks):
     # this iteration (Make sure all ranks are instructed to continue!)
     if np.count_nonzero(beta) == 0:
         print('Warning, all betas were 0!')
-        print(param_comb)
+        print(params)
         continue
 
     if subrank == 0:
