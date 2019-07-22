@@ -387,7 +387,9 @@ def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
 # to None, and pass in linestring instead
 def set_job_attribute(run_files, edit_attribute, linestring = None, exp_type = None):
     
-    for run_file in run_files:
+    bad_idxs = np.zeros(len(run_files))
+
+    for ridx, run_file in enumerate(run_files):
         start = time.time()
         f = open(run_file, 'r')
         contents = f.readlines()
@@ -395,14 +397,18 @@ def set_job_attribute(run_files, edit_attribute, linestring = None, exp_type = N
 
         if edit_attribute is not None:
             for key, value in edit_attribute.items():
-                key_string = [s for s in contents if ' %s' % key in s][0]
-                key_string_idx = contents.index(key_string)
-                if '--' in key:
-                    new_key_string = '#SBATCH %s=%s\n' % (key, value)
-                else:
-                    new_key_string = '#SBATCH %s %s\n' % (key, value)
-                contents.remove(key_string)
-                contents.insert(key_string_idx, new_key_string)
+                try:
+                    key_string = [s for s in contents if ' %s' % key in s][0]
+                    key_string_idx = contents.index(key_string)
+                    if '--' in key:
+                        new_key_string = '#SBATCH %s=%s\n' % (key, value)
+                    else:
+                        new_key_string = '#SBATCH %s %s\n' % (key, value)
+                    contents.remove(key_string)
+                    contents.insert(key_string_idx, new_key_string)
+                except:
+                    bad_idxs[ridx] = 1
+ 
         elif linestring is not None:
             for key, value in linestring.items():
                 key_string = [s for s in contents if key in s][0]
@@ -415,6 +421,8 @@ def set_job_attribute(run_files, edit_attribute, linestring = None, exp_type = N
         f.write(contents)
         f.close()
         print('Iteration time: %f' % (time.time() - start))
+
+    return bad_idxs
 
 # Open up an sbatch file and grab an attributes like job time that cannot be read off from 
 # anywhere else
