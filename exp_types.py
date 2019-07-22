@@ -4,14 +4,14 @@ import itertools
 import time
 
 from sklearn.linear_model.coordinate_descent import _alpha_grid
-from sklearn.linear_model import LassoCV, ElasticNetCV
+from sklearn.linear_model import LassoCV, ElasticNetCV, enet_path
 from sklearn.model_selection import KFold, GroupKFold, cross_validate
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import normalize
 
 from pyuoi.linear_model.cassolasso import UoI_Lasso
 from pyuoi.linear_model.cassolasso import PycassoLasso
-from pyuoi.linear_model.elasticnet import UoI_ElasticNet
+from pyuoi.linear_model import UoI_ElasticNet
 from pyuoi.lbfgs import fmin_lbfgs
 
 from mpi_utils.ndarray import Gatherv_rows
@@ -290,6 +290,56 @@ class CV_Lasso():
             self.results[selection_method]['reg_param'] = reg_param
             self.results[selection_method]['oracle_penalty'] = ops
 
+
+class EN(CV_Lasso):
+
+    @classmethod
+    def run(self, X, y, args, selection_methods = ['CV']):
+
+        self.l1_ratio = args['l1_ratios']
+
+        results = super(EN, self).run(X, y, args, selection_methods)
+
+        return results
+
+    @classmethod
+    def fit_and_select(self, X, y, selection_method, true_model):
+
+        _, n_features = X.shape
+
+        # For cross validation, use the existing solution: 
+        if selection_method == 'CV': 
+            en = ElasticNetCV(cv = self.cv_splits, l1_ratio = self.l1_ratio, 
+                            n_alphas = self.n_alphas).fit(X, y.ravel())
+            self.results[selection_method]['coefs'] = en.coef_
+            self.results[selection_method]['reg_param'] = [en.l1_ratio_, en.alpha_]
+            self.results[selection_method]['oracle_penalty'] = -1
+
+    else:
+        # Use sklearn's coordinate descent based enet_path for all other selection methods
+        if not hasattr(self, 'fitted_estimator'):
+
+            reg_params = np.zeros((len(self.l1_ratio) * self.n_alphas, 2))
+            coefs = np.zeros((len(self.l1_ratio, self.n_alphas, n_features)))
+
+            for i, l1_ratio in enumerate(self.l1_ratio):
+                alphas_, coefs_, _, _ = enet_path(X, y, l1_ratio = self.l1_ratio)            
+                coefs[i, :] = coefs_.T
+                reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 0] = l1_ratio
+                reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 1] = alphas_
+
+            # Stack all paths as rows
+            pdb.set_trace()
+            coefs = coefs.reshape((-1, n_features))
+
+            selector = Selector(selection_method)
+            coefs, reg_param, ops = selector.select(coefs, reg_params, X, y, true_model)
+
+            self.results[selection_method]['coefs'] = coefs
+            self.results[selection_method]['reg_param'] = reg_param
+            self.results[selection_method]['oracle_penalty'] = ops
+
+
 class UoILasso():
 
     @classmethod
@@ -361,54 +411,58 @@ class UoILasso():
         else:
             self.results = None
 
-class UoIElasticNet():
+class UoIElasticNet(UoILasso):
 
     @classmethod
     def run(self, X, y, args):
 
-        l1_ratios = args['l1_ratios']
+        super(UoIElasticNet, self).run(X, y, args)
 
-        # Ensure that the l1_ratios are an np array
-        if not isinstance(l1_ratios, np.ndarray):
-            if np.isscalar(l1_ratios):
-                l1_ratios = np.array([l1_ratios])
-            else:
-                l1_ratios = np.array(l1_ratios)
-
-        if 'comm' in list(args.keys()):
-            comm = args['comm']
-        else:
-            comm = None
-
-        uoi = UoI_ElasticNet(
-            normalize=True,
-            n_boots_sel=int(args['n_boots_sel']),
-            n_boots_est=int(args['n_boots_est']),
-            alphas = l1_ratios,
-            estimation_score=args['est_score'],
-            warm_start = False,
-            stability_selection=args['stability_selection'],
-            comm = comm
-        )
-
-        uoi.fit(X, y.ravel())
-        return uoi
-
-class EN():
+        return self.results
 
     @classmethod
-    def run(self, X, y, args, groups = None):
-        l1_ratios = args['l1_ratios']
-        n_alphas = args['n_alphas']
-        cv_splits = 5
+    def fit_and_select(self, args, comm, rank, X, y, selection_method):
 
-        if not isinstance(l1_ratios, np.ndarray):
-            if np.isscalar(l1_ratios):
-                l1_ratios = np.array([l1_ratios])
-            else:
-                l1_ratios = np.array(l1_ratios)
+        if not hasattr(self, 'fitted_estimator'):
+            
+            # If not yet fitted, run elastic net
+            uoi = UoI_ElasticNet(
+                alphas = args['l1_ratios']
+                n_boots_sel=int(args['n_boots_sel']),
+                n_boots_est=int(args['n_boots_est']),
+                estimation_score=args['est_score'],
+                stability_selection = args['stability_selection'],
+                comm = comm
+                )
+            
+            print('Fitting!')
+            uoi.fit(X, y.ravel())
+            self.fitted_estimator = uoi
 
-        en = ElasticNetCV(cv = 5, n_alphas = 48,
-                        l1_ratio = l1_ratios).fit(X, y.ravel())
+            # Gather bootstrap information, which is currently 
+            # distributed
+            
+            train_boots = np.array([uoi.boots[k][0] for k in uoi.boots.keys()])
+            test_boots = np.array([uoi.boots[k][1] for k in uoi.boots.keys()])
 
-        return en
+            train_boots = Gatherv_rows(train_boots, comm = comm, root = 0)
+            test_boots = Gatherv_rows(test_boots, comm = comm, root = 0)
+            
+            self.boots = [train_boots, test_boots]
+
+        # Use the fact that UoI stores all of its estimates to
+        # manually go in and select models and then take the union
+        # using each distinct estimation score
+
+        if rank == 0:
+            true_model = args['betas'].ravel()
+            selector = UoISelector(selection_method = selection_method)
+            
+            coefs, ops = selector.select(self.fitted_estimator.estimates_, X, y, 
+                                         self.boots, true_model)
+            self.results[selection_method]['coefs'] = coefs
+            self.results[selection_method]['reg_param'] = -1
+            self.results[selection_method]['oracle_penalty'] = np.mean(ops)
+            # Make sure to store the oracle penalty somewhere
+        else:
+            self.results = None

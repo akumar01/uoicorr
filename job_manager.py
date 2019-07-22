@@ -384,6 +384,7 @@ def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
 # Edit specific lines of the provided sbatch files (full paths)
 # By default, edits an attribute
 # To replace a specific line with exact match to string, set edit_attribute
+# edit attirubte must be dictionary key pairs
 # to None, and pass in linestring instead
 def set_job_attribute(run_files, edit_attribute, linestring = None, exp_type = None):
     

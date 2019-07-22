@@ -4,7 +4,6 @@ from sklearn.metrics import r2_score, mean_squared_error
 from mpi_utils.ndarray import Gatherv_rows
 import pdb
 
-
 # Categorize results according to selection method
 def init_results_container(selection_methods, fields, num_tasks, n_features):
 
@@ -19,7 +18,8 @@ def init_results_container(selection_methods, fields, num_tasks, n_features):
         # For all except beta_hat, initialize arrays of size num_tasks
         for field in fields:
             results[selection_method][field] = np.zeros(num_tasks)
-        results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
+        if 'beta_hats' in fields:
+            results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
 
     return results
 
@@ -74,6 +74,50 @@ def calc_result(X, X_test, y, y_test, beta, field, exp_results):
         result = exp_results['oracle_penalty']
 
     return result
+
+# Calculate the best result along a solution path
+def calc_path_result(X, X_test, y, y_test, beta, field, exp_results): 
+
+
+    y = y.ravel()
+    y_test = y_test.ravel()
+    beta = beta.ravel()
+    beta_hat = exp_results['coefs']
+
+    if field == 'FNR':
+
+        result = np.nanmin(FNR(beta, beta_hat))
+
+    elif field == 'FPR':
+
+        result = np.nanmin(FPR(beta, beta_hat))
+
+    elif field == 'sa':
+
+        result = np.nanmax(selection_accuracy(beta, beta_hat))
+
+    elif field == 'ee':
+
+        result, _ = estimation_error(beta, beta_hat)
+        result = np.nanmin(result)
+
+    elif field == 'median_ee':
+
+        _, result = estimation_error(beta, beta_hat)
+        result = np.nanmin(result)
+
+    # elif field == 'r2':
+
+    #     result = r2_score(y_test, X_test @ beta)
+
+
+    # elif field == 'MSE':
+
+    #     result = mean_squared_error(y_test, X_test @ beta)
+
+    return result
+
+
 
 # Gather each entry of results and return the final dictionary
 def gather_results(results, comm): 
