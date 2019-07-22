@@ -178,8 +178,13 @@ for i in range(num_tasks):
 
     params['ss'] = ss
 
-    exp = locate('exp_types.%s' % exp_type)
-    
+    # Hard-coded convenience for SCAD/MCP
+    if exp_type in ['scad', 'mcp']:
+        exp = locate('exp_types.%s' % 'PYC')
+        params['penalty'] = exp_type
+    else: 
+        exp = locate('exp_types.%s' % exp_type)
+
     exp_results = exp.run(X, y, params, selection_methods)
 
     if subrank == 0:
