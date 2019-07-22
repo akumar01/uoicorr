@@ -5,7 +5,7 @@ from mpi_utils.ndarray import Gatherv_rows
 import pdb
 
 # Categorize results according to selection method
-def init_results_container(selection_methods, fields, num_tasks, n_features):
+def init_results_container(selection_methods, fields, num_tasks, n_features, n_reg_params = 1):
 
     # Use a nested dict
     results = {selection_method: {} for selection_method in selection_methods}
@@ -20,6 +20,8 @@ def init_results_container(selection_methods, fields, num_tasks, n_features):
             results[selection_method][field] = np.zeros(num_tasks)
         if 'beta_hats' in fields:
             results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
+        if 'reg_param' in fields:
+            results[selection_method]['reg_param'] = np.zero((num_tasks, n_reg_params))
 
     return results
 

@@ -92,13 +92,20 @@ print('num_tasks: %d' % num_tasks)
 #selection_methods = ['CV', 'AIC', 'BIC', 'eBIC', 'OIC']
 selection_methods = ['CV', 'BIC', 'AIC']
 
+# hard-code n_reg_params because why not
+if exp_type in ['EN']: 
+    n_reg_params = 2
+else: 
+    n_reg_params = 1
+
 if subrank == 0:
 
     fields = ['FNR', 'FPR', 'sa', 'ee', 'median_ee', 'r2', 'beta_hats', 
             'MSE', 'reg_param', 'oracle_penalty']
 
     results_dict = init_results_container(selection_methods, fields, 
-                                          num_tasks, n_features)
+                                          num_tasks, n_features,
+                                          n_reg_param)
 
 for i in range(num_tasks):
     start = time.time()
