@@ -320,10 +320,12 @@ class EN(CV_Lasso):
             if not hasattr(self, 'fitted_estimator'):
 
                 reg_params = np.zeros((len(self.l1_ratio) * self.n_alphas, 2))
+
                 coefs = np.zeros((len(self.l1_ratio), self.n_alphas, n_features))
 
                 for i, l1_ratio in enumerate(self.l1_ratio):
                     alphas_, coefs_, _ = enet_path(X, y, l1_ratio = l1_ratio, n_alphas = self.n_alphas)            
+           
                     coefs[i, :] = coefs_.T
                     reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 0] = l1_ratio
                     reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 1] = alphas_

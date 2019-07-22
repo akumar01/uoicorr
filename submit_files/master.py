@@ -7,9 +7,9 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['UoILasso']
+exp_types =  ['EN', 'UoIElasticNet']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['6:00:00']
+algorithm_times = ['6:00:00', '24:00:00']
 
 n_features = 500
 
@@ -26,12 +26,15 @@ cov_list, _ = get_cov_list(n_features, 60, correlation, block_sizes, L, n_supple
 
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 
+sparsity = np.logspace(np.log10(0.02), 0, 15)
+sparsity = sparsity[sparsity >= 0.04]
+
 iter_params = {
 
 'cov_params' : cov_params,
 
 # Sparsity
-'sparsity' : np.array_split(np.logspace(np.log10(0.02), 0, 15), 5)
+'sparsity' : np.array_split(sparsity, 5)
 
 }
 
@@ -55,7 +58,7 @@ comm_params = {
 }
 
 # Parameters for ElasticNet
-comm_params['l1_ratios'] = [0.1, 0.2, 0.5, 0.75, 0.9, 0.95, 0.99]
+comm_params['l1_ratios'] = [0.1,  0.5, 0.75, 0.9, 0.95]
 comm_params['n_alphas'] = 48
 
 ###############################################################
