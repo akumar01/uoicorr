@@ -315,25 +315,27 @@ class EN(CV_Lasso):
             self.results[selection_method]['reg_param'] = [en.l1_ratio_, en.alpha_]
             self.results[selection_method]['oracle_penalty'] = -1
 
-    else:
-        # Use sklearn's coordinate descent based enet_path for all other selection methods
-        if not hasattr(self, 'fitted_estimator'):
+        else:
+            # Use sklearn's coordinate descent based enet_path for all other selection methods
+            if not hasattr(self, 'fitted_estimator'):
 
-            reg_params = np.zeros((len(self.l1_ratio) * self.n_alphas, 2))
-            coefs = np.zeros((len(self.l1_ratio, self.n_alphas, n_features)))
+                reg_params = np.zeros((len(self.l1_ratio) * self.n_alphas, 2))
+                coefs = np.zeros((len(self.l1_ratio), self.n_alphas, n_features))
 
-            for i, l1_ratio in enumerate(self.l1_ratio):
-                alphas_, coefs_, _, _ = enet_path(X, y, l1_ratio = self.l1_ratio)            
-                coefs[i, :] = coefs_.T
-                reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 0] = l1_ratio
-                reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 1] = alphas_
+                for i, l1_ratio in enumerate(self.l1_ratio):
+                    alphas_, coefs_, _ = enet_path(X, y, l1_ratio = l1_ratio, n_alphas = self.n_alphas)            
+                    coefs[i, :] = coefs_.T
+                    reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 0] = l1_ratio
+                    reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 1] = alphas_
 
-            # Stack all paths as rows
-            pdb.set_trace()
-            coefs = coefs.reshape((-1, n_features))
+                # Stack all paths as rows
+                coefs = coefs.reshape((-1, n_features))
+
+                self.fitted_estimator = Enet_path_estimator(coefs, reg_params)
 
             selector = Selector(selection_method)
-            coefs, reg_param, ops = selector.select(coefs, reg_params, X, y, true_model)
+            coefs, reg_param, ops = selector.select(self.fitted_estimator.coefs, 
+                                                    self.fitted_estimator.reg_params, X, y, true_model)
 
             self.results[selection_method]['coefs'] = coefs
             self.results[selection_method]['reg_param'] = reg_param
@@ -389,8 +391,9 @@ class UoILasso():
             train_boots = np.array([uoi.boots[k][0] for k in uoi.boots.keys()])
             test_boots = np.array([uoi.boots[k][1] for k in uoi.boots.keys()])
 
-            train_boots = Gatherv_rows(train_boots, comm = comm, root = 0)
-            test_boots = Gatherv_rows(test_boots, comm = comm, root = 0)
+            if comm is not None:
+                train_boots = Gatherv_rows(train_boots, comm = comm, root = 0)
+                test_boots = Gatherv_rows(test_boots, comm = comm, root = 0)
             
             self.boots = [train_boots, test_boots]
 
@@ -399,6 +402,7 @@ class UoILasso():
         # using each distinct estimation score
 
         if rank == 0:
+
             true_model = args['betas'].ravel()
             selector = UoISelector(selection_method = selection_method)
             
@@ -414,9 +418,9 @@ class UoILasso():
 class UoIElasticNet(UoILasso):
 
     @classmethod
-    def run(self, X, y, args):
+    def run(self, X, y, args, selection_methods = ['CV']):
 
-        super(UoIElasticNet, self).run(X, y, args)
+        super(UoIElasticNet, self).run(X, y, args, selection_methods)
 
         return self.results
 
@@ -427,7 +431,7 @@ class UoIElasticNet(UoILasso):
             
             # If not yet fitted, run elastic net
             uoi = UoI_ElasticNet(
-                alphas = args['l1_ratios']
+                alphas = args['l1_ratios'],
                 n_boots_sel=int(args['n_boots_sel']),
                 n_boots_est=int(args['n_boots_est']),
                 estimation_score=args['est_score'],
@@ -444,9 +448,9 @@ class UoIElasticNet(UoILasso):
             
             train_boots = np.array([uoi.boots[k][0] for k in uoi.boots.keys()])
             test_boots = np.array([uoi.boots[k][1] for k in uoi.boots.keys()])
-
-            train_boots = Gatherv_rows(train_boots, comm = comm, root = 0)
-            test_boots = Gatherv_rows(test_boots, comm = comm, root = 0)
+            if comm is not None:
+                train_boots = Gatherv_rows(train_boots, comm = comm, root = 0)
+                test_boots = Gatherv_rows(test_boots, comm = comm, root = 0)
             
             self.boots = [train_boots, test_boots]
 
@@ -466,3 +470,11 @@ class UoIElasticNet(UoILasso):
             # Make sure to store the oracle penalty somewhere
         else:
             self.results = None
+
+# Convenience class for usage with enet_path
+class Enet_path_estimator():
+
+    def __init__(self, coefs, reg_params):
+
+        self.coefs = coefs
+        self.reg_params = reg_params
