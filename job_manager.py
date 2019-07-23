@@ -84,12 +84,10 @@ def generate_arg_files(argfile_array, jobdir):
             [arg_dict.update({arg_['sub_iter_params'][j]: arg_comb[i][j] for j in range(len(arg_['sub_iter_params']))})]
             iter_param_list.append(arg_dict)
 
-        # Multiply the iter_param_list by the number of reps. Before doing so, however, 
-        # assign a unique index to each entry that will be used to (1) seed the coefficients 
-        # and the generated data, and (2) to identify unique parameter combinations to 
-        # later average over repetitions of these parameters.
+        # Assign each param combination a unique index before multiplying by reps
+        # so we can easily group identical combinations together later
         for i, param_comb in enumerate(iter_param_list):
-            param_comb['seed'] = i
+            param_comb['index'] = i
             if 'n_samples' in list(param_comb.keys()):
                 n_samples = param_comb['n_samples']
             elif 'np_ratio' in list(param_comb.keys()):
@@ -97,6 +95,10 @@ def generate_arg_files(argfile_array, jobdir):
                 param_comb['n_samples'] = n_samples
         iter_param_list = arg_['reps'] * iter_param_list
         
+        # Seed AFTER multiplying by reps
+        for i, param_comb in enumerate(iter_param_list):
+            param_comb['seed'] = i
+
         ntasks.append(len(iter_param_list))
         arg_file = '%s/master/params%d.dat' % (jobdir, j)
         paths.append(arg_file)
