@@ -18,6 +18,7 @@ from mpi_utils.ndarray import Gatherv_rows
 
 from info_criteria import GIC, eBIC
 from utils import selection_accuracy
+from pycasso_cv import PycassoCV, PycassoGrid
 
 class Selector():
 
@@ -473,6 +474,64 @@ class UoIElasticNet(UoILasso):
         else:
             self.results = None
 
+# Same class can be used for both MCP and SCAD based on our implementation
+# of PycassoCV
+class PYC(CV_Lasso):
+
+    @classmethod
+    def run(self, X, y, args, selection_methods = ['CV']):
+        self.gamma = np.array(args['gamma'])
+        self.penalty = args['penalty']
+        super(PYC, self).run(X, y, args, selection_methods)        
+        return self.results
+
+    @classmethod
+    def fit_and_select(self, X, y, selection_method, true_model): 
+
+        _, n_features = X.shape
+        penalty = self.penalty
+        # For cross validation, use the existing solution: 
+        if selection_method == 'CV': 
+            estimator = PycassoCV(penalty = penalty, nfolds = self.cv_splits, 
+                                  n_alphas = self.n_alphas, 
+                                  fit_intercept=False)
+            estimator.fit(X, y.ravel())
+            self.results[selection_method]['coefs'] = estimator.coef_
+            self.results[selection_method]['reg_param'] = \
+                                        [estimator.gamma_, estimator.alpha_]
+            self.results[selection_method]['oracle_penalty'] = -1
+
+        else: 
+            if not hasattr(self, 'fitted_estimator'):
+                # If not yet fitted, run the pycasso lasso
+                estimator = PycassoGrid(penalty = penalty, n_alphas = self.n_alphas,
+                                        fit_intercept = False, gamma = self.gamma)
+                print('Fitting!')
+                estimator.fit(X, y)
+                self.fitted_estimator = estimator
+
+                # Ravel the grid
+
+                coefs = self.fitted_estimator.coef_.reshape(-1, n_features)
+                reg_params = np.zeros((self.gamma.size * self.n_alphas, 2))
+
+                for i, gamma in enumerate(self.gamma):
+           
+                    reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 0] = gamma
+                    reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 1] = estimator.alphas
+
+                self.coef_ = coefs
+                self.reg_params = reg_params
+
+            # Extract the solution paths and regularization parameters 
+            # and feed into the selector
+            selector = Selector(selection_method = selection_method)
+            coefs, reg_param, ops = selector.select(self.coef_, 
+                                    self.reg_params, X, y, true_model)
+            self.results[selection_method]['coefs'] = coefs
+            self.results[selection_method]['reg_param'] = reg_param
+            self.results[selection_method]['oracle_penalty'] = ops
+
 # Convenience class for usage with enet_path
 class Enet_path_estimator():
 
@@ -480,3 +539,4 @@ class Enet_path_estimator():
 
         self.coefs = coefs
         self.reg_params = reg_params
+
