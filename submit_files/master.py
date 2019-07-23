@@ -2,6 +2,7 @@ import numpy as np
 import itertools
 import pdb
 from misc import get_cov_list
+from utils import gen_beta2
 
 script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
@@ -40,6 +41,23 @@ iter_params = {
 
 #############################################################
 
+##### DO NOT CHANGE THIS UNLESS YOU ARE SURE!!!! ############
+betaseed = 1234
+
+# For each desired betawidth, we generate a fixed beta vector
+# that is held fixed across all paramter combinations. For a fixed
+# sparsity, the exact imposed sparsity profile may vary depending 
+# on the block size of the covariance matrix. However, we use the
+# blocks as a seed for the shuffling that is done, so that for a fixed
+# sparsity and block size, all beta vectors should be identical
+
+betawidth = [0.1, np.inf, -1]
+
+beta_dict = []
+for i, bw in enumerate(betawidth):
+
+	beta_dict.append({'betawidth' : bw, 'beta': gen_beta2(n_features, n_features, 1, bw)})
+
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
 'cov_type' : 'interpolation',
@@ -51,10 +69,10 @@ comm_params = {
 'stability_selection' : [1.0],
 'n_boots_sel': 48,
 'n_boots_est' : 48,
-'betawidth' : [0.1, np.inf, -1],
+'betadict' : beta_dict,
 # Inverse Signal to noise ratio
 'kappa' : [100, 10, 5, 2],
-'sub_iter_params': ['kappa', 'betawidth', 'sparsity']
+'sub_iter_params': ['kappa', 'betadict', 'sparsity']
 }
 
 # Parameters for ElasticNet

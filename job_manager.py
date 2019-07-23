@@ -84,15 +84,16 @@ def generate_arg_files(argfile_array, jobdir):
             [arg_dict.update({arg_['sub_iter_params'][j]: arg_comb[i][j] for j in range(len(arg_['sub_iter_params']))})]
             iter_param_list.append(arg_dict)
 
-        # Assign each param combination a unique index before multiplying by reps
-        # so we can easily group identical combinations together later
         for i, param_comb in enumerate(iter_param_list):
+            # Assign each param combination a unique index before multiplying by reps
+            # so we can easily group identical combinations together later
             param_comb['index'] = i
             if 'n_samples' in list(param_comb.keys()):
                 n_samples = param_comb['n_samples']
             elif 'np_ratio' in list(param_comb.keys()):
                 n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
                 param_comb['n_samples'] = n_samples
+
         iter_param_list = arg_['reps'] * iter_param_list
         
         # Seed AFTER multiplying by reps
@@ -196,7 +197,7 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
                 
 # Use skip_argfiles if arg_files have already been generated and just need to 
 # re-gen sbatch files
-
+    
 # srun_opts: options to feed into the srun command (for example, n tasks, n cpus per task)
 def create_job_structure(submit_file, jobdir, qos, numtasks, cpu_per_task,
                          skip_argfiles = False, single_test = False): 
@@ -244,7 +245,6 @@ def create_job_structure(submit_file, jobdir, qos, numtasks, cpu_per_task,
         else: 
             # No iter params (generate just a single arg file)
             argfile_array = [comm_params]
-
 
         # Generate log file
         generate_log_file(argfile_array, jobdir, desc)

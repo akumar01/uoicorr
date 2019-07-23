@@ -103,6 +103,31 @@ def gen_beta2(n_features = 60, block_size = 10, sparsity = 0.6,
     beta = beta * mask
     return beta
 
+# Given a fully dense beta vector, apply sparsity as needed. Only support
+# uniform sparisty distribution
+def sparsify_beta(beta, block_size, sparsity, seed = None):
+
+
+    n_features = beta.size
+    n_blocks = int(np.floor(n_features/block_size))
+    n_nonzero_beta = int(sparsity * block_size)
+
+
+    if seed is not None:
+        np.random.seed(int(seed))
+
+    # Apply sparsity uniformly across blocks
+    mask = np.array([])
+    for block in range(n_blocks):
+        block_mask = np.zeros(block_size)
+        block_mask[:n_nonzero_beta] = np.ones(n_nonzero_beta)
+        np.random.shuffle(block_mask)
+        mask = np.concatenate((mask, block_mask))
+
+    mask = mask[..., np.newaxis]
+    beta = beta * mask
+    return beta
+
 # Generate coefficients that are of the same magnitude within each block
 def equal_beta(low = 0, high = 10, n_features = 60, block_size = 6):
 

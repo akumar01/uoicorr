@@ -129,9 +129,12 @@ for i in range(num_tasks):
                                params['cov_params']['L'],
                                params['cov_params']['t'])
 
+
+        # Load beta from the fixed instance 
         beta = gen_beta2(params['n_features'], params['cov_params']['block_size'],
                           params['sparsity'], params['betawidth'], 
                           seed = seed)     
+
     else:
         
         sigma = None
