@@ -21,7 +21,7 @@ def init_results_container(selection_methods, fields, num_tasks, n_features, n_r
         if 'beta_hats' in fields:
             results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
         if 'reg_param' in fields:
-            results[selection_method]['reg_param'] = np.zero((num_tasks, n_reg_params))
+            results[selection_method]['reg_param'] = np.zeros((num_tasks, n_reg_params))
 
     return results
 

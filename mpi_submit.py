@@ -93,7 +93,7 @@ print('num_tasks: %d' % num_tasks)
 selection_methods = ['CV', 'BIC', 'AIC']
 
 # hard-code n_reg_params because why not
-if exp_type in ['EN']: 
+if exp_type in ['EN', 'scad', 'mcp']: 
     n_reg_params = 2
 else: 
     n_reg_params = 1
@@ -105,7 +105,7 @@ if subrank == 0:
 
     results_dict = init_results_container(selection_methods, fields, 
                                           num_tasks, n_features,
-                                          n_reg_param)
+                                          n_reg_params)
 
 for i in range(num_tasks):
     start = time.time()
