@@ -7,9 +7,9 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['EN', 'UoIElasticNet']
+exp_types =  ['EN']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['6:00:00', '24:00:00']
+algorithm_times = ['01:00:00']
 
 n_features = 500
 
@@ -60,5 +60,8 @@ comm_params = {
 # Parameters for ElasticNet
 comm_params['l1_ratios'] = [0.1,  0.5, 0.75, 0.9, 0.95]
 comm_params['n_alphas'] = 48
+
+# Parameters for SCAD/MCP
+comm_params['gamma'] = [2.05, 3, 10, 30]
 
 ###############################################################
