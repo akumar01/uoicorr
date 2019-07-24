@@ -90,7 +90,7 @@ print('num_tasks: %d' % num_tasks)
 # is held constant across all iterations
 
 #selection_methods = ['CV', 'AIC', 'BIC', 'eBIC', 'OIC']
-selection_methods = ['CV', 'BIC', 'AIC']
+selection_methods = ['BIC']
 
 # hard-code n_reg_params because why not
 if exp_type in ['EN', 'scad', 'mcp']: 
@@ -131,7 +131,7 @@ for i in range(num_tasks):
 
 
         # Sparsify the beta - seed with the block size
-        beta = sparsify_beta(params['betas'], params['cov_params']['block_size'],
+        beta = sparsify_beta(params['betadict']['beta'], params['cov_params']['block_size'],
                              params['sparsity'], seed=params['cov_params']['block_size'])
 
 

@@ -9,7 +9,7 @@ from sklearn.model_selection import KFold, GroupKFold, cross_validate
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import normalize
 
-from pyuoi.linear_model.cassolasso import UoI_Lasso
+from pyuoi.linear_model import UoI_Lasso
 from pyuoi.linear_model.cassolasso import PycassoLasso
 from pyuoi.linear_model import UoI_ElasticNet
 from pyuoi.lbfgs import fmin_lbfgs
@@ -382,6 +382,8 @@ class UoILasso():
             comm = None
             rank = 0
 
+        self.n_alphas = args['n_alphas']
+
         # Container for results
         self.results = {selection_method : {} 
                         for selection_method in selection_methods}
@@ -406,6 +408,7 @@ class UoILasso():
                 n_boots_est=int(args['n_boots_est']),
                 estimation_score=args['est_score'],
                 stability_selection = args['stability_selection'],
+                n_lambdas = self.n_alphas,
                 comm = comm
                 )
             
