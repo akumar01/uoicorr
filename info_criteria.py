@@ -1,12 +1,15 @@
 import numpy as np
 from pyuoi.utils import log_likelihood_glm
 import scipy
+import pdb
 
 # Generalized information criterion with arbitrary penalty
 def GIC(y, y_pred, model_size, penalty):
 
-    ll = log_likelihood_glm('normal', y, y_pred)
+    y = y.ravel()
+    y_pred = y_pred.ravel()
 
+    ll = log_likelihood_glm('normal', y, y_pred)
     return -2 * ll + penalty * model_size
 
 # Extended BIC (found in literature)

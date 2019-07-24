@@ -13,6 +13,7 @@ from pyuoi.linear_model.cassolasso import UoI_Lasso
 from pyuoi.linear_model.cassolasso import PycassoLasso
 from pyuoi.linear_model import UoI_ElasticNet
 from pyuoi.lbfgs import fmin_lbfgs
+from pyuoi.utils import log_likelihood_glm, BIC
 
 from mpi_utils.ndarray import Gatherv_rows
 
@@ -130,9 +131,10 @@ class Selector():
 
 class UoISelector(Selector):
 
-    def __init__(self, selection_method = 'CV'):
+    def __init__(self, uoi, selection_method = 'CV'):
 
         super(UoISelector, self).__init__(selection_method)
+        self.uoi = uoi
 
     # Perform the UoI Union operation (median)
     def union(self, estimates, selected_idxs):
@@ -162,9 +164,13 @@ class UoISelector(Selector):
 
         return coefs, oracle_penalties
 
-    def r2_selector(self, solutions, X, y, boots, true_model):
+    def r2_selector(self, X, y, boots, true_model):
 
         # UoI Estimates have shape (n_boots_est, n_supports, n_coef)
+
+        solutions = self.uoi.estimates_
+        intercepts = self.uoi.intercepts_
+        boots = self.uoi.boots
 
         n_boots, n_supports, n_coefs = solutions.shape
         scores = np.zeros((n_boots, n_supports))
@@ -172,8 +178,8 @@ class UoISelector(Selector):
         for boot in range(n_boots):
             # Test data
             xx = X[boots[1][boot], :]
-            yy = y[boots[1][boot]]
-            y_pred = solutions[boot, ...] @ xx.T
+            yy = y[boots[1][boot]]  
+            y_pred = solutions[boot, ...] @ xx.T + intercepts[boot, :][:, np.newaxis]
 
             scores[boot, :] = np.array([r2_score(yy, y_pred[j, :]) for j in range(n_supports)])
 
@@ -182,27 +188,46 @@ class UoISelector(Selector):
         coefs = self.union(solutions, selected_idxs)
         return coefs
 
-    def GIC_selector(self, solutions, X, y, boots, true_model):
+    def GIC_selector(self, X, y, boots, true_model):
 
-        n_boots, n_supports, n_coefs = solutions.shape
-        selected_idxs = np.zeros(n_boots, dtype = np.int)
+        # solutions = self.uoi.estimates_
+        # intercepts = self.uoi.intercepts_
 
-        for boot in range(n_boots):
+        # n_boots, n_supports, n_coefs = solutions.shape
+        # selected_idxs = np.zeros(n_boots, dtype = np.int)
 
-            # Train data
-            xx = X[boots[0][boot], :]
-            yy = y[boots[0][boot]]
+        # for boot in range(n_boots):
 
-            selected_idxs[boot] = super(UoISelector, self).GIC_selector(solutions[boot, ...],
-                                                                     np.arange(n_supports),
-                                                                     xx, yy, true_model)
-        coefs = self.union(solutions, selected_idxs)
+        #     # Train data
+        #     xx = X[boots[0][boot], :]
+        #     yy = y[boots[0][boot]]
+
+        #     if self.selection_method == 'BIC':
+        #         penalty = np.log(yy.shape[-1])
+        #     if self.selection_method == 'AIC':
+        #         penalty = 2
+
+        #     # Should be of the shape n_reg_params by n_samples
+        #     y_pred = solutions[boot, ...] @ xx.T + intercepts[boot, :][:, np.newaxis]
+        #     scores = np.array([GIC(yy, y_pred[i, :], np.count_nonzero(solutions[boot, i, :]),
+        #                             penalty) for i in range(n_supports)])
+
+        #     selected_idxs[boot] = np.argmin(scores)
+        #     pdb.set_trace()
+        # coefs = self.union(solutions, selected_idxs)
+
+        coefs = self.uoi.coef_
+
         return coefs
 
-    def mBIC_selector(self, solutions, X, y, boots, true_model):
+    def mBIC_selector(self, X, y, true_model):
         pass
 
-    def eBIC_selector(self, solutions, X, y, boots, true_model):
+    def eBIC_selector(self, X, y, true_model):
+
+        solutions = self.uoi.estimates_
+        intercepts = self.uoi.intercepts_
+        boots = self.uoi.boots
 
         n_boots, n_supports, n_coefs = solutions.shape
         selected_idxs = np.zeros(n_boots, dtype = np.int)
@@ -211,7 +236,7 @@ class UoISelector(Selector):
 
             # Train data
             xx = X[boots[0][boot], :]
-            yy = y[boots[0][boot]]
+            yy = y[boots[0][boot]] - intercepts[boot, :]
 
             selected_idxs[boot] = super(UoISelector, self).eBIC_selector(solutions[boot, ...],
                                                                      np.arange(n_supports),
@@ -219,7 +244,7 @@ class UoISelector(Selector):
         coefs = self.union(solutions, selected_idxs)
         return coefs
 
-    def OIC_selector(self, solutions, X, y, boots, true_model):
+    def OIC_selector(self, X, y, true_model):
         
         n_boots, n_supports, n_coefs = solutions.shape
         selected_idxs = np.zeros(n_boots, dtype = np.int)
@@ -407,10 +432,9 @@ class UoILasso():
         if rank == 0:
 
             true_model = args['betas'].ravel()
-            selector = UoISelector(selection_method = selection_method)
+            selector = UoISelector(self.fitted_estimator, selection_method = selection_method)
             
-            coefs, ops = selector.select(self.fitted_estimator.estimates_, X, y, 
-                                         self.boots, true_model)
+            coefs, ops = selector.select(X, y, self.boots, true_model)
             self.results[selection_method]['coefs'] = coefs
             self.results[selection_method]['reg_param'] = -1
             self.results[selection_method]['oracle_penalty'] = np.mean(ops)
@@ -463,10 +487,9 @@ class UoIElasticNet(UoILasso):
 
         if rank == 0:
             true_model = args['betas'].ravel()
-            selector = UoISelector(selection_method = selection_method)
+            selector = UoISelector(self.fitted_estimator, selection_method = selection_method)
             
-            coefs, ops = selector.select(self.fitted_estimator.estimates_, X, y, 
-                                         self.boots, true_model)
+            coefs, ops = selector.select(X, y, self.boots, true_model)
             self.results[selection_method]['coefs'] = coefs
             self.results[selection_method]['reg_param'] = -1
             self.results[selection_method]['oracle_penalty'] = np.mean(ops)
