@@ -13,7 +13,7 @@ from pydoc import locate
 from sklearn.preprocessing import StandardScaler
 
 from mpi_utils.ndarray import Bcast_from_root, Gatherv_rows, Gather_ndlist
-from utils import gen_covariance, gen_beta2, gen_data
+from utils import gen_covariance, gen_data, sparsify_beta
 from results_manager import init_results_container, calc_result, gather_results
 
 total_start = time.time()
@@ -130,10 +130,10 @@ for i in range(num_tasks):
                                params['cov_params']['t'])
 
 
-        # Load beta from the fixed instance 
-        beta = gen_beta2(params['n_features'], params['cov_params']['block_size'],
-                          params['sparsity'], params['betawidth'], 
-                          seed = seed)     
+        # Sparsify the beta - seed with the block size
+        beta = sparsify_beta(params['betas'], params['cov_params']['block_size'],
+                             params['sparsity'], seed=params['cov_params']['block_size'])
+
 
     else:
         
