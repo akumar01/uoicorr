@@ -8,7 +8,7 @@ import pickle
 import struct
 import time
 import traceback
-
+from shlex import split
 import pandas as pd
 from glob import glob
 from subprocess import check_output
@@ -395,17 +395,20 @@ def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
 
             # replace srun with mpiexec -nprocs
             mpi_string = srun_string.replace('srun', 'mpiexec -n %d' % nprocs)
+            mpi_string = split(mpi_string)
+            for output in local_exec(mpi_string):
+                print(output)
 
-            popen = subprocess.Popen(mpi_string, stdout=subprocess.PIPE, universal_newlines=True)
-            for stdout_line in iter(popen.stdout.readline, ""):
-                yield stdout_line 
-            popen.stdout.close()
-            return_code = popen.wait()
-            if return_code:
-                raise subprocess.CalledProcessError(return_code, cmd)
-
-            msg = check_output(mpi_string)
-            print(msg)
+# Copied from this stackoverflow post: https://stackoverflow.com/questions/4417546/constantly-print-subprocess-output-while-process-is-running
+# Capture stdout in real time 
+def local_exec(cmd):
+    popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+    for stdout_line in iter(popen.stdout.readline, ""):
+        yield stdout_line 
+    popen.stdout.close()
+    return_code = popen.wait()
+    if return_code:
+        raise subprocess.CalledProcessError(return_code, cmd)
 
 # Edit specific lines of the provided sbatch files (full paths)
 # By default, edits an attribute
