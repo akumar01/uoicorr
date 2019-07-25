@@ -4,7 +4,7 @@ import itertools
 import time
 
 from sklearn.linear_model.coordinate_descent import _alpha_grid
-from sklearn.linear_model import LassoCV, ElasticNetCV, enet_path
+from sklearn.linear_model import LassoCV, ElasticNetCV, RidgeCV, ElasticNet
 from sklearn.model_selection import KFold, GroupKFold, cross_validate
 from sklearn.metrics import r2_score
 from sklearn.preprocessing import normalize
@@ -12,6 +12,7 @@ from sklearn.preprocessing import normalize
 from pyuoi.linear_model import UoI_Lasso
 from pyuoi.linear_model.cassolasso import PycassoLasso
 from pyuoi.linear_model import UoI_ElasticNet
+from pyuoi.linear_model.casso_en import PycassoElasticNet
 from pyuoi.lbfgs import fmin_lbfgs
 from pyuoi.utils import log_likelihood_glm, BIC
 
@@ -269,7 +270,9 @@ class CV_Lasso():
 
     @classmethod
     def run(self, X, y, args, selection_methods = ['CV']):
-
+        
+        if hasattr(self, 'fitted_estimator'):
+            del self.fitted_estimator
         self.n_alphas = args['n_alphas']
         self.cv_splits = 5
 
@@ -286,7 +289,6 @@ class CV_Lasso():
         for selection_method in selection_methods:
             self.fit_and_select(X, y.ravel(), selection_method, true_model)
         
-        del self.fitted_estimator
         return self.results
 
     @classmethod
@@ -322,8 +324,9 @@ class EN(CV_Lasso):
     @classmethod
     def run(self, X, y, args, selection_methods = ['CV']):
 
-        self.l1_ratio = args['l1_ratios']
-
+        # Run RidgeCV to determine L2 penalty
+        rdge = RidgeCV(alphas = np.linspace(1e-5, 100, 500)).fit(X, y)
+        self.l2 = rdge.alpha_
         results = super(EN, self).run(X, y, args, selection_methods)
 
         return results
@@ -342,24 +345,25 @@ class EN(CV_Lasso):
             self.results[selection_method]['oracle_penalty'] = -1
 
         else:
-            # Use sklearn's coordinate descent based enet_path for all other selection methods
+            estimates = np.zeros((self.alphas.size, n_features))
+
+            # Fit elastic net to self-defined grid 
             if not hasattr(self, 'fitted_estimator'):
 
-                reg_params = np.zeros((len(self.l1_ratio) * self.n_alphas, 2))
+                for i, l1 in enumerate(self.alphas):
+                    l1_ratio = l1/(l1 + 2 * self.l2)
+                    alpha = l1 + 2 * self.l2
 
-                coefs = np.zeros((len(self.l1_ratio), self.n_alphas, n_features))
+                    en = ElasticNet(l1_ratio = l1_ratio, alpha = alpha, 
+                                    fit_intercept = False)
+                    en.fit(X, y)
+                    estimates[i, :] = (1 + self.l2) * en.coef_.ravel()
 
-                for i, l1_ratio in enumerate(self.l1_ratio):
-                    alphas_, coefs_, _ = enet_path(X, y, l1_ratio = l1_ratio, n_alphas = self.n_alphas)            
-           
-                    coefs[i, :] = coefs_.T
-                    reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 0] = l1_ratio
-                    reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 1] = alphas_
-
-                # Stack all paths as rows
-                coefs = coefs.reshape((-1, n_features))
-
-                self.fitted_estimator = Enet_path_estimator(coefs, reg_params)
+                reg_params = np.zeros((self.alphas.size, 2))
+                reg_params[:, 0] = self.l2
+                reg_params[:, 1] = self.alphas
+                self.fitted_estimator = EN_grid(coefs = estimates, 
+                                                reg_params = reg_params)
 
             selector = Selector(selection_method)
             coefs, reg_param, ops = selector.select(self.fitted_estimator.coefs, 
@@ -369,11 +373,13 @@ class EN(CV_Lasso):
             self.results[selection_method]['reg_param'] = reg_param
             self.results[selection_method]['oracle_penalty'] = ops
 
-
 class UoILasso():
 
     @classmethod
     def run(self, X, y, args, selection_methods = ['CV']):
+
+        if hasattr(self, 'fitted_estimator'):
+            del self.fitted_estimator
 
         if 'comm' in list(args.keys()):
             comm = args['comm']
@@ -393,7 +399,6 @@ class UoILasso():
 
         # Make sure to delete the fitted estimator, otherwise on subsequent calls
         # we won't end up re-fitting to the new data!
-        del self.fitted_estimator
         return self.results
 
     @classmethod 
@@ -461,11 +466,11 @@ class UoIElasticNet(UoILasso):
             
             # If not yet fitted, run elastic net
             uoi = UoI_ElasticNet(
-                alphas = args['l1_ratios'],
                 n_boots_sel=int(args['n_boots_sel']),
                 n_boots_est=int(args['n_boots_est']),
                 estimation_score=args['est_score'],
                 stability_selection = args['stability_selection'],
+                n_lambdas = self.n_alphas,
                 comm = comm
                 )
             
@@ -558,8 +563,8 @@ class PYC(CV_Lasso):
             self.results[selection_method]['reg_param'] = reg_param
             self.results[selection_method]['oracle_penalty'] = ops
 
-# Convenience class for usage with enet_path
-class Enet_path_estimator():
+# Convenience class for usage with EN
+class EN_grid():
 
     def __init__(self, coefs, reg_params):
 
