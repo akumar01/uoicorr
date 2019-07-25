@@ -377,18 +377,27 @@ def run_(run_file):
 # Sequentially run files locally:
 def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
     # Crawl through all subdirectories and 
-    # (1) change permissions of sbatch file
-    # (2) run sbatch file
-    run_files = grab_arg_files(jobdir, exp_type)
-            
+    # (1) Grab the sbatch files
+    # (2) Extract the srun statement
+    # (3) Replace srun with mpiexec and run
+    run_files = grab_files(jobdir, '*.sh', exp_type)
+
     if size is not None:
         run_files = run_files[:size]
     cont = input("You are about to submit %d jobs, do you want to continue? [0/1]" % len(run_files))
 
     if cont:
         for run_file in run_files:
-            msg = check_output('mpiexec -n %d python -u mpi_submit.py %s' 
-                          % (nprocs, run_file))        
+            with open(run_file, 'r') as f:
+                fcontents = f.readlines()
+
+            srun_string = [s for s in fcontents if 'srun' in s][0]
+
+            # replace srun with mpiexec -nprocs
+            mpi_string = srun_string.replace('srun', 'mpiexec -n %d' % nprocs)
+            pdb.set_trace()
+            msg = check_output(mpi_string)
+
             print(msg) 
 
 # Edit specific lines of the provided sbatch files (full paths)
