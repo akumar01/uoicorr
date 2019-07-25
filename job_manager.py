@@ -8,7 +8,7 @@ import pickle
 import struct
 import time
 import traceback
-import natsort
+
 import pandas as pd
 from glob import glob
 from subprocess import check_output
@@ -397,8 +397,7 @@ def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
             mpi_string = srun_string.replace('srun', 'mpiexec -n %d' % nprocs)
             pdb.set_trace()
             msg = check_output(mpi_string)
-
-            print(msg) 
+            print(msg)
 
 # Edit specific lines of the provided sbatch files (full paths)
 # By default, edits an attribute
@@ -514,7 +513,9 @@ def grab_files(root_dir, file_str, exp_type = None):
                     run_files.extend(glob('%s/%s' % (p, file_str)))
             else:
                 run_files.extend(glob('%s/%s' % (p, file_str)))
-    run_files = natsort.natsorted(run_files)
+
+
+    #run_files = natsort.natsorted(run_files)
     return run_files
 
 # Return the full path to the file type given a list of jobIDs
