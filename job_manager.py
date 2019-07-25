@@ -395,7 +395,15 @@ def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
 
             # replace srun with mpiexec -nprocs
             mpi_string = srun_string.replace('srun', 'mpiexec -n %d' % nprocs)
-            pdb.set_trace()
+
+            popen = subprocess.Popen(mpi_string, stdout=subprocess.PIPE, universal_newlines=True)
+            for stdout_line in iter(popen.stdout.readline, ""):
+                yield stdout_line 
+            popen.stdout.close()
+            return_code = popen.wait()
+            if return_code:
+                raise subprocess.CalledProcessError(return_code, cmd)
+
             msg = check_output(mpi_string)
             print(msg)
 
