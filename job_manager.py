@@ -57,7 +57,8 @@ def generate_arg_files(argfile_array, jobdir):
 
     paths = []
     ntasks = []
-
+    # Keep track of seeds so that they are not repeated
+    seeds = []
     for j, arg_ in enumerate(argfile_array):
         start = time.time()
 
@@ -94,11 +95,15 @@ def generate_arg_files(argfile_array, jobdir):
                 n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
                 param_comb['n_samples'] = n_samples
 
-        iter_param_list = arg_['reps'] * iter_param_list
-        
+        iter_param_list = arg_['reps'] * iter_param_list        
+
         # Seed AFTER multiplying by reps
         for i, param_comb in enumerate(iter_param_list):
-            param_comb['seed'] = i
+            seed = np.random.randint(1, 1000 * len(iter_param_list) * len(argfile_array))
+            while seed in seeds:
+                seed = np.random.randint(1, 1000 * len(iter_param_list) * len(argfile_array))
+            param_comb['seed'] = seed
+            seeds.append(seed)
 
         ntasks.append(len(iter_param_list))
         arg_file = '%s/master/params%d.dat' % (jobdir, j)
@@ -127,6 +132,9 @@ def generate_arg_files(argfile_array, jobdir):
             f.write(struct.pack('L', index_loc))
         print('arg_file iteration time: %f' % (time.time() - start))
     
+    # Check that all random number seeds are unique
+    assert(len(np.unique(seeds)) == len(seeds))    
+
     return paths, ntasks
 
 # Store the metadata as an easily searchable pandas dataframe

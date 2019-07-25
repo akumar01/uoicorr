@@ -8,9 +8,9 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['EN']
+exp_types =  ['UoILasso', 'UoIElasticNet', 'EN', 'CV_Lasso', 'scad', 'mcp']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['01:00:00']
+algorithm_times = ['08:00:00', '24:00:00', '02:00:00', '01:00:00', '01:00:00', '01:00:00']
 
 n_features = 500
 
@@ -67,19 +67,19 @@ comm_params = {
 'est_score': 'BIC',
 'reps' : 20,
 'stability_selection' : [1.0],
-'n_boots_sel': 48,
-'n_boots_est' : 48,
+'n_boots_sel': 25,
+'n_boots_est' : 25,
 'betadict' : beta_dict,
 # Inverse Signal to noise ratio
-'kappa' : [100, 10, 5, 2],
-'sub_iter_params': ['kappa', 'betadict', 'sparsity']
+'kappa' : [100, 5, 2, 1],
+'sub_iter_params': ['betadict', 'sparsity', 'kappa']
 }
 
 # Parameters for ElasticNet
 comm_params['l1_ratios'] = [0.1,  0.5, 0.75, 0.9, 0.95]
-comm_params['n_alphas'] = 48
+comm_params['n_alphas'] = 100
 
 # Parameters for SCAD/MCP
-comm_params['gamma'] = [2.05, 3, 10, 30]
+comm_params['gamma'] = [3]
 
 ###############################################################
