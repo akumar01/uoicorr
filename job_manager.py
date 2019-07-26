@@ -409,10 +409,10 @@ def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = Non
             # Replace the data path with the local machine path, if they are 
             # not the same
             run_file_root_path = '/'.join(run_file.split('/')[:-2])
-            mpi_string_suffix = mpi_string[6].split('/')[-2]
+            mpi_string_suffix = '/'.join(mpi_string[6].split('/')[-2:])
             mpi_string[6] = run_file_root_path + '/%s' % mpi_string_suffix
 
-            mpi_string_suffix = mpi_string[7].split('/')[-2]
+            mpi_string_suffix = '/'.join(mpi_string[7].split('/')[-2:])
             mpi_string[7] = run_file_root_path + '/%s' % mpi_string_suffix
             pdb.set_trace()
             for output in local_exec(mpi_string):
