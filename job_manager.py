@@ -375,12 +375,14 @@ def run_(run_file):
     os.system('sbatch %s' % run_file)
                 
 # Sequentially run files locally:
-def run_jobs_local(jobdir, nprocs, size = None, exp_type = None):
+def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = None):
     # Crawl through all subdirectories and 
     # (1) Grab the sbatch files
     # (2) Extract the srun statement
     # (3) Replace srun with mpiexec and run
-    run_files = grab_files(jobdir, '*.sh', exp_type)
+
+    if run_files is None:
+        run_files = grab_files(jobdir, '*.sh', exp_type)
 
     if size is not None:
         run_files = run_files[:size]
