@@ -375,11 +375,14 @@ def run_(run_file):
     os.system('sbatch %s' % run_file)
                 
 # Sequentially run files locally:
-def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = None):
+def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = None,
+                   script_dir=None):
     # Crawl through all subdirectories and 
     # (1) Grab the sbatch files
     # (2) Extract the srun statement
-    # (3) Replace srun with mpiexec and run
+    # (3) Replace srun with mpiexec 
+    # (4) Replace script and data dirs with local machine paths
+    # (5) Run 
 
     if run_files is None:
         run_files = grab_files(jobdir, '*.sh', exp_type)
@@ -398,6 +401,20 @@ def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = Non
             # replace srun with mpiexec -nprocs
             mpi_string = srun_string.replace('srun', 'mpiexec -n %d' % nprocs)
             mpi_string = split(mpi_string)
+
+            # Replace script and data dirs with local machine paths
+            if script_dir is not None:
+                mpi_string[5] = script_dir
+
+            # Replace the data path with the local machine path, if they are 
+            # not the same
+            run_file_root_path = '/'.join(run_file.split('/')[:-2])
+            mpi_string_suffix = mpi_string[6].split('/')[-2]
+            mpi_string[6] = run_file_root_path + '/%s' % mpi_string_suffix
+
+            mpi_string_suffix = mpi_string[7].split('/')[-2]
+            mpi_string[7] = run_file_root_path + '/%s' % mpi_string_suffix
+            pdb.set_trace()
             for output in local_exec(mpi_string):
                 print(output)
 
