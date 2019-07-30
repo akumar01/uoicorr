@@ -16,19 +16,22 @@ from utils import gen_covariance, gen_beta2, gen_data
 from misc import group_dictionaries, unique_obj
 
 # Take two integers and generate a unique, single integer from them
-def gen_seed(i, j):
-    i_list = list(map(int, str(i)))
-    j_list = list(map(int, str(j)))
+def gen_seed(i, j, dimi, dimj):
+    # i_list = list(map(int, str(i)))
+    # j_list = list(map(int, str(j)))
 
-    # Use the method of interleaving
-    k_list = list(itertools.chain.from_iterable(
-                  itertools.izip_longest(i_list, j_list)))
+    # # Use the method of interleaving
+    # k_list = list(itertools.chain.from_iterable(
+    #               itertools.zip_longest(i_list, j_list)))
 
-    # Filter out Nones
-    k_list = [k for k in k_list if k is not None]
+    # # Filter out Nones
+    # k_list = [k for k in k_list if k is not None]
 
-    # Return to the a number
-    seed = int("".join(map(str, k_list)))
+    # # Return to the a number
+    # seed = int("".join(map(str, k_list)))
+
+    seed = np.ravel_multi_index((i, j), dims=(dimi, dimj))
+
     return seed
 
 def chunk_list(l, n):
@@ -115,7 +118,7 @@ def generate_arg_files(argfile_array, jobdir):
 
         # Seed AFTER multiplying by reps
         for i, param_comb in enumerate(iter_param_list):
-            seed = gen_seed(i, j)
+            seed = gen_seed(i, j, len(iter_param_list), len(argfile_array))
             param_comb['seed'] = seed
             seeds.append(seed)
 
@@ -146,6 +149,8 @@ def generate_arg_files(argfile_array, jobdir):
             f.write(struct.pack('L', index_loc))
         print('arg_file iteration time: %f' % (time.time() - start))
     
+
+
     # Check that all random number seeds are unique
     assert(len(np.unique(seeds)) == len(seeds))    
 
