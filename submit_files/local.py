@@ -8,35 +8,32 @@ script_dir = '~/nse/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['UoILasso']
+exp_types =  ['CV_Lasso']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
 algorithm_times = ['08:00:00', '24:00:00', '02:00:00', '01:00:00', '01:00:00', '01:00:00']
 
-n_features = 500
+n_features = 50
 
 # Block sizes
-block_sizes = [25, 50, 100]
+block_sizes = [2, 5, 10]
 
 # Block correlation
 correlation = [0, 0.08891397, 0.15811388, 0.28117066, 0.5]
 
 # Exponential length scales
-L = [10, 25, 50, 100]
+L = [1, 2, 5, 10]
 
 cov_list, _ = get_cov_list(n_features, 60, correlation, block_sizes, L, n_supplement = 20)
 
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 
-sparsity = np.logspace(np.log10(0.02), 0, 15)
+sparsity = np.logspace(np.log10(0.02), 0, 1)
 sparsity = sparsity[sparsity >= 0.04]
 sparsity = sparsity[sparsity <= 0.6]
 
 iter_params = {
 
 'cov_params' : cov_params,
-
-# Sparsity
-'sparsity' : np.array_split(sparsity, 5)
 
 }
 
@@ -61,6 +58,7 @@ for i, bw in enumerate(betawidth):
 
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {
+'sparsity' : 0.5,
 'cov_type' : 'interpolation',
 'n_features' : n_features,
 # n/p ratio #
@@ -72,8 +70,8 @@ comm_params = {
 'n_boots_est' : 25,
 'betadict' : beta_dict,
 # Inverse Signal to noise ratio
-'kappa' : [5, 2, 1],
-'sub_iter_params': ['betadict', 'sparsity', 'kappa']
+'kappa' : 5,
+'sub_iter_params': ['betadict']
 }
 
 # Parameters for ElasticNet

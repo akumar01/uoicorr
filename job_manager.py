@@ -9,11 +9,14 @@ import struct
 import time
 import traceback
 from shlex import split
+from copy import deepcopy
 import pandas as pd
 from glob import glob
 from subprocess import check_output
+import subprocess
 from utils import gen_covariance, gen_beta2, gen_data
 from misc import group_dictionaries, unique_obj
+
 
 # Take two integers and generate a unique, single integer from them
 def gen_seed(i, j, dimi, dimj):
@@ -115,18 +118,15 @@ def generate_arg_files(argfile_array, jobdir):
                 param_comb['n_samples'] = n_samples
 
         # Make n_reps independent copies of iter_param_list
-        iter_param_list = [list(iter_param_list) for _ in arg_['reps']]
-        pdb.set_trace()
-
-        # Now flatten
-        iter_param_list = [elem for elem in sublist for sublist in iter_param_list]         
+        iter_param_list = [deepcopy(iter_param_list) for _ in range(arg_['reps'])]
+        iter_param_list = [elem for sublist in iter_param_list for elem in sublist]
 
         # Seed AFTER copying for reps
         for i, param_comb in enumerate(iter_param_list):
             seed = gen_seed(i, j, len(iter_param_list), len(argfile_array))
             param_comb['seed'] = seed
             seeds.append(seed)
-
+            
         ntasks.append(len(iter_param_list))
         arg_file = '%s/master/params%d.dat' % (jobdir, j)
         paths.append(arg_file)
@@ -438,8 +438,8 @@ def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = Non
 
             mpi_string_suffix = '/'.join(mpi_string[7].split('/')[-2:])
             mpi_string[7] = run_file_root_path + '/%s' % mpi_string_suffix
-            pdb.set_trace(
-)            for output in local_exec(mpi_string):
+            
+            for output in local_exec(mpi_string):
                 print(output)
 
 # Copied from this stackoverflow post: https://stackoverflow.com/questions/4417546/constantly-print-subprocess-output-while-process-is-running
