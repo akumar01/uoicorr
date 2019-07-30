@@ -15,6 +15,22 @@ from subprocess import check_output
 from utils import gen_covariance, gen_beta2, gen_data
 from misc import group_dictionaries, unique_obj
 
+# Take two integers and generate a unique, single integer from them
+def gen_seed(i, j):
+    i_list = list(map(int, str(i)))
+    j_list = list(map(int, str(j)))
+
+    # Use the method of interleaving
+    k_list = list(itertools.chain.from_iterable(
+                  itertools.izip_longest(i_list, j_list)))
+
+    # Filter out Nones
+    k_list = [k for k in k_list if k is not None]
+
+    # Return to the a number
+    seed = int("".join(map(str, k_list)))
+    return seed
+
 def chunk_list(l, n):
     # For item i in a range that is a length of l,
     for i in range(0, len(l), n):
@@ -99,9 +115,7 @@ def generate_arg_files(argfile_array, jobdir):
 
         # Seed AFTER multiplying by reps
         for i, param_comb in enumerate(iter_param_list):
-            seed = np.random.randint(1, 1000 * len(iter_param_list) * len(argfile_array))
-            while seed in seeds:
-                seed = np.random.randint(1, 1000 * len(iter_param_list) * len(argfile_array))
+            seed = gen_seed(i, j)
             param_comb['seed'] = seed
             seeds.append(seed)
 
