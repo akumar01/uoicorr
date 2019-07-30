@@ -114,9 +114,14 @@ def generate_arg_files(argfile_array, jobdir):
                 n_samples = int(param_comb['np_ratio'] * param_comb['n_features'])
                 param_comb['n_samples'] = n_samples
 
-        iter_param_list = arg_['reps'] * iter_param_list        
+        # Make n_reps independent copies of iter_param_list
+        iter_param_list = [list(iter_param_list) for _ in arg_['reps']]
+        pdb.set_trace()
 
-        # Seed AFTER multiplying by reps
+        # Now flatten
+        iter_param_list = [elem for elem in sublist for sublist in iter_param_list]         
+
+        # Seed AFTER copying for reps
         for i, param_comb in enumerate(iter_param_list):
             seed = gen_seed(i, j, len(iter_param_list), len(argfile_array))
             param_comb['seed'] = seed
@@ -433,8 +438,8 @@ def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = Non
 
             mpi_string_suffix = '/'.join(mpi_string[7].split('/')[-2:])
             mpi_string[7] = run_file_root_path + '/%s' % mpi_string_suffix
-            pdb.set_trace()
-            for output in local_exec(mpi_string):
+            pdb.set_trace(
+)            for output in local_exec(mpi_string):
                 print(output)
 
 # Copied from this stackoverflow post: https://stackoverflow.com/questions/4417546/constantly-print-subprocess-output-while-process-is-running
