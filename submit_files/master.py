@@ -8,7 +8,7 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['UoILasso', 'UoIElasticNet', 'EN', 'CV_Lasso', 'scad', 'mcp']
+exp_types =  ['UoILasso']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
 algorithm_times = ['08:00:00', '24:00:00', '02:00:00', '01:00:00', '01:00:00', '01:00:00']
 
@@ -29,6 +29,7 @@ cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]}
 
 sparsity = np.logspace(np.log10(0.02), 0, 15)
 sparsity = sparsity[sparsity >= 0.04]
+sparsity = sparsity[sparsity <= 0.6]
 
 iter_params = {
 
@@ -65,13 +66,13 @@ comm_params = {
 # n/p ratio #
 'np_ratio': 5,
 'est_score': 'BIC',
-'reps' : 20,
+'reps' : 10,
 'stability_selection' : [1.0],
 'n_boots_sel': 25,
 'n_boots_est' : 25,
 'betadict' : beta_dict,
 # Inverse Signal to noise ratio
-'kappa' : [100, 5, 2, 1],
+'kappa' : [5, 2, 1],
 'sub_iter_params': ['betadict', 'sparsity', 'kappa']
 }
 

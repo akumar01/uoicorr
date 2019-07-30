@@ -438,7 +438,7 @@ def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = Non
 
             mpi_string_suffix = '/'.join(mpi_string[7].split('/')[-2:])
             mpi_string[7] = run_file_root_path + '/%s' % mpi_string_suffix
-            
+
             for output in local_exec(mpi_string):
                 print(output)
 

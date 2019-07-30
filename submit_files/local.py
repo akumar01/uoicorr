@@ -12,10 +12,17 @@ exp_types =  ['CV_Lasso']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
 algorithm_times = ['08:00:00', '24:00:00', '02:00:00', '01:00:00', '01:00:00', '01:00:00']
 
+<<<<<<< Updated upstream
 n_features = 50
 
 # Block sizes
 block_sizes = [2, 5, 10]
+=======
+n_features = 250
+
+# Block sizes
+block_sizes = [25,5 0, 100]
+>>>>>>> Stashed changes
 
 # Block correlation
 correlation = [0, 0.08891397, 0.15811388, 0.28117066, 0.5]
@@ -64,7 +71,7 @@ comm_params = {
 # n/p ratio #
 'np_ratio': 5,
 'est_score': 'BIC',
-'reps' : 10,
+'reps' : 5,
 'stability_selection' : [1.0],
 'n_boots_sel': 25,
 'n_boots_est' : 25,

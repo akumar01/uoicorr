@@ -29,7 +29,6 @@ def init_results_container(selection_methods, fields, num_tasks, n_features, n_r
 # with field names
 def calc_result(X, X_test, y, y_test, beta, field, exp_results): 
 
-
     y = y.ravel()
     y_test = y_test.ravel()
     beta = beta.ravel()
@@ -80,7 +79,6 @@ def calc_result(X, X_test, y, y_test, beta, field, exp_results):
 # Calculate the best result along a solution path
 def calc_path_result(X, X_test, y, y_test, beta, field, exp_results): 
 
-
     y = y.ravel()
     y_test = y_test.ravel()
     beta = beta.ravel()
@@ -119,6 +117,12 @@ def calc_path_result(X, X_test, y, y_test, beta, field, exp_results):
 
     return result
 
+
+# Insert results from a task into the appropriate index of the master results 
+# file
+def insert_results(master_results, task_results, idx):
+
+    
 
 
 # Gather each entry of results and return the final dictionary
