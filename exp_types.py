@@ -3,6 +3,8 @@ import pdb
 import itertools
 import time
 
+import rpy2
+
 from sklearn.linear_model.coordinate_descent import _alpha_grid
 from sklearn.linear_model import LassoCV, ElasticNetCV, RidgeCV, ElasticNet
 from sklearn.model_selection import KFold, GroupKFold, cross_validate
@@ -345,10 +347,10 @@ class EN(CV_Lasso):
             self.results[selection_method]['oracle_penalty'] = -1
 
         else:
-            estimates = np.zeros((self.alphas.size, n_features))
 
             # Fit elastic net to self-defined grid 
             if not hasattr(self, 'fitted_estimator'):
+                estimates = np.zeros((self.alphas.size, n_features))
 
                 for i, l1 in enumerate(self.alphas):
                     l1_ratio = l1/(l1 + 2 * self.l2)
@@ -362,7 +364,7 @@ class EN(CV_Lasso):
                 reg_params = np.zeros((self.alphas.size, 2))
                 reg_params[:, 0] = self.l2
                 reg_params[:, 1] = self.alphas
-                self.fitted_estimator = EN_grid(coefs = estimates, 
+                self.fitted_estimator = dummy_estimator(coefs = estimates, 
                                                 reg_params = reg_params)
 
             selector = Selector(selection_method)
@@ -563,8 +565,63 @@ class PYC(CV_Lasso):
             self.results[selection_method]['reg_param'] = reg_param
             self.results[selection_method]['oracle_penalty'] = ops
 
-# Convenience class for usage with EN
-class EN_grid():
+# Run R to solve slope
+class SLOPE(CV_Lasso):
+
+    @classmethod
+    def run(self, X, y, args, selection_method = ['BIC']):
+
+        self.lambda_method = args['lambda_method']
+        self.reg_params = args['slope_reg_params']
+        super(SLOPE, self).run(X, y, args, selection_methods)        
+        return self.results
+
+    def fit_and_select(self, X, y, selection_method, true_model):
+
+        if selection_method == 'CV':
+            raise NotImplementedError('CV not supported')
+
+        if not hasattr(self, 'fitted_estimator'):
+
+            n_samples, n_features = X.shape
+
+            # Initialize R interface. Make sure SLOPE is installed! 
+            slope = rpy2.robjects.packages.importr('SLOPE')
+            rpy2.robjects.numpy2ri.activate()
+
+            if self.lambda_method == 'FDR':
+                lambdas = np.array([slope.create_lambda(n_samples, n_features, 
+                                              fdr = fdr,
+                                              method = 'gaussian')
+                                    for fdr in self.reg_params['slopre_reg_params']['fdr']])
+            elif self.lambda_method == 'user':
+                lambdas = self.reg_params['slope_reg_params']['lambda']
+
+            if lambdas.ndim == 1:
+                lambdas = lambdas[np.newaxis, :]
+
+            estimates = np.zeros((lambdas.shape[0], n_features))
+
+            for i in range(lambdas.shape[0]):
+                result = slope.SLOPE_solver(X, y, lambdas[i, :])
+                estimates[i, :] = np.array(result[4])
+
+            # Feed in dummy reg_params --> not to interested in them
+            self.fitted_estimator = dummy_estimator(estimates, np.arange(lambdas.shape[0]))
+
+            selector = Selector(selection_method = selection_method)
+
+            coefs, reg_param, ops = selector.select(self.fitted_estimator.coefs, 
+                                                    self.fitted_estimator.reg_params, 
+                                                    X, y, true_model)
+
+            self.results[selection_method]['coefs'] = coefs
+            self.results[selection_method]['reg_param'] = reg_param
+            self.results[selection_method]['oracle_penalty'] = ops
+
+
+# Convenience Class
+class dummy_estimator():
 
     def __init__(self, coefs, reg_params):
 
