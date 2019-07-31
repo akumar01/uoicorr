@@ -13,8 +13,6 @@ from pydoc import locate
 from sklearn.preprocessing import StandardScaler
 
 from mpi_utils.ndarray import Bcast_from_root, Gatherv_rows, Gather_ndlist
-from utils import gen_covariance, gen_data, sparsify_beta
-from results_manager import init_results_container, calc_result, gather_results
 
 total_start = time.time()
 
@@ -24,12 +22,21 @@ parser = argparse.ArgumentParser()
 parser.add_argument('arg_file')
 parser.add_argument('results_file', default = 'results.h5')
 parser.add_argument('exp_type', default = 'UoILasso')
+parser.add_argument('--paths', nargs='+', type=str)
 parser.add_argument('--comm_splits', type=int, default = None)
 parser.add_argument('-t', '--test', action = 'store_true')
 # Number of reps to break after if we are just testing
 parser.add_argument('--ntest', type = int, default = 1)
 args = parser.parse_args()
 #######################################
+
+# Append paths before importing uoicorr scripts
+for path in args.paths:
+    sys.path.append(path)
+
+from utils import gen_covariance, gen_data, sparsify_beta
+from results_manager import init_results_container, calc_result, gather_results
+
 
 exp_type = args.exp_type
 results_file = args.results_file

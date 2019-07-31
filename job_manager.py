@@ -223,9 +223,10 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
                 sb.write('export OMP_NUM_THREADS=1\n')
                 sb.write('export KMP_AFFINITY=disabled\n')
 
-            sb.write('srun python3 -u %s/%s %s %s %s' 
-                     % (script_dir, script, sbatch['arg_file'],
-                     results_file, sbatch['exp_type']))
+            sb.write('sbcast -f --compress %s/%s /tmp/%s\n' % (script_dir, script, script))
+            sb.write('srun python3 -u /tmp/%s %s %s %s --path %s' 
+                     % (script, sbatch['arg_file'],
+                     results_file, sbatch['exp_type'], script_dir))
                 
 # Use skip_argfiles if arg_files have already been generated and just need to 
 # re-gen sbatch files
