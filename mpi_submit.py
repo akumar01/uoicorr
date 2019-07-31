@@ -212,7 +212,7 @@ if __name__ == '__main__':
     parser.add_argument('arg_file')
     parser.add_argument('results_file', default = 'results.h5')
     parser.add_argument('exp_type', default = 'UoILasso')
-    parser.add_argument('--paths', nargs='+', type=str)
+    parser.add_argument('--paths', nargs='+', type=str, default = [])
     parser.add_argument('--comm_splits', type=int, default = None)
     parser.add_argument('-t', '--test', action = 'store_true')
     # Number of reps to break after if we are just testing

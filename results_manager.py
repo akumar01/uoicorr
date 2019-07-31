@@ -121,7 +121,7 @@ def calc_path_result(X, X_test, y, y_test, beta, field, exp_results):
 # Insert results from a task into the appropriate index of the master results 
 # file
 def insert_results(master_results, task_results, idx):
-
+    pass
     
 
 
