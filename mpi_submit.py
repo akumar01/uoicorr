@@ -17,6 +17,8 @@ from mpi_utils.ndarray import Bcast_from_root, Gatherv_rows, Gather_ndlist
 from utils import gen_covariance, gen_data, sparsify_beta
 from results_manager import init_results_container, calc_result, gather_results
 
+from job_utils.results import  ResultsManager
+
 
 def main(args):
     total_start = time.time()
@@ -68,16 +70,7 @@ def main(args):
     index = pickle.load(f)
 
     if rank == 0:
-        # Create a directory in which to store the results as they are completed 
-        # by each MPI process. This allows for progressive saving, as well as 
-        # (eventually) resuming the process if interrupted
-
-        if not os.path.exists(results_dir):
-            os.makedirs(results_dir)
-
-        # Also write to disk the number of tasks expected in a completed run
-        f = open('%s/totaltasks_%d' % (results_dir, total_tasks), 'w')
-        f.close()
+        jbmanager = JobManager(total_tasks = total_tasks, directory = results_dir)
 
     # Chunk up iter_param_list to distribute across iterations
     chunk_param_list = np.array_split(np.arange(total_tasks), nchunks)
@@ -102,6 +95,10 @@ def main(args):
 
     fields = ['FNR', 'FPR', 'sa', 'ee', 'median_ee', 'r2', 'beta_hats', 
             'MSE', 'reg_param', 'oracle_penalty']
+
+    if rank == 0:
+        jbmanager.init_structure(init_results_container(selection_methods, fields, 
+                                                        1 n_features, n_reg_params))
 
     for i in range(num_tasks):
         start = time.time()
@@ -216,12 +213,44 @@ def main(args):
         if args.test and i == args.ntest:
             break
 
+        return jbmanager
 
-        if rank == 0: 
-            print('Total time: %f' % (time.time() - total_start))
-            print('Job completed!')
+# Sequentially load all results and concatenate into a single file
+def concatenate(jbmanager):
+
+    path = jbmanager.directory
+
+    # Grab all files with purely numeric filenames
+    datfiles = glob('%s/*.dat' % path)
+    filenames = [df.rpartition('/')[-1].split('.dat')[0] for df in datfiles]
+    numeric_datfiles = [df for i, df in enumerate(datfiles) if filenames[i].isdigit()]
+
+    if len(numeric_datfiles) == 0:
+        print('Warning! No sub-task data files found in specified directory.')
+
+    # First check if we have already tried to concatenate results together
+    concat_file = glob('%s/concat.dat' % path) 
+    if len(concat_file) == 0:
+        # No concatenation has been done yet
+
+        # Load the first datfile to obtain the dictionary structure
+        dummy_df = h5py_wrapper.load(numeric_datfiles[0])
+        concat = init_master_results(dummy_df)
+    else:
+        concat = h5py_wrapper.load(concat_file[0])
+
+    # Next, sequentially open up numeric_datfiles and insert them into the concatenated results file   
+    for datfile in numeric_datfiles:
+        concat = insert_results
+
+
+
+
 
 if __name__ == '__main__': 
+
+    total_start = time.time()
+
     ###### Command line arguments #######
     parser = argparse.ArgumentParser()
 
@@ -234,4 +263,8 @@ if __name__ == '__main__':
     parser.add_argument('--ntest', type = int, default = 1)
     args = parser.parse_args()
     #######################################
-    main(args)
+    jbmanager = main(args)
+    concatenate(jbmanager)
+
+    print('Total time: %f' % (time.time() - total_start))
+    print('Job completed!')
