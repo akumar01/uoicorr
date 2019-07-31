@@ -46,6 +46,8 @@ comm = MPI.COMM_WORLD
 rank = comm.rank
 numproc = comm.Get_size()
 
+print(numproc)
+
 # If specified, split the comm object into subcommunicators. The number of splits will
 # determine the number of parallel executions of the outer loop. This is useful for UoI
 # to parallelize over both bootstraps and repetitions
@@ -56,6 +58,7 @@ if args.comm_splits is None:
     else:
         args.comm_splits = numproc
 
+print(args.comm_splits)
 # Use array split to do comm.split
 ranks = np.arange(numproc)
 split_ranks = np.array_split(ranks, args.comm_splits)

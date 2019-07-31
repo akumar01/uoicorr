@@ -8,9 +8,10 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['UoILasso']
+exp_types =  ['UoILasso',  'EN', 'CV_Lasso', 'scad', 'mcp']
+
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['08:00:00', '24:00:00', '02:00:00', '01:00:00', '01:00:00', '01:00:00']
+algorithm_times = ['08:00:00',  '02:00:00', '01:00:00', '01:00:00', '01:00:00']
 
 n_features = 500
 
@@ -57,7 +58,7 @@ betawidth = [0.1, np.inf, -1]
 beta_dict = []
 for i, bw in enumerate(betawidth):
 
-	beta_dict.append({'betawidth' : bw, 'beta': gen_beta2(n_features, n_features, 1, bw)})
+	beta_dict.append({'betawidth' : bw, 'beta': gen_beta2(n_features, n_features, 1, bw, seed = betaseed)})
 
 ##### Common parameters held fixed across all jobs ##########
 comm_params = {

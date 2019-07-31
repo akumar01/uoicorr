@@ -351,6 +351,7 @@ class EN(CV_Lasso):
             # Fit elastic net to self-defined grid 
             if not hasattr(self, 'fitted_estimator'):
                 estimates = np.zeros((self.alphas.size, n_features))
+                print('Fitting!')
 
                 for i, l1 in enumerate(self.alphas):
                     l1_ratio = l1/(l1 + 2 * self.l2)

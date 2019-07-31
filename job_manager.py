@@ -222,6 +222,9 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
                 # Critical to prevent threads competing for resources
                 sb.write('export OMP_NUM_THREADS=1\n')
                 sb.write('export KMP_AFFINITY=disabled\n')
+            
+            # Broadcast script to compute nodes
+            sb.write('sbcast -f --compress %s/%s /tmp/%s\n' % (script_dir, script, script))
 
             sb.write('sbcast -f --compress %s/%s /tmp/%s\n' % (script_dir, script, script))
             sb.write('srun python3 -u /tmp/%s %s %s %s --path %s' 
