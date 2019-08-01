@@ -34,7 +34,6 @@ class Indexed_Pickle():
 
 # Common postprocessing operations on a single data file
 def postprocess(data_file, param_file, fields = None):
-
     data_list = []
 
     # Indexed pickle file
@@ -100,9 +99,9 @@ def postprocess_dir(jobdir, exp_type = None, fields = None, old_format = False):
         jobno = fname.split('.dat')[0].split('job')[1]
         with h5py.File(data_file, 'r') as f1:
             with open('%s/master/params%s.dat' % (jobdir, jobno), 'rb') as f2:
+                pdb.set_trace()
                 d = postprocess_v2(f1, f2, fields)
-                data_list.extend(d)
-        
+                data_list.extend(d)        
         print(i)
         
     # Copy to dataframe

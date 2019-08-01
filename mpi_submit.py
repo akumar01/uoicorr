@@ -20,6 +20,14 @@ def main(args):
     exp_type = args.exp_type
     results_file = args.results_file
 
+    f = open(args.arg_file, 'rb')
+    index_loc = f.read(8)
+    index_loc = struct.unpack('L', index_loc)[0]
+    total_tasks = pickle.load(f)
+    n_features = pickle.load(f)
+    f.seek(index_loc, 0)
+    index = pickle.load(f)
+
     # Create an MPI comm object
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -55,15 +63,6 @@ def main(args):
 
     # Open the arg file and read out the index array, number of
     # total_tasks and n_features
-
-    f = open(args.arg_file, 'rb')
-    index_loc = f.read(8)
-    index_loc = struct.unpack('L', index_loc)[0]
-    total_tasks = pickle.load(f)
-    n_features = pickle.load(f)
-    f.seek(index_loc, 0)
-    index = pickle.load(f)
-
     # Chunk up iter_param_list to distribute across iterations
     chunk_param_list = np.array_split(np.arange(total_tasks), nchunks)
     chunk_idx = rank
