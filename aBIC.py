@@ -78,10 +78,12 @@ def sparsity_estimator1(X, y, s0, n_boots = 48, train_frac = 0.75):
 
     return sparsity_estimates
 
+# adaptive information criteria
+def aBIC(X, y, estimates, true_model):
 
-# Fit a model using adaptive BIC criteria given sparsity estimates
-def adaptive_BIC_estimator(X, y, sparsity_estimates, n_boots = 48, train_frac = 0.75):
-        
+    n_boots = 48
+    train_frac = 0.75
+
     n_samples, n_features = X.shape
     
     np1 = 100
@@ -90,9 +92,23 @@ def adaptive_BIC_estimator(X, y, sparsity_estimates, n_boots = 48, train_frac = 
     oracle_penalty = np.zeros(n_boots)
     bayesian_penalty = np.zeros(n_boots)
 
-    estimates = np.zeros((n_boots, n_features))
-    oracle_estimates = np.zeros((n_boots, n_features))
+    # Step (1): Initial sparsity estimate
+        
 
+
+# Fit a model using adaptive BIC criteria given sparsity estimates
+def adaptive_BIC_estimator(X, y, estimates, true_model):
+    
+    n_boots = 48
+    train_frac = 0.75
+
+    n_samples, n_features = X.shape
+    
+    np1 = 100
+    penalties = np.linspace(0, 5 * np.log(n_samples), np1)
+    
+    oracle_penalty = np.zeros(n_boots)
+    bayesian_penalty = np.zeros(n_boots)
     
     for boot in range(n_boots):
         # Draw bootstraps
