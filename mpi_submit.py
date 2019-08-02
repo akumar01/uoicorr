@@ -68,6 +68,7 @@ def main(args):
     chunk_idx = rank
     num_tasks = len(chunk_param_list[chunk_idx])
 
+    print('total tasks %d' % total_tasks)
     print('rank: %d, subrank: %d, color: %d' % (comm.rank, subrank, color))
     print('num_tasks: %d' % num_tasks)
 

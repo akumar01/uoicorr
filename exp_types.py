@@ -3,7 +3,7 @@ import pdb
 import itertools
 import time
 
-import rpy2
+
 
 from sklearn.linear_model.coordinate_descent import _alpha_grid
 from sklearn.linear_model import LassoCV, ElasticNetCV, RidgeCV, ElasticNet
