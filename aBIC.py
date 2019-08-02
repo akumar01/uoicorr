@@ -1,14 +1,12 @@
 import numpy as np
 import time
 import pdb
-
 import pycasso
-from sklearn.linear_model import LassoLars, lasso_path, LinearRegression
-from scipy.special import binom
 
-from info_criteria import mBIC, GIC, bayesian_lambda_selection
-
+from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+
+from info_criteria import mBIC, GIC, full_bayes_factor
 
 # Sparsity estimation on the basis of BIC
 def sparsity_estimator0(X, y, n_boots = 48, train_frac = 0.75):
@@ -58,7 +56,8 @@ def sparsity_estimator1(X, y, s0, n_boots = 48, train_frac = 0.75):
         Xb = StandardScaler().fit_transform(Xb)
         yb -= np.mean(yb)
 
-
+        # Use fast pycasso solver
+        solver = pycasso.Solver
 
         alphas, _, coefs  = lars_path(Xb, yb.ravel(), method = 'lasso')
 
@@ -92,111 +91,62 @@ def aBIC(X, y, estimates, true_model):
     oracle_penalty = np.zeros(n_boots)
     bayesian_penalty = np.zeros(n_boots)
 
-    # Step (1): Initial sparsity estimate
-        
+    # Also record progress of sparsity estimates
+    sparsity_estimates = np.zeros((3, n_boots))
 
+    # Step (1): Initial sparsity estimate
+    sparsity_estimates_ = sparsity_estimator0(X, y)
+    sparsity_estimates[0, :] = sparsity_estimates_
+
+    # Step (2): Refine sparsity estimates
+    sparsity_estimates_ = sparsity_estimator1(X, y)
+
+    sparsity_estimates[1, :] = sparsity_estimates_
+
+    # Step (3) : Throw it into the full bayes factor and obtain
+    # oracle penalty, bayesian penalty, oracle selection index, bayesian selection index 
+    bayesian_penalty_selection(X, y, estimates, sparsity_estimates, penalties, true_model)
 
 # Fit a model using adaptive BIC criteria given sparsity estimates
-def adaptive_BIC_estimator(X, y, estimates, true_model):
-    
-    n_boots = 48
-    train_frac = 0.75
+def bayesian_penalty_selection(X, y, estimates, sparsity_estimates, 
+                               penalties, true_model):
+                        
+    GIC_scores_ =  np.array([GIC(y.ravel(), y_pred.ravel(), 
+                                 np.count_nonzero(estimates[i, :]), penalty) 
+                             for i in range(estimates.shape[0])
+                             for penalty in penalties])
 
-    n_samples, n_features = X.shape
-    
-    np1 = 100
-    penalties = np.linspace(0, 5 * np.log(n_samples), np1)
-    
-    oracle_penalty = np.zeros(n_boots)
-    bayesian_penalty = np.zeros(n_boots)
-    
-    for boot in range(n_boots):
-        # Draw bootstraps
-        idxs_train, idxs_test = train_test_split(np.arange(X.shape[0]), 
-                                                 train_size = train_frac,
-                                                 test_size = 1 - train_frac)
-        Xb = X[idxs_train]
-        yb = y[idxs_train]
-
-        Xb = StandardScaler().fit_transform(Xb)
-        yb -= np.mean(yb)
-
-        alphas, _, coefs  = lars_path(Xb, yb.ravel(), method = 'lasso')
-
-        supports = (coefs.T != 0).astype(bool)
-
-        # Stick the true model in there
-        # supports = np.vstack([supports, (beta.ravel() !=0).astype(bool)])
-
-        sa = selection_accuracy(beta.ravel(), supports)
-        # Keep track of oracle performance
-        MIC_scores_ = np.zeros((supports.shape[0], np1))
-
-        boot_estimates = np.zeros((supports.shape[0], n_features))
-
-        models = []
+    selected_models = np.argmin(GIC_scores_, axis = 0)
         
-        for j in range(supports.shape[0]):
-            
-            support = supports[j, :]
+    bayes_factors = np.zeros(penalties.size)
 
-            if np.count_nonzero(1 * support > 0):
-                model = LinearRegression().fit(X[:, support] , y)
-                boot_estimates[j, support] = model.coef_.ravel()
-                y_pred = model.predict(X[:, support])
-                models.append(model)
-            else:
-                y_pred = np.zeros(y.size)
-                models.append(np.nan)
-                
-            MIC_scores_[j, :] =  np.array([MIC(y.ravel(), y_pred.ravel(), 
-                                           np.count_nonzero(1 * support), penalty) 
-                                           for penalty in penalties])
+    for i, penalty in enumerate(penalties):
 
-        selected_models = np.argmin(MIC_scores_, axis = 0)
+        support = estimates[selected_models[i], :] != 0
+        yy = models[selected_models[i]].predict(X[:, support])
+
+        ll_, p1_, BIC_, BIC2_, BIC3_, M_k_, P_M_ = full_bayes_factor(
+                                                   y, yy, n_features, 
+                                                   np.count_nonzero(1 * support),
+                                                   sparsity_estimates, penalty)
+
+        # Add things up appropriately
+        bayes_factors[i] = 2 * ll_ - BIC_ - BIC2_ + BIC3_ - p1_ + P_M_
+
+
+    # Select the penalty based on the highest bayes factors 
+    bidx = np.argmax(bayes_factors)
+
+    # Save the penalty strength and the chosen model
+    bayesian_penalty = penalties[bidx]
+
+    # For MIC scores, record the oracle selection accuracy and the oracle penalty
+    MIC_selection_accuracies = [selection_accuracy(beta.ravel(), 
+                                estimates[selected_models[j], :]) 
+                                for j in range(selected_models.size)]
+
+    # For MIC scores, record the oracle selection accuracy and the orcale penalty 
+
+    oracle_penalty = penalties[np.argmax(MIC_selection_accuracies)]
         
-        bayes_factors = np.zeros(np1)
-
-        for i3, penalty in enumerate(penalties):
-
-            support = supports[selected_models[i3], :]
-            yy = models[selected_models[i3]].predict(X[:, support])
-
-            ll_, p1_, BIC_, BIC2_, BIC3_, M_k_, P_M_ = bayesian_lambda_selection(
-                                                       y, yy, n_features, 
-                                                       np.count_nonzero(1 * support),
-                                                       sparsity_estimates, penalty)
-
-            # Add things up appropriately
-            bayes_factors[i3] = 2 * ll_ - BIC_ - BIC2_ + BIC3_ - p1_ + P_M_
-
-
-        # Select the penalty based on the highest bayes factors 
-        bidx = np.argmax(bayes_factors)
-
-        # Save the penalty strength and the chosen model
-        bayesian_penalty[boot] = penalties[bidx]
-
-        # For MIC scores, record the oracle selection accuracy and the oracle penalty
-        MIC_selection_accuracies = [selection_accuracy(beta.ravel(), 
-                                    supports[selected_models[j], :]) 
-                                    for j in range(selected_models.size)]
-
-        # For MIC scores, record the oracle selection accuracy and the orcale penalty 
-
-        oracle_penalty[boot] = penalties[np.argmax(MIC_selection_accuracies)]
-
-        #        MIC_oracle_sa_[boot] = np.max(MIC_selection_accuracies)    
-#        bMIC_sa_[boot] = MIC_selection_accuracies[bidx]
-        
-        # Record the best estimate on this bootstrap as determined by the oracle
-        # and by our procedure
-        estimates[boot, :] = boot_estimates[selected_models[bidx], :]
-        oracle_estimates[boot, :] = \
-        boot_estimates[selected_models[np.argmax(MIC_selection_accuracies)], :]
-
-    # Take the median and record final selection accuracies
-    final_bayes_estimates = np.median(estimates, axis = 0)
-    final_oracle_estimates = np.median(oracle_estimates, axis = 0)
-
-    return final_bayes_estimates, final_oracle_estimates, oracle_penalty, bayesian_penalty, estimates
+    return oracle_penalty, bayesian_penalty, bidx, ...

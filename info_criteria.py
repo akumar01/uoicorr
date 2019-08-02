@@ -36,8 +36,8 @@ def mBIC(y, y_pred, model_size, sparsity_prior):
 
     return mBIC
 
-# Full Bayesian model penalty selection
-def bayesian_lambda_selection(y, y_pred, n_features, model_size, sparsity_prior, penalty):
+# Full Bayes factor
+def full_bayes_factor(y, y_pred, n_features, model_size, sparsity_prior, penalty):
 
     y = y.ravel()
     y_pred = y_pred.ravel()
