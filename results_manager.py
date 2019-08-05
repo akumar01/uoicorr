@@ -20,8 +20,6 @@ def init_results_container(selection_methods, fields, num_tasks, n_features, n_r
             results[selection_method][field] = np.zeros(num_tasks)
         if 'beta_hats' in fields:
             results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
-        if 'reg_param' in fields:
-            results[selection_method]['reg_param'] = np.zeros((num_tasks, n_reg_params))
 
     return results
 
@@ -123,8 +121,6 @@ def calc_path_result(X, X_test, y, y_test, beta, field, exp_results):
 def insert_results(master_results, task_results, idx):
     pass
     
-
-
 # Gather each entry of results and return the final dictionary
 def gather_results(results, comm): 
 

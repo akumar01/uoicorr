@@ -157,6 +157,7 @@ def generate_arg_files(argfile_array, jobdir):
 
 
     # Check that all random number seeds are unique
+    pdb.set_trace()
     assert(len(np.unique(seeds)) == len(seeds))    
 
     return paths, ntasks
@@ -404,7 +405,7 @@ def run_(run_file):
                 
 # Sequentially run files locally:
 def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = None,
-                   script_dir=None):
+                   script_dir=None, background = False):
     # Crawl through all subdirectories and 
     # (1) Grab the sbatch files
     # (2) Extract the srun statement
@@ -443,8 +444,13 @@ def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = Non
             mpi_string_suffix = '/'.join(mpi_string[7].split('/')[-2:])
             mpi_string[7] = run_file_root_path + '/%s' % mpi_string_suffix
 
-            for output in local_exec(mpi_string):
-                print(output)
+            # Spawn process in the background of shell, only do this if you 
+            # trust the program will work independently
+            if background:
+                subprocess.Popen(mpi_string, shell = True)
+            else:
+                for output in local_exec(mpi_string):
+                    print(output)
 
 # Copied from this stackoverflow post: https://stackoverflow.com/questions/4417546/constantly-print-subprocess-output-while-process-is-running
 # Capture stdout in real time 

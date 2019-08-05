@@ -105,6 +105,7 @@ def aBIC(X, y, estimates, true_model):
 
     # Step (3) : Throw it into the full bayes factor and obtain
     # oracle penalty, bayesian penalty, oracle selection index, bayesian selection index 
+    oracle_penalty, bayesian_penalty, bidx, oidx = \
     bayesian_penalty_selection(X, y, estimates, sparsity_estimates, penalties, true_model)
 
 # Fit a model using adaptive BIC criteria given sparsity estimates
@@ -148,5 +149,6 @@ def bayesian_penalty_selection(X, y, estimates, sparsity_estimates,
     # For MIC scores, record the oracle selection accuracy and the orcale penalty 
 
     oracle_penalty = penalties[np.argmax(MIC_selection_accuracies)]
-        
-    return oracle_penalty, bayesian_penalty, bidx, ...
+    oidx = selected_models[np.argmax(MIC_selection_accuracies)]
+
+    return oracle_penalty, bayesian_penalty, bidx, oidx

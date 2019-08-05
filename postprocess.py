@@ -15,11 +15,14 @@ from job_manager import grab_files
 class Indexed_Pickle():
     
     def __init__(self, file):
-    
         self.file = file
         file.seek(0, 0)
         index_loc = file.read(8)
-        index_loc = struct.unpack('L', index_loc)[0]
+        # Some weird Windows bullshit
+        if os.name == 'nt':
+            index_loc = struct.unpack('q', index_loc)[0]
+        else:
+            index_loc = struct.unpack('L', index_loc)[0]
         total_tasks = pickle.load(file)
         n_features = pickle.load(file)
         file.seek(index_loc, 0)
