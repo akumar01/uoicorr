@@ -108,6 +108,8 @@ def aBIC(X, y, estimates, true_model):
     oracle_penalty, bayesian_penalty, bidx, oidx = \
     bayesian_penalty_selection(X, y, estimates, sparsity_estimates, penalties, true_model)
 
+    return oracle_penalty, bayesian_penalty, bidx, oidx
+
 # Fit a model using adaptive BIC criteria given sparsity estimates
 def bayesian_penalty_selection(X, y, estimates, sparsity_estimates, 
                                penalties, true_model):

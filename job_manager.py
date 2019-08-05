@@ -153,8 +153,6 @@ def generate_arg_files(argfile_array, jobdir):
             f.seek(0, 0)
             f.write(struct.pack('L', index_loc))
         print('arg_file iteration time: %f' % (time.time() - start))
-    
-
 
     # Check that all random number seeds are unique
     pdb.set_trace()

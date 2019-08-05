@@ -10,9 +10,7 @@ from sklearn.metrics import r2_score
 from sklearn.preprocessing import normalize
 
 from pyuoi.linear_model import UoI_Lasso
-from pyuoi.linear_model.cassolasso import PycassoLasso
 from pyuoi.linear_model import UoI_ElasticNet
-from pyuoi.linear_model.casso_en import PycassoElasticNet
 from pyuoi.lbfgs import fmin_lbfgs
 from pyuoi.utils import log_likelihood_glm, BIC
 
@@ -21,256 +19,16 @@ from mpi_utils.ndarray import Gatherv_rows
 from info_criteria import GIC, eBIC
 from aBIC import aBIC
 from utils import selection_accuracy
-from pycasso_cv import PycassoCV, PycassoGrid
+from pyc_based.lm import PycassoLasso
+from pyc_based.pycasso_cv import PycassoCV, PycassoGrid
 
-class Selector():
+from selection import Selector, UoISelector
 
-    def __init__(self, selection_method = 'CV'): 
-
-        self.selection_method = selection_method
-
-    def select(self, solutions, reg_params, *args):
-        # Deal to the appropriate sub-function based on 
-        # the provided selection method string
-
-        if self.selection_method == 'CV':
-            self.CV_selector(solutions, reg_params, *args)
-        else:
-            if self.selection_method in ['BIC', 'AIC']: 
-                sdict = self.GIC_selector(solutions, reg_params, *args)
-            elif self.selection_method == 'mBIC':
-                sdict = self.mBIC_selector(solutions, reg_params, *args)
-            elif self.selection_method == 'eBIC':
-                sdict = self.eBIC_selector(solutions, reg_params, *args)
-            elif self.selection_method == 'aBIC':
-                sdict = self.aBIC_selector(solutions, reg_params, *args)
-
-            return sdict
-
-    # Assumes the output of cross_validate
-    def CV_selector(self, solutions, reg_params, 
-                    test_scores, estimators, true_model):
-        pass
-
-    def GIC_selector(self, solutions, reg_params, X, y, true_model): 
-
-        n_features, n_samples = X.shape
-        n_reg_params = len(reg_params)
-
-        if self.selection_method == 'BIC':
-            penalty = np.log(n_samples)
-        if self.selection_method == 'AIC':
-            penalty = 2
-        
-        # Should be of the shape n_reg_params by n_samples
-        y_pred = solutions @ X.T
-        scores = np.array([GIC(y.ravel(), y_pred[i, :], np.count_nonzero(solutions[i, :]),
-                                penalty) for i in range(n_reg_params)])
-
-
-        sidx = np.argmin(scores)
-        # Selection dict: Return coefs and selected_reg_param
-        sdict = {}
-        sdict['coefs'] = solutions[sidx, :]
-        sdict['reg_param'] = reg_params[sidx]
-
-        return sdict
-
-    def mBIC_selector(self, solutions, reg_params, X, y, true_model):
-
-        pass        
-
-    def eBIC_selector(self, solutions, reg_params, X, y, true_model):
-
-        n_features, n_samples = X.shape
-        n_reg_params = len(reg_params)
-
-        # Should be of the shape n_reg_params by n_samples
-        y_pred = solutions @ X.T
-
-        scores = np.array([eBIC(y.ravel(), y_pred[i, :], n_features,
-                                np.count_nonzero(solutions[i, :]))
-                                for i in range(n_reg_params)])
-        sidx = np.argmin(scores)
-        # Selection dict: Return coefs and selected_reg_param
-        sdict = {}
-        sdict['coefs'] = solutions[sidx, :]
-        sdict['reg_param'] = reg_params[sidx]
-
-        return sdict
-
-    def aBIC_selector(self, solutions, reg_params, X, y, true_model):
-
-        oracle_penalty, bayesian_penalty, bidx, oidx = \
-        aBIC(X, y, solutions, true_model)
-
-        sidx = np.argmin(scores)
-        # Selection dict: Return coefs and selected_reg_param
-        sdict = {}
-        sdict['coefs'] = solutions[bidx, :]
-        sdict['reg_param'] = reg_params[bidx]
-        sdict['oracle_coefs'] = solutions[oidx, :]
-        sdict['oracle_penalty'] = oracle_penalty
-        sdict['bayesian_penalty'] = bayesian_penalty
-
-        return sdict
-
-class UoISelector(Selector):
-
-    def __init__(self, uoi, selection_method = 'CV'):
-
-        super(UoISelector, self).__init__(selection_method)
-        self.uoi = uoi
-
-    # Perform the UoI Union operation (median)
-    def union(self, selected_solutions):
-        coefs = np.median(selected_solutions, axis = 0)
-        return coefs
-
-    def select(self, *args): 
-
-        # For UoI, interpret CV selector to mean r2
-        if self.selection_method == 'CV':
-            sdict = self.r2_selector(*args)
-
-        elif self.selection_method in ['BIC', 'AIC']: 
-            sdict = self.GIC_selector(*args)
-        elif self.selection_method == 'mBIC':
-            sdict = self.mBIC_selector(*args)
-        elif self.selection_method == 'eBIC':
-            sdict = self.eBIC_selector(*args)
-        elif self.selection_method == 'aBIC':
-            sdict = self.aBIC_selector(*args)
-
-        return sdict
-
-    def r2_selector(self, X, y, boots, true_model):
-
-        # UoI Estimates have shape (n_boots_est, n_supports, n_coef)
-
-        solutions = self.uoi.estimates_
-        intercepts = self.uoi.intercepts_
-        boots = self.uoi.boots
-
-        n_boots, n_supports, n_coefs = solutions.shape
-        scores = np.zeros((n_boots, n_supports))
-
-        for boot in range(n_boots):
-            # Test data
-            xx = X[boots[1][boot], :]
-            yy = y[boots[1][boot]]  
-            y_pred = solutions[boot, ...] @ xx.T + intercepts[boot, :][:, np.newaxis]
-
-            scores[boot, :] = np.array([r2_score(yy, y_pred[j, :]) for j in range(n_supports)])
-
-        selected_idxs = np.argmax(scores, axis = 1)
-        coefs = self.union(solutions, selected_idxs)
-
-        # Return just the coefficients that result
-        sdict['coefs'] = coefs
-
-        return sdict
-
-    def GIC_selector(self, X, y, boots, true_model):
-
-        solutions = self.uoi.estimates_
-        intercepts = self.uoi.intercepts_
-
-        n_boots, n_supports, n_coefs = solutions.shape
-        selected_coefs = np.zeros((n_boots, n_coefs))
-
-        for boot in range(n_boots):
-
-            # Train data
-            xx = X[boots[0][boot], :]
-            yy = y[boots[0][boot]]
-
-            if self.selection_method == 'BIC':
-                penalty = np.log(yy.shape[-1])
-            if self.selection_method == 'AIC':
-                penalty = 2
-
-            # Should be of the shape n_reg_params by n_samples
-            y_pred = solutions[boot, ...] @ xx.T + intercepts[boot, :][:, np.newaxis]
-            sdict_ = np.array([GIC(yy, y_pred[i, :], np.count_nonzero(solutions[boot, i, :]),
-                                    penalty) for i in range(n_supports)])
-
-            selected_coefs[boot, :] = sdict_['coefs']
-
-        coefs = self.union(selected_coefs)
-        sdict['coefs'] = coefs
-
-        return sdict
-
-    def mBIC_selector(self, X, y, true_model):
-        pass
-
-    def eBIC_selector(self, X, y, true_model):
-
-        solutions = self.uoi.estimates_
-        intercepts = self.uoi.intercepts_
-        boots = self.uoi.boots
-
-        n_boots, n_supports, n_coefs = solutions.shape
-        selected_coefs = np.zeros((n_boots, n_coefs))
-
-        for boot in range(n_boots):
-
-            # Train data
-            xx = X[boots[0][boot], :]
-            yy = y[boots[0][boot]] - intercepts[boot, :]
-
-            sdict_ = super(UoISelectsdict_or, self).eBIC_selector(solutions[boot, ...],
-                                                                  np.arange(n_supports),
-                                                                  xx, yy, true_model)
-            
-            selected_coefs[boot, :] = sdict_['coefs'] 
-
-        coefs = self.union(selected_coefs)
-        sdict['coefs'] = coefs
-        return sdict
-
-    def aBIC_selector(self, X, y, true_model):
-
-        solutions = self.uoi.estimates_
-        intercepts = self.uoi.intercepts_
-        boots = self.uoi.boots
-
-        n_boots, n_supports, n_coefs = solutions.shape
-        bselected_coefs = np.zeros((n_boots, n_coefs))
-        oselected_coefs = np.zeros((n_boots, n_coefs))
-        bayesian_penalties = np.zeros(n_boots)
-        oracle_penalties = np.zeros(n_boots)
-
-        for boot in range(n_boots):
-
-            # Train data
-            xx = X[boots[0][boot], :]
-            yy = y[boots[0][boot]] - intercepts[boot, :]
-
-            sdict_ = super(UoISelectsdict_or, self).eBIC_selector(solutions[boot, ...],
-                                                                  np.arange(n_supports),
-                                                                  xx, yy, true_model)
-            bselected_coefs[boot, :] = sdict_['coefs'] 
-            oselected_coefs[boot, :] = sdict_['oracle_coefs']
-            bayesian_penalties[boot] = sdict_['bayesian_penalty']
-            oracle_penalties[boot] = sdict_['oracle_penalty']
-
-        coefs = self.union(selected_coefs)
-        oracle_coefs = self.union(oselected_coefs)
-
-        sdict['coefs'] = coefs
-        sdict['oracle_coefs'] = oracle_coefs
-        sdict['bayesian_penalties'] = bayesian_penalties
-        sdict['oracle_penalties'] = oracle_penalties
-
-        return sdict
-
-class CV_Lasso():
+class StandardLM_experiment():
 
     @classmethod
-    def run(self, X, y, args, selection_methods = ['CV']):
-        
+    def run(self, X, y, args, selection_methods=['CV']):
+
         if hasattr(self, 'fitted_estimator'):
             del self.fitted_estimator
         self.n_alphas = args['n_alphas']
@@ -290,6 +48,12 @@ class CV_Lasso():
             self.fit_and_select(X, y.ravel(), selection_method, true_model)
         
         return self.results
+
+class CV_Lasso(StandardLM_experiment):
+
+    @classmethod
+    def run(self, X, y, args, selection_methods = ['CV']):
+        super(CV_Lasso, self).run(X, y, args, selection_methods)
 
     @classmethod
     def fit_and_select(self, X, y, selection_method, true_model): 
@@ -315,7 +79,7 @@ class CV_Lasso():
                                     self.alphas, X, y, true_model)
             self.results[selection_method] = sdict
 
-class EN(CV_Lasso):
+class EN(StandardLM_experiment):
 
     @classmethod
     def run(self, X, y, args, selection_methods = ['CV']):
@@ -334,16 +98,17 @@ class EN(CV_Lasso):
 
         # For cross validation, use the existing solution: 
         if selection_method == 'CV': 
+            raise NotImplementedError('Need to change cross validation to use the ridge L2')
             en = ElasticNetCV(cv = self.cv_splits, l1_ratio = self.l1_ratio, 
                             n_alphas = self.n_alphas).fit(X, y.ravel())
             self.results[selection_method]['coefs'] = en.coef_
             self.results[selection_method]['reg_param'] = [en.l1_ratio_, en.alpha_]
-
         else:
 
             # Fit elastic net to self-defined grid 
             if not hasattr(self, 'fitted_estimator'):
                 estimates = np.zeros((self.alphas.size, n_features))
+                intercepts = np.zeros()
                 print('Fitting!')
 
                 for i, l1 in enumerate(self.alphas):
@@ -415,18 +180,6 @@ class UoILasso():
             uoi.fit(X, y.ravel())
             self.fitted_estimator = uoi
 
-            # Gather bootstrap information, which is currently 
-            # distributed
-            
-            train_boots = np.array([uoi.boots[k][0] for k in uoi.boots.keys()])
-            test_boots = np.array([uoi.boots[k][1] for k in uoi.boots.keys()])
-
-            if comm is not None:
-                train_boots = Gatherv_rows(train_boots, comm = comm, root = 0)
-                test_boots = Gatherv_rows(test_boots, comm = comm, root = 0)
-            
-            self.boots = [train_boots, test_boots]
-
         # Use the fact that UoI stores all of its estimates to
         # manually go in and select models and then take the union
         # using each distinct estimation score
@@ -436,7 +189,7 @@ class UoILasso():
             true_model = args['betas'].ravel()
             selector = UoISelector(self.fitted_estimator, selection_method = selection_method)
             
-            sdict = selector.select(X, y, self.boots, true_model)
+            sdict = selector.select(X, y, true_model)
             self.results[selection_method] = sdict
 
         else:
@@ -470,17 +223,6 @@ class UoIElasticNet(UoILasso):
             uoi.fit(X, y.ravel())
             self.fitted_estimator = uoi
 
-            # Gather bootstrap information, which is currently 
-            # distributed
-            
-            train_boots = np.array([uoi.boots[k][0] for k in uoi.boots.keys()])
-            test_boots = np.array([uoi.boots[k][1] for k in uoi.boots.keys()])
-            if comm is not None:
-                train_boots = Gatherv_rows(train_boots, comm = comm, root = 0)
-                test_boots = Gatherv_rows(test_boots, comm = comm, root = 0)
-            
-            self.boots = [train_boots, test_boots]
-
         # Use the fact that UoI stores all of its estimates to
         # manually go in and select models and then take the union
         # using each distinct estimation score
@@ -489,14 +231,14 @@ class UoIElasticNet(UoILasso):
             true_model = args['betas'].ravel()
             selector = UoISelector(self.fitted_estimator, selection_method = selection_method)
             
-            sdict = selector.select(X, y, self.boots, true_model)
+            sdict = selector.select(X, y, true_model)
             self.results[selection_method] = sdict
         else:
             self.results = None
 
 # Same class can be used for both MCP and SCAD based on our implementation
 # of PycassoCV
-class PYC(CV_Lasso):
+class PYC(StandardLM_experiment):
 
     @classmethod
     def run(self, X, y, args, selection_methods = ['CV']):
@@ -551,7 +293,7 @@ class PYC(CV_Lasso):
             self.results[selection_method] = sdict
 
 # Run R to solve slope
-class SLOPE(CV_Lasso):
+class SLOPE(StandardLM_experiment):
 
     @classmethod
     def run(self, X, y, args, selection_method = ['BIC']):
