@@ -507,9 +507,16 @@ def selection_accuracy(beta, beta_hat, threshold = False):
         Sb = set(np.nonzero(b)[0].tolist())
         Sbhat = set(np.nonzero(bhat)[0].tolist())
 
+        normalization = len(Sb) + len(Sbhat)
+        # This will only occur if both sb and sbhat are all 0, in which 
+        # case setting the normalization to 0 will give the intuitive result
+        # (perfect selection accuracy)
+        if normalization == 0:
+            normalization = 1
+
         selection_accuracy[i] = 1 - \
         float(len((Sb.difference(Sbhat)).union(Sbhat.difference(Sb))))\
-        /float((len(Sb) + len(Sbhat)))
+        /float(normalization)
     return selection_accuracy
 
 # Calculate estimation error

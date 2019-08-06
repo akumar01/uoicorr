@@ -10,16 +10,14 @@ def init_results_container(selection_methods, fields, num_tasks, n_features, n_r
     # Use a nested dict
     results = {selection_method: {} for selection_method in selection_methods}
 
-    # # For each selection method, record the following quantities:
-    # fields = ['FNR', 'FPR', 'sa', 'ee', 'median_ee', 'r2', 'beta_hats', 
-    #         'MSE', 'AIC', 'BIC']
-
     for selection_method in selection_methods:
         # For all except beta_hat, initialize arrays of size num_tasks
-        for field in fields:
+        for field in fields[selection_method]:
             results[selection_method][field] = np.zeros(num_tasks)
-        if 'beta_hats' in fields:
+        if 'beta_hats' in fields[selection_method]:
             results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
+        if 'reg_param' in fields[selection_method]:
+            results[selection_method]['reg_param'] = np.zeros((num_tasks, n_reg_params))
 
     return results
 
@@ -72,6 +70,9 @@ def calc_result(X, X_test, y, y_test, beta, field, exp_results):
 
         result = exp_results['oracle_penalty']
 
+    else:
+        raise ValueError('field type not understood')
+
     return result
 
 # Calculate the best result along a solution path
@@ -115,12 +116,6 @@ def calc_path_result(X, X_test, y, y_test, beta, field, exp_results):
 
     return result
 
-
-# Insert results from a task into the appropriate index of the master results 
-# file
-def insert_results(master_results, task_results, idx):
-    pass
-    
 # Gather each entry of results and return the final dictionary
 def gather_results(results, comm): 
 

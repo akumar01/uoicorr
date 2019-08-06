@@ -1,9 +1,6 @@
-from sklearn.linear_model import Lasso, LinearRegression
-from sklearn.linear_model.coordinate_descent import _alpha_grid
-import numpy as np
 import pycasso
 
-# Pycasso solver solved in sklearn-like class interface
+# Pycasso solver wrapper with minimal class structure to interface with UoI
 class PycassoLasso():
 
     def __init__(self, fit_intercept = False, max_iter = 1000):

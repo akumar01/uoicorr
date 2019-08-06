@@ -17,6 +17,7 @@ import subprocess
 from utils import gen_covariance, gen_beta2, gen_data
 from misc import group_dictionaries, unique_obj
 
+from job_utils.idxpckl import Indexed_Pickle
 
 # Take two integers and generate a unique, single integer from them
 def gen_seed(i, j, dimi, dimj):
@@ -131,27 +132,15 @@ def generate_arg_files(argfile_array, jobdir):
         arg_file = '%s/master/params%d.dat' % (jobdir, j)
         paths.append(arg_file)
         
-        with open(arg_file, 'wb') as f:
-            # Sequentially pickle the elements of iter_param_list so they can be 
-            # sequentially unpickled
+        f = Indexed_Pickle(arg_file)
+        f.init_save(len(iter_param_list), header_data = 
+                    {'n_features' : param_comb['n_features'], 
+                     'selection_methods' : param_comb['selection_methods'],
+                     'fields' : param_comb['fields']})
+        for elem in iter_param_list:
+            f.save(elem)
 
-            # Buffer to be used later on
-            f.write(struct.pack('L', 0))
-            
-            # First pickle away the number of tasks 
-            f.write(pickle.dumps(len(iter_param_list)))
-            # Then the number of features (assuming it remains fixed)
-            f.write(pickle.dumps(param_comb['n_features']))
-                
-            index = []
-            for elem in iter_param_list:
-                index.append(f.tell())
-                f.write(pickle.dumps(elem))
-
-            index_loc = f.tell()
-            f.write(pickle.dumps(index))
-            f.seek(0, 0)
-            f.write(struct.pack('L', index_loc))
+        f.close_save()
         print('arg_file iteration time: %f' % (time.time() - start))
 
     # Check that all random number seeds are unique
