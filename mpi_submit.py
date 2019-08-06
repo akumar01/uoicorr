@@ -17,6 +17,8 @@ from mpi_utils.ndarray import Bcast_from_root, Gatherv_rows, Gather_ndlist
 from job_utils.results import  ResultsManager
 from job_utils.idxpckl import Indexed_Pickle
 
+from utils import gen_covariance, sparsify_beta, gen_data
+from results_manager import init_results_container, calc_result
 
 def manage_comm():
 
@@ -27,17 +29,18 @@ def manage_comm():
     numproc = comm.Get_size()
 
     if args.comm_splits is None:
-        if exp_type in ['UoILasso', 'UoIElasticNet']:
+        if args.exp_type in ['UoILasso', 'UoIElasticNet']:
             comm_splits = 1
         else:
             comm_splits = numproc
     else:
         comm_splits = args.comm_splits
     # Use array split to do comm.split
+
     ranks = np.arange(numproc)
-    split_ranks = np.array_split(ranks, args.comm_splits)
-    color = [i for i in np.arange(args.comm_splits) if rank in split_ranks[i]][0]
-    subcomm_roots = [split_ranks[i][0] for i in np.arange(args.comm_splits)]
+    split_ranks = np.array_split(ranks, comm_splits)
+    color = [i for i in np.arange(comm_splits) if rank in split_ranks[i]][0]
+    subcomm_roots = [split_ranks[i][0] for i in np.arange(comm_splits)]
 
     subcomm = comm.Split(color, rank)
 
@@ -88,7 +91,6 @@ def gen_data_(params, subcomm, subrank):
     if np.count_nonzero(beta) == 0:
         print('Warning, all betas were 0!')
         print(params)
-        continue
 
     if subrank == 0:
 
@@ -126,6 +128,8 @@ def main(args):
     # Open the arg file and read out metadata
     f = Indexed_Pickle(args.arg_file)
     f.init_read()
+    total_tasks = len(f.index)
+
     n_features = f.header['n_features']
     selection_methods = f.header['selection_methods']
     fields = f.header['fields']
@@ -137,21 +141,20 @@ def main(args):
     comm, rank, subcomm, subrank, numproc, comm_splits = manage_comm()
 
     # Load or initialize the Results Manager object
-    if rank == 0:
-        if args.resume:
-            rmanager = ResultsManager.restore_from_file(results_dir)
-        else:
-            rmanager = ResultsManager(total_tasks = total_tasks, directory = results_dir)
+    if args.resume:
+        rmanager = ResultsManager.restore_from_directory(results_dir)
+    else:
+        rmanager = ResultsManager(total_tasks = total_tasks, directory = results_dir)
 
     # Chunk up iter_param_list to distribute across iterations. 
 
     # Take the complement of inserted_idxs in the results manager
-    task_list = np.array(set(np.arange(total_tasks)).diff(set(rmanager.inserted_idxs)))
-
+    task_list = np.array(list(set(np.arange(total_tasks)).difference(set(rmanager.inserted_idxs()))))
     chunk_param_list = np.array_split(np.arange(total_tasks), comm_splits)
     chunk_idx = rank
     num_tasks = len(chunk_param_list[chunk_idx])
 
+    print('total tasks %d' % len(task_list))
     print('rank: %d, subrank: %d' % (comm.rank, subrank))
     print('num_tasks: %d' % num_tasks)
 
@@ -177,7 +180,7 @@ def main(args):
 
         params['comm'] = subcomm
 
-        X, X_test, y, y_test, params = gen_data_(params)
+        X, X_test, y, y_test, params = gen_data_(params, subcomm, subrank)
 
         # Hard-coded convenience for SCAD/MCP
         if exp_type in ['scad', 'mcp']:
@@ -192,12 +195,10 @@ def main(args):
             #### Calculate and log results for each selection method
             for selection_method in selection_methods:
 
-                for field in fields:
-                    results_dict[selection_method][field][i] = calc_result(X, X_test, y, y_test,
-                                                                           beta.ravel(), field,
+                for field in fields[selection_method]:
+                    results_dict[selection_method][field] = calc_result(X, X_test, y, y_test,
+                                                                           params['betas'].ravel(), field,
                                                                            exp_results[selection_method])
-
-
             # Add results to results manager. This automatically saves the child's data
             rmanager.add_child(results_dict, idx = chunk_param_list[chunk_idx][i])
             print('Process group %d completed outer loop %d/%d' % (rank, i, num_tasks))
@@ -208,12 +209,15 @@ def main(args):
         if args.test and i == args.ntest:
             break
 
+    f.close_read()
+
     # gather results managers
     rmanager.gather_managers(comm)
 
     # concatenate and clean up results
     rmanager.concatenate()
-    rmanager.cleanup()
+    if rank == 0:
+        rmanager.cleanup()
 
     print('Total time: %f' % (time.time() - total_start))
     print('Job completed!')

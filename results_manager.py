@@ -14,9 +14,9 @@ def init_results_container(selection_methods, fields, num_tasks, n_features, n_r
         # For all except beta_hat, initialize arrays of size num_tasks
         for field in fields[selection_method]:
             results[selection_method][field] = np.zeros(num_tasks)
-        if 'beta_hats' in fields:
+        if 'beta_hats' in fields[selection_method]:
             results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
-        if 'reg_param' in fields:
+        if 'reg_param' in fields[selection_method]:
             results[selection_method]['reg_param'] = np.zeros((num_tasks, n_reg_params))
 
     return results
@@ -69,6 +69,9 @@ def calc_result(X, X_test, y, y_test, beta, field, exp_results):
     elif field == 'oracle_penalty':
 
         result = exp_results['oracle_penalty']
+
+    else:
+        raise ValueError('field type not understood')
 
     return result
 

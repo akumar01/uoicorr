@@ -3,8 +3,6 @@ import pdb
 import itertools
 import time
 
-
-
 from sklearn.linear_model.coordinate_descent import _alpha_grid
 from sklearn.linear_model import LassoCV, ElasticNetCV, RidgeCV, ElasticNet
 from sklearn.model_selection import KFold, GroupKFold, cross_validate
@@ -12,9 +10,7 @@ from sklearn.metrics import r2_score
 from sklearn.preprocessing import normalize
 
 from pyuoi.linear_model import UoI_Lasso
-from pyuoi.linear_model.cassolasso import PycassoLasso
 from pyuoi.linear_model import UoI_ElasticNet
-from pyuoi.linear_model.casso_en import PycassoElasticNet
 from pyuoi.lbfgs import fmin_lbfgs
 from pyuoi.utils import log_likelihood_glm, BIC
 
@@ -22,7 +18,8 @@ from mpi_utils.ndarray import Gatherv_rows
 
 from info_criteria import GIC, eBIC
 from utils import selection_accuracy
-from pycasso_cv import PycassoCV, PycassoGrid
+from pyc_based.lm import PycassoLasso
+from pyc_based.pycasso_cv import PycassoCV, PycassoGrid
 
 class Selector():
 
