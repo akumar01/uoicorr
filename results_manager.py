@@ -10,13 +10,9 @@ def init_results_container(selection_methods, fields, num_tasks, n_features, n_r
     # Use a nested dict
     results = {selection_method: {} for selection_method in selection_methods}
 
-    # # For each selection method, record the following quantities:
-    # fields = ['FNR', 'FPR', 'sa', 'ee', 'median_ee', 'r2', 'beta_hats', 
-    #         'MSE', 'AIC', 'BIC']
-
     for selection_method in selection_methods:
         # For all except beta_hat, initialize arrays of size num_tasks
-        for field in fields:
+        for field in fields[selection_method]:
             results[selection_method][field] = np.zeros(num_tasks)
         if 'beta_hats' in fields:
             results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
@@ -116,14 +112,6 @@ def calc_path_result(X, X_test, y, y_test, beta, field, exp_results):
     #     result = mean_squared_error(y_test, X_test @ beta)
 
     return result
-
-
-# Insert results from a task into the appropriate index of the master results 
-# file
-def insert_results(master_results, task_results, idx):
-
-    
-
 
 # Gather each entry of results and return the final dictionary
 def gather_results(results, comm): 
