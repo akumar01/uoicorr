@@ -31,7 +31,7 @@ class Selector():
         elif self.selection_method == 'eBIC':
             sdict = self.eBIC_selector(y, y_pred, solutions, reg_params, n_features)
         elif self.selection_method == 'aBIC':
-            sdict = self.aBIC_selector(X, y, y_pred, solutions, reg_params, true_model)
+            sdict = self.aBIC_selector(X, y, solutions, reg_params, true_model)
         else:
             raise ValueError('Incorrect selection method specified')
 
@@ -72,12 +72,11 @@ class Selector():
         sdict['reg_param'] = reg_params[sidx]
         return sdict
 
-    def aBIC_selector(self, X, y, y_pred, solutions, reg_params, true_model):
+    def aBIC_selector(self, X, y, solutions, reg_params, true_model):
 
-        oracle_penalty, bayesian_penalty, bidx, oidx = \
+        oracle_penalty, bayesian_penalty, bidx, oidx, spest = \
         aBIC(X, y, solutions, true_model)
 
-        sidx = np.argmin(scores)
         # Selection dict: Return coefs and selected_reg_param
         sdict = {}
         sdict['coefs'] = solutions[bidx, :]
@@ -85,6 +84,7 @@ class Selector():
         sdict['oracle_coefs'] = solutions[oidx, :]
         sdict['oracle_penalty'] = oracle_penalty
         sdict['bayesian_penalty'] = bayesian_penalty
+        sdict['sparsity_estimates'] = spest
 
         return sdict
 
@@ -111,11 +111,11 @@ class UoISelector(Selector):
         elif self.selection_method in ['BIC', 'AIC']: 
             sdict = self.GIC_selector(X, y)
         elif self.selection_method == 'mBIC':
-            sdict = self.mBIC_selector(X, y, *args)
+            sdict = self.mBIC_selector(X, y)
         elif self.selection_method == 'eBIC':
-            sdict = self.eBIC_selector(X, y, *args)
+            sdict = self.eBIC_selector(X, y)
         elif self.selection_method == 'aBIC':
-            sdict = self.aBIC_selector(X, y, *args)
+            sdict = self.aBIC_selector(X, y, true_model)
         else:
             raise ValueError('Incorrect selection method specified')
 
@@ -174,21 +174,20 @@ class UoISelector(Selector):
 
             sdict_ = super(UoISelector, self).GIC_selector(yy, y_pred, solutions[boot, ...], 
                                                            np.arange(n_supports), 
-                                                           n_features, n_samples)
+                                                           n_features, n_samples) 
 
             selected_coefs[boot, :] = sdict_['coefs']
 
-        assert(np.allclose(selected_coefs, self.uoi.estimates_[np.arange(48), self.uoi.rp_max_idx_]))
         coefs = self.union(selected_coefs)
         sdict = {}
         sdict['coefs'] = coefs
 
         return sdict
 
-    def mBIC_selector(self, X, y, true_model):
+    def mBIC_selector(self, X, y):
         pass
 
-    def eBIC_selector(self, X, y, true_model):
+    def eBIC_selector(self, X, y):
 
         solutions = self.uoi.estimates_
         intercepts = self.uoi.intercepts_
@@ -201,11 +200,15 @@ class UoISelector(Selector):
 
             # Train data
             xx = X[boots[0][boot], :]
-            yy = y[boots[0][boot]] - intercepts[boot, :]
+            yy = y[boots[0][boot]]
 
-            sdict_ = super(UoISelector, self).eBIC_selector(solutions[boot, ...],
+            _, n_features = xx.shape
+
+            y_pred = solutions[boot, ...] @ xx.T + intercepts[boot, :][:, np.newaxis]
+
+            sdict_ = super(UoISelector, self).eBIC_selector(yy, y_pred, solutions[boot, ...],
                                                             np.arange(n_supports),
-                                                            xx, yy, true_model)
+                                                            n_features)
             selected_coefs[boot, :] = sdict_['coefs'] 
 
         coefs = self.union(selected_coefs)
@@ -217,6 +220,7 @@ class UoISelector(Selector):
 
         solutions = self.uoi.estimates_
         intercepts = self.uoi.intercepts_
+        assert(np.all(intercepts == 0))
         boots = self.uoi.boots
 
         n_boots, n_supports, n_coefs = solutions.shape
@@ -225,26 +229,29 @@ class UoISelector(Selector):
         bayesian_penalties = np.zeros(n_boots)
         oracle_penalties = np.zeros(n_boots)
 
+        sparsity_estimates = []
         for boot in range(n_boots):
 
             # Train data
             xx = X[boots[0][boot], :]
-            yy = y[boots[0][boot]] - intercepts[boot, :]
+            yy = y[boots[0][boot]]
 
-            sdict_ = super(UoISelectsdict_or, self).aBIC_selector(solutions[boot, ...],
-                                                                  np.arange(n_supports),
-                                                                  xx, yy, true_model)
+            sdict_ = super(UoISelector, self).aBIC_selector(xx, yy, solutions[boot, ...],
+                                                            np.arange(n_supports),
+                                                            true_model)
             bselected_coefs[boot, :] = sdict_['coefs'] 
             oselected_coefs[boot, :] = sdict_['oracle_coefs']
             bayesian_penalties[boot] = sdict_['bayesian_penalty']
             oracle_penalties[boot] = sdict_['oracle_penalty']
+            sparsity_estimates.append(sdict_['sparsity_estimates'])
 
-        coefs = self.union(selected_coefs)
+        coefs = self.union(bselected_coefs)
         oracle_coefs = self.union(oselected_coefs)
         sdict = {}
         sdict['coefs'] = coefs
         sdict['oracle_coefs'] = oracle_coefs
         sdict['bayesian_penalties'] = bayesian_penalties
         sdict['oracle_penalties'] = oracle_penalties
+        sdict['sparsity_estimates'] = np.array(sparsity_estimates, dtype = float)
 
         return sdict

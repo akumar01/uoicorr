@@ -99,7 +99,13 @@ def generate_arg_files(argfile_array, jobdir):
         const_keys = list(set(arg_.keys()) - set(sub_iter_params))
 
         const_args = {k: arg_[k] for k in const_keys}
-            
+        # Make sure the keys match for selection methods and fields
+        const_args['selection_methods'].sort()
+        field_keys = list(const_args['fields'].keys())
+        field_keys.sort()
+
+        assert(const_args['selection_methods'] == field_keys)
+
         arg_comb = list(itertools.product(*[arg_[key] for key in arg_['sub_iter_params']]))
 
         iter_param_list = []
@@ -144,7 +150,6 @@ def generate_arg_files(argfile_array, jobdir):
         print('arg_file iteration time: %f' % (time.time() - start))
 
     # Check that all random number seeds are unique
-    pdb.set_trace()
     assert(len(np.unique(seeds)) == len(seeds))    
 
     return paths, ntasks

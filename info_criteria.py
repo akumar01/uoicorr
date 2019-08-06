@@ -72,6 +72,11 @@ def full_bayes_factor(y, y_pred, n_features, model_size, sparsity_prior, penalty
         M_k = scipy.special.binom(n_features, model_size) * \
               sparsity_prior**model_size * (1 - sparsity_prior)**(n_features - model_size)
 
+    # If the model probability evaluates to 0, set it to a very small but finite value to 
+    # avoid blowups in the log
+    if M_k == 0:
+        M_k = 1e-9
+
     P_M = 2 * np.log(M_k)
 
 #    bayes_factor = 2 * ll - BIC - BIC2 + BIC3 - p1 + P_M
@@ -86,12 +91,16 @@ def beta_binomial_model(x, n, k):
     # drop all entries that are 0 
     x = x[x != 0]
 
-
-
-    # Fit the parameters of the beta distribution
-    a, b, _, _ = scipy.stats.beta.fit(x, floc = 0, fscale = 1)
-
-    p = scipy.special.binom(n, k) * \
-            scipy.special.beta(k + a, n - k + b)/scipy.special.beta(a, b)
-    
-    return p
+    # After this point, it may be the case that x is empty or has only a single
+    # element. In this case, we return a p of 0.
+    if len(x) < 2:
+        return 0
+    else:
+        try:
+            # Fit the parameters of the beta distribution
+            a, b, _, _ = scipy.stats.beta.fit(x, floc = 0, fscale = 1)
+            p = scipy.special.binom(n, k) * \
+                    scipy.special.beta(k + a, n - k + b)/scipy.special.beta(a, b)
+        except:
+            p = np.mean(x)
+        return p

@@ -11,13 +11,15 @@ def init_results_container(selection_methods, fields, num_tasks, n_features, n_r
     results = {selection_method: {} for selection_method in selection_methods}
 
     for selection_method in selection_methods:
-        # For all except beta_hat, initialize arrays of size num_tasks
+        # For array valued results, need to manually initialize their sizes
         for field in fields[selection_method]:
             results[selection_method][field] = np.zeros(num_tasks)
         if 'beta_hats' in fields[selection_method]:
             results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
         if 'reg_param' in fields[selection_method]:
             results[selection_method]['reg_param'] = np.zeros((num_tasks, n_reg_params))
+        if ''
+
 
     return results
 
@@ -56,19 +58,58 @@ def calc_result(X, X_test, y, y_test, beta, field, exp_results):
 
     elif field == 'r2':
 
-        result = r2_score(y_test, X_test @ beta)
+        result = r2_score(y_test, X_test @ beta_hat)
 
     elif field == 'MSE':
 
-        result = mean_squared_error(y_test, X_test @ beta)
+        result = mean_squared_error(y_test, X_test @ beta_hat)
 
     elif field == 'reg_param': 
-
-        result = exp_results['reg_param']
+        if 'reg_param' in list(exp_results.keys()):
+            result = exp_results['reg_param']
+        else:
+            result = np.nan
 
     elif field == 'oracle_penalty':
+        if 'oracle_penalty' in list(exp_results.keys()):
+            result = exp_results['oracle_penalty']
+        else:
+            result = np.nan
+    elif field == 'bayesian_penalty':
+        if 'oracle_penalty' in list(exp_results.keys()):
+            result = exp_results['oracle_penalty']
+        else:
+            result = np.nan
 
-        result = exp_results['oracle_penalty']
+    # Will need to investigate how this is handled (ndarray)
+    elif field == 'sparsity_estimates':
+        result = exp_results['sparsity_estimates']
+
+    # record oracle performance (from aBIC)
+    elif field == 'oracle_sa':
+        result = selection_accuracy(beta.ravel(), 
+                                     exp_results['oracle_coefs'].ravel())
+
+    elif field == 'oracle_FNR': 
+
+        result = FNR(beta.ravel(), 
+                      exp_results['oracle_coefs'].ravel())
+
+    elif field == 'oracle_FPR':
+
+        result = FPR(beta.ravel(), 
+                      exp_results['oracle_coefs'].ravel())
+
+    elif field == 'oracle_ee':
+        result, _ = estimation_error(beta.ravel(), exp_results['oracle_coefs'].ravel())
+
+    elif field == 'oracle_r2':
+
+        result = r2_score(y_test, X_test @ exp_results['oracle_coefs'])
+
+    elif field == 'oracle_MSE':
+
+        result = mean_squared_error(y_test, X_test @ exp_results['oracle_coefs'])
 
     else:
         raise ValueError('field type not understood')

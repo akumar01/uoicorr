@@ -5,7 +5,9 @@ import pycasso
 
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
+from utils import selection_accuracy
 from info_criteria import mBIC, GIC, full_bayes_factor
 
 # Sparsity estimation on the basis of BIC
@@ -26,9 +28,12 @@ def sparsity_estimator0(X, y, n_boots = 48, train_frac = 0.75):
         Xb = StandardScaler().fit_transform(Xb)
         yb -= np.mean(yb)
 
-        alphas, _, coefs  = lars_path(Xb, yb.ravel(), method = 'lasso')
+        # Use the pycasso solver
+        solver = pycasso.Solver(Xb, yb, penalty='l1')        
+        solver.train()
 
-        y_pred = Xb @ coefs
+        coefs = solver.result['beta']
+        y_pred = Xb @ coefs.T
 
         # Assess BIC on the LARS path to estimate the sparsity. 
         BIC_scores = np.array([GIC(yb.ravel(), y_pred[:, j].ravel(),
@@ -43,6 +48,7 @@ def sparsity_estimator0(X, y, n_boots = 48, train_frac = 0.75):
 # Refine sparsity estimate using mBIC
 def sparsity_estimator1(X, y, s0, n_boots = 48, train_frac = 0.75):
         
+
     sparsity_estimates = np.zeros(n_boots)
     
     for boot in range(n_boots):
@@ -56,18 +62,21 @@ def sparsity_estimator1(X, y, s0, n_boots = 48, train_frac = 0.75):
         Xb = StandardScaler().fit_transform(Xb)
         yb -= np.mean(yb)
 
+        n_samples, n_features = Xb.shape
+
         # Use fast pycasso solver
-        solver = pycasso.Solver
+        solver = pycasso.Solver(Xb, yb, penalty='l1')        
+        solver.train()
 
-        alphas, _, coefs  = lars_path(Xb, yb.ravel(), method = 'lasso')
+        coefs = solver.result['beta']
 
-        y_pred = Xb @ coefs
+        y_pred = Xb @ coefs.T
         
         mBIC_scores = np.zeros(coefs.shape[1])
         
         for j in range(coefs.shape[1]): 
         
-            ll_, p1_, BIC_, BIC2_, BIC3_, M_k_, P_M_ = bayesian_lambda_selection(yb, y_pred[:, j], n_features, 
+            ll_, p1_, BIC_, BIC2_, BIC3_, M_k_, P_M_ = full_bayes_factor(yb, y_pred[:, j], n_features, 
                                                                                  np.count_nonzero(coefs[:, j]),
                                                                                  s0, 0)
             mBIC_scores[j] = 2 * ll_ - BIC_ - BIC2_ + BIC3_ + P_M_ 
@@ -85,7 +94,7 @@ def aBIC(X, y, estimates, true_model):
 
     n_samples, n_features = X.shape
     
-    np1 = 100
+    np1 = 101
     penalties = np.linspace(0, 5 * np.log(n_samples), np1)
     
     oracle_penalty = np.zeros(n_boots)
@@ -99,7 +108,7 @@ def aBIC(X, y, estimates, true_model):
     sparsity_estimates[0, :] = sparsity_estimates_
 
     # Step (2): Refine sparsity estimates
-    sparsity_estimates_ = sparsity_estimator1(X, y)
+    sparsity_estimates_ = sparsity_estimator1(X, y, sparsity_estimates_)
 
     sparsity_estimates[1, :] = sparsity_estimates_
 
@@ -108,25 +117,30 @@ def aBIC(X, y, estimates, true_model):
     oracle_penalty, bayesian_penalty, bidx, oidx = \
     bayesian_penalty_selection(X, y, estimates, sparsity_estimates, penalties, true_model)
 
-    return oracle_penalty, bayesian_penalty, bidx, oidx
+    return oracle_penalty, bayesian_penalty, bidx, oidx, sparsity_estimates
 
 # Fit a model using adaptive BIC criteria given sparsity estimates
 def bayesian_penalty_selection(X, y, estimates, sparsity_estimates, 
                                penalties, true_model):
-                        
-    GIC_scores_ =  np.array([GIC(y.ravel(), y_pred.ravel(), 
-                                 np.count_nonzero(estimates[i, :]), penalty) 
-                             for i in range(estimates.shape[0])
-                             for penalty in penalties])
+    
+    n_samples, n_features = X.shape
+
+    y_pred = np.array([X @ estimates[i, :] for i in range(estimates.shape[0])])
+
+    GIC_scores_ =  np.array([[GIC(y.ravel(), y_pred[i, :], 
+                             np.count_nonzero(estimates[i, :]), penalty) 
+                             for penalty in penalties]
+                             for i in range(estimates.shape[0])])
 
     selected_models = np.argmin(GIC_scores_, axis = 0)
-        
+
     bayes_factors = np.zeros(penalties.size)
 
     for i, penalty in enumerate(penalties):
 
         support = estimates[selected_models[i], :] != 0
-        yy = models[selected_models[i]].predict(X[:, support])
+
+        yy = X @ estimates[selected_models[i], :]
 
         ll_, p1_, BIC_, BIC2_, BIC3_, M_k_, P_M_ = full_bayes_factor(
                                                    y, yy, n_features, 
@@ -137,19 +151,17 @@ def bayesian_penalty_selection(X, y, estimates, sparsity_estimates,
         bayes_factors[i] = 2 * ll_ - BIC_ - BIC2_ + BIC3_ - p1_ + P_M_
 
 
-    # Select the penalty based on the highest bayes factors 
-    bidx = np.argmax(bayes_factors)
 
     # Save the penalty strength and the chosen model
-    bayesian_penalty = penalties[bidx]
+    bayesian_penalty = penalties[np.argmax(bayes_factors)]
+    bidx = selected_models[np.argmax(bayes_factors)]
 
     # For MIC scores, record the oracle selection accuracy and the oracle penalty
-    MIC_selection_accuracies = [selection_accuracy(beta.ravel(), 
+    MIC_selection_accuracies = [selection_accuracy(true_model, 
                                 estimates[selected_models[j], :]) 
                                 for j in range(selected_models.size)]
 
-    # For MIC scores, record the oracle selection accuracy and the orcale penalty 
-
+    # For MIC scores, record the oracle selection accuracy and the orcale penalty  
     oracle_penalty = penalties[np.argmax(MIC_selection_accuracies)]
     oidx = selected_models[np.argmax(MIC_selection_accuracies)]
 

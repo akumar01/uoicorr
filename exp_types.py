@@ -53,7 +53,8 @@ class CV_Lasso(StandardLM_experiment):
 
     @classmethod
     def run(self, X, y, args, selection_methods = ['CV']):
-        super(CV_Lasso, self).run(X, y, args, selection_methods)
+        results = super(CV_Lasso, self).run(X, y, args, selection_methods)
+        return results
 
     @classmethod
     def fit_and_select(self, X, y, selection_method, true_model): 
@@ -108,7 +109,6 @@ class EN(StandardLM_experiment):
             # Fit elastic net to self-defined grid 
             if not hasattr(self, 'fitted_estimator'):
                 estimates = np.zeros((self.alphas.size, n_features))
-                intercepts = np.zeros()
                 print('Fitting!')
 
                 for i, l1 in enumerate(self.alphas):
@@ -168,6 +168,7 @@ class UoILasso():
             
             # If not yet fitted, run the pycasso lasso
             uoi = UoI_Lasso(
+                fit_intercept=False,
                 n_boots_sel=int(args['n_boots_sel']),
                 n_boots_est=int(args['n_boots_est']),
                 estimation_score=args['est_score'],
@@ -211,6 +212,7 @@ class UoIElasticNet(UoILasso):
             
             # If not yet fitted, run elastic net
             uoi = UoI_ElasticNet(
+                fit_intercept=False,
                 n_boots_sel=int(args['n_boots_sel']),
                 n_boots_est=int(args['n_boots_est']),
                 estimation_score=args['est_score'],

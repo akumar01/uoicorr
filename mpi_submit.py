@@ -146,11 +146,15 @@ def main(args):
     else:
         rmanager = ResultsManager(total_tasks = total_tasks, directory = results_dir)
 
+    # Only have one process handle file I/O
+    if rank == 0:
+        rmanager.makedir()
+
     # Chunk up iter_param_list to distribute across iterations. 
 
     # Take the complement of inserted_idxs in the results manager
     task_list = np.array(list(set(np.arange(total_tasks)).difference(set(rmanager.inserted_idxs()))))
-    chunk_param_list = np.array_split(np.arange(total_tasks), comm_splits)
+    chunk_param_list = np.array_split(np.arange(len(task_list)), comm_splits)
     chunk_idx = rank
     num_tasks = len(chunk_param_list[chunk_idx])
 
@@ -214,9 +218,9 @@ def main(args):
     # gather results managers
     rmanager.gather_managers(comm)
 
-    # concatenate and clean up results
-    rmanager.concatenate()
     if rank == 0:
+        # concatenate and clean up results
+        rmanager.concatenate()
         rmanager.cleanup()
 
     print('Total time: %f' % (time.time() - total_start))
