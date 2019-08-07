@@ -5,21 +5,10 @@ from mpi_utils.ndarray import Gatherv_rows
 import pdb
 
 # Categorize results according to selection method
-def init_results_container(selection_methods, fields, num_tasks, n_features, n_reg_params = 1):
+def init_results_container(selection_methods):
 
     # Use a nested dict
     results = {selection_method: {} for selection_method in selection_methods}
-
-    for selection_method in selection_methods:
-        # For array valued results, need to manually initialize their sizes
-        for field in fields[selection_method]:
-            results[selection_method][field] = np.zeros(num_tasks)
-        if 'beta_hats' in fields[selection_method]:
-            results[selection_method]['beta_hats'] = np.zeros((num_tasks, n_features))
-        if 'reg_param' in fields[selection_method]:
-            results[selection_method]['reg_param'] = np.zeros((num_tasks, n_reg_params))
-        if ''
-
 
     return results
 
@@ -65,21 +54,17 @@ def calc_result(X, X_test, y, y_test, beta, field, exp_results):
         result = mean_squared_error(y_test, X_test @ beta_hat)
 
     elif field == 'reg_param': 
+        # Some algorithms (i.e. UoI) have no 'selected' reg param
         if 'reg_param' in list(exp_results.keys()):
             result = exp_results['reg_param']
         else:
             result = np.nan
 
     elif field == 'oracle_penalty':
-        if 'oracle_penalty' in list(exp_results.keys()):
-            result = exp_results['oracle_penalty']
-        else:
-            result = np.nan
+        result = exp_results['oracle_penalty']
+
     elif field == 'bayesian_penalty':
-        if 'oracle_penalty' in list(exp_results.keys()):
-            result = exp_results['oracle_penalty']
-        else:
-            result = np.nan
+        result = exp_results['bayesian_penalty']
 
     # Will need to investigate how this is handled (ndarray)
     elif field == 'sparsity_estimates':

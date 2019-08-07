@@ -250,8 +250,8 @@ class UoISelector(Selector):
         sdict = {}
         sdict['coefs'] = coefs
         sdict['oracle_coefs'] = oracle_coefs
-        sdict['bayesian_penalties'] = bayesian_penalties
-        sdict['oracle_penalties'] = oracle_penalties
+        sdict['bayesian_penalty'] = bayesian_penalties
+        sdict['oracle_penalty'] = oracle_penalties
         sdict['sparsity_estimates'] = np.array(sparsity_estimates, dtype = float)
 
         return sdict

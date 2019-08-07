@@ -174,12 +174,6 @@ def main(args):
     for i in range(num_tasks):
         start = time.time()
 
-        # Initialize the results container to be saved to file
-        if subrank == 0:
-            results_dict = init_results_container(selection_methods, fields, 
-                                                  1, n_features,
-                                                  n_reg_params)
-
         params = f.read(chunk_param_list[chunk_idx][i])
 
         params['comm'] = subcomm
@@ -196,6 +190,9 @@ def main(args):
         exp_results = exp.run(X, y, params, selection_methods)
 
         if subrank == 0:
+
+            results_dict = init_results_container(selection_methods)
+
             #### Calculate and log results for each selection method
             for selection_method in selection_methods:
 
@@ -203,6 +200,7 @@ def main(args):
                     results_dict[selection_method][field] = calc_result(X, X_test, y, y_test,
                                                                            params['betas'].ravel(), field,
                                                                            exp_results[selection_method])
+
             # Add results to results manager. This automatically saves the child's data
             rmanager.add_child(results_dict, idx = chunk_param_list[chunk_idx][i])
             print('Process group %d completed outer loop %d/%d' % (rank, i, num_tasks))
