@@ -4,7 +4,7 @@ import itertools
 import time
 
 from info_criteria import GIC, eBIC
-from aBIC import aBIC
+from aBIC import aBIC, mBIC
 
 
 class Selector():
@@ -27,7 +27,7 @@ class Selector():
             sdict = self.GIC_selector(y, y_pred, solutions, reg_params, 
                               n_features, n_samples)
         elif self.selection_method == 'mBIC':
-            sdict = self.mBIC_selector()
+            sdict = self.mBIC_selector(X, y, solutions, reg_params)
         elif self.selection_method == 'eBIC':
             sdict = self.eBIC_selector(y, y_pred, solutions, reg_params, n_features)
         elif self.selection_method == 'aBIC':
@@ -55,9 +55,18 @@ class Selector():
         sdict['reg_param'] = reg_params[sidx]
         return sdict
 
-    def mBIC_selector(self):
+    def mBIC_selector(self, X, y, solutions, reg_params):
 
-        pass        
+        # mBIC_selector : Apply the iterative Bayesian approach, but do not use it as a 
+        # means of L0 penalty selection
+        scores = mBIC(X, y, solutions)
+
+        # Note the argmax here and not the argmin!
+        sidx = np.argmax(scores)
+        sdict = {}
+        sdict['coefs'] = solutions[sidx, :]
+        sdict['reg_param'] = reg_params[sidx]
+        return sdict
 
     def eBIC_selector(self, y, y_pred, solutions, reg_params, n_features):
 
@@ -185,7 +194,28 @@ class UoISelector(Selector):
         return sdict
 
     def mBIC_selector(self, X, y):
-        pass
+
+        solutions = self.uoi.estimates_
+        intercepts = self.uoi.intercepts_
+        boots = self.uoi.boots
+
+        n_boots, n_supports, n_coefs = solutions.shape
+        selected_coefs = np.zeros((n_boots, n_coefs))
+
+        for boot in range(n_boots):
+
+            # Train data
+            xx = X[boots[0][boot], :]
+            yy = y[boots[0][boot]]
+
+            sdict_ = super(UoISelector, self).mBIC_selector(xx, yy, solutions[boot, ...],
+                                                            np.arange(n_supports))
+            selected_coefs[boot, :] = sdict_['coefs'] 
+
+        coefs = self.union(selected_coefs)
+        sdict = {}
+        sdict['coefs'] = coefs
+        return sdict
 
     def eBIC_selector(self, X, y):
 

@@ -94,7 +94,7 @@ def aBIC(X, y, estimates, true_model):
 
     n_samples, n_features = X.shape
     
-    np1 = 101
+    np1 = 100
     penalties = np.linspace(0, 5 * np.log(n_samples), np1)
     
     oracle_penalty = np.zeros(n_boots)
@@ -118,6 +118,44 @@ def aBIC(X, y, estimates, true_model):
     bayesian_penalty_selection(X, y, estimates, sparsity_estimates, penalties, true_model)
 
     return oracle_penalty, bayesian_penalty, bidx, oidx, sparsity_estimates
+
+# Follow a similar procedure as aBIC, but do not use an L0 penalty in the bayes factor
+def mBIC(X, y, estimates):
+
+    n_boots = 48
+    train_frac = 0.75
+
+    n_samples, n_features = X.shape
+
+    sparsity_estimates = np.zeros((2, n_boots))
+
+    # Step (1): Initial sparsity estimate
+    sparsity_estimates_ = sparsity_estimator0(X, y)
+    sparsity_estimates[0, :] = sparsity_estimates_
+
+    # Step (2): Refine sparsity estimates
+    sparsity_estimates_ = sparsity_estimator1(X, y, sparsity_estimates_)
+
+    sparsity_estimates[1, :] = sparsity_estimates_
+
+    # Step (3) : Calculate Bayes factors with no L0 penalty
+    y_pred = np.array([X @ estimates[i, :] for i in range(estimates.shape[0])])
+
+    bayes_factors = np.zeros(estimates.shape[0])
+
+    for i in range(estimates.shape[0]):
+        support = estimates[i, :] != 0
+
+        ll_, p1_, BIC_, BIC2_, BIC3_, M_k_, P_M_ = full_bayes_factor(
+                                                   y, y_pred[i, :], n_features, 
+                                                   np.count_nonzero(1 * support),
+                                                   sparsity_estimates_, 0)        
+        # Add things up appropriately
+        bayes_factors[i] = 2 * ll_ - BIC_ - BIC2_ + BIC3_ - p1_ + P_M_
+
+
+    return bayes_factors        
+
 
 # Fit a model using adaptive BIC criteria given sparsity estimates
 def bayesian_penalty_selection(X, y, estimates, sparsity_estimates, 
