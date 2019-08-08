@@ -5,7 +5,7 @@ import time
 
 from info_criteria import GIC, eBIC
 from aBIC import aBIC, mBIC
-
+from sklearn.metrics import r2_score
 
 class Selector():
 

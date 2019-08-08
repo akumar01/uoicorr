@@ -4,23 +4,16 @@ import itertools
 import time
 
 from sklearn.linear_model.coordinate_descent import _alpha_grid
-from sklearn.linear_model import LassoCV, ElasticNetCV, RidgeCV, ElasticNet
-from sklearn.model_selection import KFold, GroupKFold, cross_validate
-from sklearn.metrics import r2_score
-from sklearn.preprocessing import normalize
+from sklearn.linear_model import RidgeCV
 
 from pyuoi.linear_model import UoI_Lasso
 from pyuoi.linear_model import UoI_ElasticNet
-from pyuoi.lbfgs import fmin_lbfgs
-from pyuoi.utils import log_likelihood_glm, BIC
 
-from mpi_utils.ndarray import Gatherv_rows
+from pyc_based.lm import PycassoLasso, PycassoElasticNet
+from pyc_based.pycasso_cv import PycassoCV, PycassoGrid, PycEnCV
 
-from info_criteria import GIC, eBIC
-from aBIC import aBIC
-from utils import selection_accuracy
-from pyc_based.lm import PycassoLasso
-from pyc_based.pycasso_cv import PycassoCV, PycassoGrid
+from r_based.slope import SLOPE as SLOPE_
+from r_based.slope import SLOPE_CV
 
 from selection import Selector, UoISelector
 
@@ -31,6 +24,7 @@ class StandardLM_experiment():
 
         if hasattr(self, 'fitted_estimator'):
             del self.fitted_estimator
+
         self.n_alphas = args['n_alphas']
         self.cv_splits = 5
 
@@ -46,7 +40,7 @@ class StandardLM_experiment():
         true_model = args['betas'].ravel()
         for selection_method in selection_methods:
             self.fit_and_select(X, y.ravel(), selection_method, true_model)
-        
+      
         return self.results
 
 class CV_Lasso(StandardLM_experiment):
@@ -59,19 +53,23 @@ class CV_Lasso(StandardLM_experiment):
     @classmethod
     def fit_and_select(self, X, y, selection_method, true_model): 
 
-        # For cross validation, use the existing solution: 
+        # Use the pycassocv for Lasso
         if selection_method == 'CV': 
-            lasso = LassoCV(cv = self.cv_splits, 
-                            alphas = self.alphas).fit(X, y.ravel())
+            print('Fitting!')
+            lasso = PycassoCV(penalty='l1', n_alphas=48, 
+                              gamma=3, alphas=self.alphas)
+            lasso.fit(X, y.ravel())
+            # lasso = LassoCV(cv = self.cv_splits, 
+            #                 alphas = self.alphas).fit(X, y.ravel())
             self.results[selection_method]['coefs'] = lasso.coef_
             self.results[selection_method]['reg_param'] = lasso.alpha_
 
         else: 
             if not hasattr(self, 'fitted_estimator'):
                 # If not yet fitted, run the pycasso lasso
-
-                lasso = PycassoLasso()
-                lasso.fit(X, y, self.alphas)
+                print('Fitting!')
+                lasso = PycassoLasso(alphas = self.alphas)
+                lasso.fit(X, y)
                 self.fitted_estimator = lasso
             # Extract the solution paths and regularization parameters 
             # and feed into the selector
@@ -89,7 +87,6 @@ class EN(StandardLM_experiment):
         rdge = RidgeCV(alphas = np.linspace(1e-5, 100, 500)).fit(X, y)
         self.l2 = rdge.alpha_
         results = super(EN, self).run(X, y, args, selection_methods)
-
         return results
 
     @classmethod
@@ -97,37 +94,33 @@ class EN(StandardLM_experiment):
 
         _, n_features = X.shape
 
-        # For cross validation, use the existing solution: 
+        # For cross validation, use our solution that uses pycasso
         if selection_method == 'CV': 
-            raise NotImplementedError('Need to change cross validation to use the ridge L2')
-            en = ElasticNetCV(cv = self.cv_splits, l1_ratio = self.l1_ratio, 
-                            n_alphas = self.n_alphas).fit(X, y.ravel())
+            print('Fitting!')
+            en = PycEnCV(n_folds = self.cv_splits, fit_intercept=False, 
+                         lambda1=self.alphas, lambda2=self.l2)
+            en.fit(X, y.ravel())
+            # en = ElasticNetCV(cv = self.cv_splits, l1_ratio = self.l1_ratio, 
+            #                 n_alphas = self.n_alphas).fit(X, y.ravel())
             self.results[selection_method]['coefs'] = en.coef_
-            self.results[selection_method]['reg_param'] = [en.l1_ratio_, en.alpha_]
+            self.results[selection_method]['reg_param'] = [en.lambda1_, en.lambda2_]
         else:
 
-            # Fit elastic net to self-defined grid 
             if not hasattr(self, 'fitted_estimator'):
-                estimates = np.zeros((self.alphas.size, n_features))
                 print('Fitting!')
 
-                for i, l1 in enumerate(self.alphas):
-                    l1_ratio = l1/(l1 + 2 * self.l2)
-                    alpha = l1 + 2 * self.l2
+                en = PycassoElasticNet(fit_intercept = False, 
+                                       lambda1=self.alphas, lambda2=self.l2)
 
-                    en = ElasticNet(l1_ratio = l1_ratio, alpha = alpha, 
-                                    fit_intercept = False)
-                    en.fit(X, y)
-                    estimates[i, :] = (1 + self.l2) * en.coef_.ravel()
+                en.fit(X, y)
+                estimates = en.coef_
 
                 reg_params = np.zeros((self.alphas.size, 2))
                 reg_params[:, 0] = self.l2
                 reg_params[:, 1] = self.alphas
-                self.fitted_estimator = dummy_estimator(coefs = estimates, 
-                                                reg_params = reg_params)
-
+                self.fitted_estimator = en
             selector = Selector(selection_method)
-            sdict = selector.select(self.fitted_estimator.coefs, 
+            sdict = selector.select(self.fitted_estimator.coef_, 
                                                     self.fitted_estimator.reg_params, X, y, true_model)
 
             self.results[selection_method] = sdict
@@ -174,7 +167,8 @@ class UoILasso():
                 estimation_score=args['est_score'],
                 stability_selection = args['stability_selection'],
                 n_lambdas = self.n_alphas,
-                comm = comm
+                comm = comm, 
+                solver = 'pyc'
                 )
             
             print('Fitting!')
@@ -263,7 +257,6 @@ class PYC(StandardLM_experiment):
             self.results[selection_method]['coefs'] = estimator.coef_
             self.results[selection_method]['reg_param'] = \
                                         [estimator.gamma_, estimator.alpha_]
-            self.results[selection_method]['oracle_penalty'] = -1
 
         else: 
             if not hasattr(self, 'fitted_estimator'):
@@ -298,46 +291,38 @@ class PYC(StandardLM_experiment):
 class SLOPE(StandardLM_experiment):
 
     @classmethod
-    def run(self, X, y, args, selection_method = ['BIC']):
+    def run(self, X, y, args, selection_methods = ['BIC']):
 
         self.lambda_method = args['lambda_method']
-        self.reg_params = args['slope_reg_params']
+        self.lambda_args = args['lambda_args']
         super(SLOPE, self).run(X, y, args, selection_methods)        
         return self.results
 
+    @classmethod
     def fit_and_select(self, X, y, selection_method, true_model):
 
         if selection_method == 'CV':
-            raise NotImplementedError('CV not supported')
+
+            slope = SLOPE_CV(nfolds = self.cv_splits, 
+                             lambda_method=self.lambda_method, 
+                             lambda_spec=self.lambda_args)
+            slope.fit(X, y)
+            self.results[selection_method]['coefs'] = slope.coef_
+            # Store the FDR
+            self.results[selection_method]['reg_param'] = slope.fdr_
 
         if not hasattr(self, 'fitted_estimator'):
+ 
+            _, n_features = X.shape
 
-            n_samples, n_features = X.shape
+            estimates = np.zeros((self.lambda_args.size, n_features))
+            for i, fdr in enumerate(self.lambda_args):
+                slope = SLOPE_(lambda_method='FDR', lambda_spec=fdr)
+                slope.fit(X, y)
+                estimates[i, :] = slope.coef_
 
-            # Initialize R interface. Make sure SLOPE is installed! 
-            slope = rpy2.robjects.packages.importr('SLOPE')
-            rpy2.robjects.numpy2ri.activate()
-
-            if self.lambda_method == 'FDR':
-                lambdas = np.array([slope.create_lambda(n_samples, n_features, 
-                                              fdr = fdr,
-                                              method = 'gaussian')
-                                    for fdr in self.reg_params['slopre_reg_params']['fdr']])
-            elif self.lambda_method == 'user':
-                lambdas = self.reg_params['slope_reg_params']['lambda']
-
-            if lambdas.ndim == 1:
-                lambdas = lambdas[np.newaxis, :]
-
-            estimates = np.zeros((lambdas.shape[0], n_features))
-
-            for i in range(lambdas.shape[0]):
-                result = slope.SLOPE_solver(X, y, lambdas[i, :])
-                estimates[i, :] = np.array(result[4])
-
-            # Feed in dummy reg_params --> not to interested in them
-            self.fitted_estimator = dummy_estimator(estimates, np.arange(lambdas.shape[0]))
-
+            self.fitted_estimator = dummy_estimator(coefs = estimates, 
+                                                    reg_params = self.lambda_args)
             selector = Selector(selection_method = selection_method)
 
             sdict = selector.select(self.fitted_estimator.coefs, 

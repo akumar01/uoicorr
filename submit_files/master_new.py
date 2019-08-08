@@ -8,10 +8,10 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['UoILasso',  'EN', 'CV_Lasso', 'scad', 'mcp']
+exp_types =  ['UoILasso',  'EN', 'CV_Lasso', 'scad', 'mcp', 'SLOPE']
 
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['08:00:00',  '02:00:00', '01:00:00', '01:00:00', '01:00:00']
+algorithm_times = ['08:00:00',  '02:00:00', '01:00:00', '01:00:00', '01:00:00', '2:00:00']
 
 n_features = 50
 
@@ -86,15 +86,19 @@ comm_params['n_alphas'] = 100
 # Parameters for SCAD/MCP
 comm_params['gamma'] = [3]
 
+# Parameters for SLOPE
+comm_params['lambda_method'] = 'FDR'
+comm_params['lambda_args'] = np.linspace(0.01, 0.9, 50)
+
 ###############################################################
 
 # Which selection methods should we apply to the algorithms?
-comm_params['selection_methods'] = ['BIC', 'AIC', 'aBIC', 'eBIC']
+comm_params['selection_methods'] = ['BIC', 'AIC', 'aBIC', 'eBIC', 'CV']
 # Which fields should we record for each selection method? 
 comm_params['fields'] = {'BIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'], 
 						 'aBIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param',
 						 		   'sparsity_estimates', 'oracle_sa', 'oracle_FNR', 'oracle_FPR',
 						 		   'oracle_ee', 'oracle_r2', 'oracle_MSE', 'oracle_penalty', 'bayesian_penalty'], 
 						 'AIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'], 
-						 'eBIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param']} 
-						 #'CV' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param']}
+						 'eBIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'], 
+						 'CV' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param']}
