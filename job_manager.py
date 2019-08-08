@@ -236,8 +236,12 @@ def create_job_structure(submit_file, jobdir, qos, numtasks, cpu_per_task,
         os.makedirs(jobdir)
 
     path, name = submit_file.split('/')
+    name = os.path.splitext(name)[0]
     sys.path.append(path)
     args = importlib.import_module(name)
+
+    # Copy submit file to jobdir
+    os.system('cp %s %s/' % (submit_file, jobdir))
 
     iter_params = args.iter_params
     comm_params = args.comm_params
