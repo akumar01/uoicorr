@@ -44,7 +44,6 @@ def manage_comm():
 
     subcomm = comm.Split(color, rank)
 
-    rank = color
     nchunks = comm_splits
     subrank = subcomm.rank
     numproc = subcomm.Get_size()
@@ -54,7 +53,7 @@ def manage_comm():
     # root_group = MPI.Group.Incl(global_group, subcomm_roots)
     # roots_comm = comm.Create(root_group)
 
-    return comm, rank, subcomm, subrank, numproc, comm_splits
+    return comm, rank, color, subcomm, subrank, numproc, comm_splits
 
 
 def gen_data_(params, subcomm, subrank):
@@ -138,7 +137,7 @@ def main(args):
     results_dir = args.results_dir
 
     # MPI initialization 
-    comm, rank, subcomm, subrank, numproc, comm_splits = manage_comm()
+    comm, rank, color, subcomm, subrank, numproc, comm_splits = manage_comm()
 
     # Load or initialize the Results Manager object
     if args.resume:
@@ -155,7 +154,7 @@ def main(args):
     # Take the complement of inserted_idxs in the results manager
     task_list = np.array(list(set(np.arange(total_tasks)).difference(set(rmanager.inserted_idxs()))))
     chunk_param_list = np.array_split(np.arange(len(task_list)), comm_splits)
-    chunk_idx = rank
+    chunk_idx = color
     num_tasks = len(chunk_param_list[chunk_idx])
 
     print('total tasks %d' % len(task_list))

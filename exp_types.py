@@ -160,6 +160,7 @@ class UoILasso():
         if not hasattr(self, 'fitted_estimator'):
             
             # If not yet fitted, run the pycasso lasso
+            t0 = time.time()
             uoi = UoI_Lasso(
                 fit_intercept=False,
                 n_boots_sel=int(args['n_boots_sel']),
@@ -168,11 +169,13 @@ class UoILasso():
                 stability_selection = args['stability_selection'],
                 n_lambdas = self.n_alphas,
                 comm = comm, 
-                solver = 'pyc'
+                solver = 'cd'
                 )
-            
-            print('Fitting!')
+            if rank == 0:
+                print('Fitting!')
             uoi.fit(X, y.ravel())
+            if rank == 0:
+                print('fit time: %f' % (time.time() - t0)) 
             self.fitted_estimator = uoi
 
         # Use the fact that UoI stores all of its estimates to

@@ -137,7 +137,7 @@ def generate_arg_files(argfile_array, jobdir):
         ntasks.append(len(iter_param_list))
         arg_file = '%s/master/params%d.dat' % (jobdir, j)
         paths.append(arg_file)
-        
+
         f = Indexed_Pickle(arg_file)
         f.init_save(len(iter_param_list), header_data = 
                     {'n_features' : param_comb['n_features'], 

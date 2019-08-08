@@ -13,16 +13,16 @@ exp_types =  ['UoILasso',  'EN', 'CV_Lasso', 'scad', 'mcp', 'SLOPE']
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
 algorithm_times = ['08:00:00',  '02:00:00', '01:00:00', '01:00:00', '01:00:00', '2:00:00']
 
-n_features = 50
+n_features = 500
 
 # Block sizes
-block_sizes = [2, 5, 10]
+block_sizes = [20, 50, 100]
 
 # Block correlation
 correlation = [0, 0.08891397, 0.15811388, 0.28117066, 0.5]
 
 # Exponential length scales
-L = [1, 2, 5, 10]
+L = [10, 20, 50, 100]
 
 cov_list, _ = get_cov_list(n_features, 60, correlation, block_sizes, L, n_supplement = 20)
 
