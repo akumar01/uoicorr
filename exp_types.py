@@ -311,18 +311,19 @@ class SLOPE(StandardLM_experiment):
             # Store the FDR
             self.results[selection_method]['reg_param'] = slope.fdr_
 
-        if not hasattr(self, 'fitted_estimator'):
- 
-            _, n_features = X.shape
+        else:
+            if not hasattr(self, 'fitted_estimator'):
+     
+                _, n_features = X.shape
 
-            estimates = np.zeros((self.lambda_args.size, n_features))
-            for i, fdr in enumerate(self.lambda_args):
-                slope = SLOPE_(lambda_method='FDR', lambda_spec=fdr)
-                slope.fit(X, y)
-                estimates[i, :] = slope.coef_
+                estimates = np.zeros((self.lambda_args.size, n_features))
+                for i, fdr in enumerate(self.lambda_args):
+                    slope = SLOPE_(lambda_method='FDR', lambda_spec=fdr)
+                    slope.fit(X, y)
+                    estimates[i, :] = slope.coef_
 
-            self.fitted_estimator = dummy_estimator(coefs = estimates, 
-                                                    reg_params = self.lambda_args)
+                self.fitted_estimator = dummy_estimator(coefs = estimates, 
+                                                        reg_params = self.lambda_args)
             selector = Selector(selection_method = selection_method)
 
             sdict = selector.select(self.fitted_estimator.coefs, 
