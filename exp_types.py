@@ -296,8 +296,11 @@ class SLOPE(StandardLM_experiment):
     @classmethod
     def run(self, X, y, args, selection_methods = ['BIC']):
 
-        self.lambda_method = args['lambda_method']
-        self.lambda_args = args['lambda_args']
+        # Hard code since we are using stale args
+        self.lambda_method = 'FDR'
+        # self.lambda_args = np.linspace(0.01, 0.9, 100)
+        self.lambda_args = [0.2]
+        self.lambda_args = np.array(self.lambda_args)
         super(SLOPE, self).run(X, y, args, selection_methods)        
         return self.results
 
