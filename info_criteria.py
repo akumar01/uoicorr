@@ -56,8 +56,11 @@ def gMDL(y, y_pred, k, n):
 
     return gMDL
 
+# Empirical bayesian procedure (Calibration and Empirical Bayes 
+# Variable Selection)
 def empirical_bayes(y, y_pred, k, n):
 
+    # Paper provides closed form expression
 
 # Full Bayes factor
 def full_bayes_factor(y, y_pred, n_features, model_size, sparsity_prior, penalty):
