@@ -3,7 +3,7 @@ import pdb
 import itertools
 import time
 
-from info_criteria import GIC, eBIC
+from info_criteria import GIC, eBIC, gMDL, empirical_bayes
 from aBIC import aBIC, mBIC
 from sklearn.metrics import r2_score
 
@@ -23,58 +23,44 @@ class Selector():
         # Deal to the appropriate sub-function based on 
         # the provided selection method string
 
-        if self.selection_method in ['BIC', 'AIC']: 
-            sdict = self.GIC_selector(y, y_pred, solutions, reg_params, 
-                              n_features, n_samples)
-        elif self.selection_method == 'mBIC':
-            sdict = self.mBIC_selector(X, y, solutions, reg_params)
-        elif self.selection_method == 'eBIC':
-            sdict = self.eBIC_selector(y, y_pred, solutions, reg_params, n_features)
+        if self.selection_method in ['mBIC', 'eBIC', 'BIC', 'AIC',
+                                       'gMDL', 'empirical_bayes']:
+            sdict = self.selector(X, y, y_pred, solutions, 
+                                  reg_params)
         elif self.selection_method == 'aBIC':
-            sdict = self.aBIC_selector(X, y, solutions, reg_params, true_model)
+            sdict = self.aBIC_selector(X, y, solutions, 
+                                       reg_params, true_model)
         else:
             raise ValueError('Incorrect selection method specified')
-
         return sdict
 
-    def GIC_selector(self, y, y_pred, solutions, reg_params, n_features, n_samples): 
+    def selector(self, X, y, y_pred, solutions, reg_params):
 
-        if self.selection_method == 'BIC':
-            penalty = np.log(n_samples)
-        if self.selection_method == 'AIC':
-            penalty = 2
-        
-        scores = np.array([GIC(y.ravel(), y_pred[i, :], np.count_nonzero(solutions[i, :]),
-                                penalty) for i in range(solutions.shape[0])])
+        n_samples, n_features = X.shape
 
-        sidx = np.argmin(scores)
-
-        # Selection dict: Return coefs and selected_reg_param
-        sdict = {}
-        sdict['coefs'] = solutions[sidx, :]
-        sdict['reg_param'] = reg_params[sidx]
-        return sdict
-
-    def mBIC_selector(self, X, y, solutions, reg_params):
-
-        # mBIC_selector : Apply the iterative Bayesian approach, but do not use it as a 
-        # means of L0 penalty selection
-        scores = mBIC(X, y, solutions)
-
-        # Note the argmax here and not the argmin!
-        sidx = np.argmax(scores)
-        sdict = {}
-        sdict['coefs'] = solutions[sidx, :]
-        sdict['reg_param'] = reg_params[sidx]
-        return sdict
-
-    def eBIC_selector(self, y, y_pred, solutions, reg_params, n_features):
-
-        scores = np.array([eBIC(y.ravel(), y_pred[i, :], n_features,
-                                np.count_nonzero(solutions[i, :]))
-                                for i in range(solutions.shape[0])])
-        sidx = np.argmin(scores)
-
+        if self.selection_method in ['AIC', 'BIC']:
+            if self.selection_method == 'BIC':
+                penalty = np.log(n_samples)
+            if self.selection_method == 'AIC':
+                penalty = 2
+            
+            scores = np.array([GIC(y.ravel(), y_pred[i, :], 
+                               np.count_nonzero(solutions[i, :]),
+                               penalty) for i in range(solutions.shape[0])])
+        if self.selection_method == 'mBIC':
+            scores = mBIC(X, y, solutions)
+        elif self.selection_method ==  'eBIC':
+            scores = np.array([eBIC(y.ravel(), y_pred[i, :], n_features,
+                                    np.count_nonzero(solutions[i, :]))
+                                    for i in range(solutions.shape[0])])
+        elif self.selection_method == 'gMDL':
+            scores = np.array([gMDL(y.ravel(), y_pred[i, :],
+                        np.count_nonzero(solutions[i, :]))
+                        for i in range(solutions.shape[0])])
+        elif self.selection_method == 'empirical_bayes':
+            scores = np.array([empirical_bayes(X, y,
+                                   solutions[i, :])
+                   for i in range(solutions.shape[0])])
         # Selection dict: Return coefs and selected_reg_param
         sdict = {}
         sdict['coefs'] = solutions[sidx, :]
@@ -117,12 +103,9 @@ class UoISelector(Selector):
         # For UoI, interpret CV selector to mean r2
         if self.selection_method == 'CV':
             sdict = self.r2_selector(X, y)
-        elif self.selection_method in ['BIC', 'AIC']: 
-            sdict = self.GIC_selector(X, y)
-        elif self.selection_method == 'mBIC':
-            sdict = self.mBIC_selector(X, y)
-        elif self.selection_method == 'eBIC':
-            sdict = self.eBIC_selector(X, y)
+        elif self.selection_method in ['BIC', 'AIC', 'mBIC',
+                                       'eBIC', 'gMDL', 'empirical_bayes']: 
+            sdict = self.selector(X, y)
         elif self.selection_method == 'aBIC':
             sdict = self.aBIC_selector(X, y, true_model)
         else:
@@ -165,7 +148,7 @@ class UoISelector(Selector):
 
         return sdict
 
-    def GIC_selector(self, X, y):
+    def selector(self, X, y):
 
         solutions = self.uoi.estimates_
         intercepts = self.uoi.intercepts_
@@ -181,9 +164,8 @@ class UoISelector(Selector):
             n_samples, n_features = xx.shape
             y_pred = solutions[boot, ...] @ xx.T + intercepts[boot, :][:, np.newaxis]
 
-            sdict_ = super(UoISelector, self).GIC_selector(yy, y_pred, solutions[boot, ...], 
-                                                           np.arange(n_supports), 
-                                                           n_features, n_samples) 
+            sdict_ = super(UoISelector, self).selector(yy, y_pred, solutions[boot, ...], 
+                                                           np.arange(n_supports)) 
 
             selected_coefs[boot, :] = sdict_['coefs']
 
@@ -191,59 +173,6 @@ class UoISelector(Selector):
         sdict = {}
         sdict['coefs'] = coefs
 
-        return sdict
-
-    def mBIC_selector(self, X, y):
-
-        solutions = self.uoi.estimates_
-        intercepts = self.uoi.intercepts_
-        boots = self.uoi.boots
-
-        n_boots, n_supports, n_coefs = solutions.shape
-        selected_coefs = np.zeros((n_boots, n_coefs))
-
-        for boot in range(n_boots):
-
-            # Train data
-            xx = X[boots[0][boot], :]
-            yy = y[boots[0][boot]]
-
-            sdict_ = super(UoISelector, self).mBIC_selector(xx, yy, solutions[boot, ...],
-                                                            np.arange(n_supports))
-            selected_coefs[boot, :] = sdict_['coefs'] 
-
-        coefs = self.union(selected_coefs)
-        sdict = {}
-        sdict['coefs'] = coefs
-        return sdict
-
-    def eBIC_selector(self, X, y):
-
-        solutions = self.uoi.estimates_
-        intercepts = self.uoi.intercepts_
-        boots = self.uoi.boots
-
-        n_boots, n_supports, n_coefs = solutions.shape
-        selected_coefs = np.zeros((n_boots, n_coefs))
-
-        for boot in range(n_boots):
-
-            # Train data
-            xx = X[boots[0][boot], :]
-            yy = y[boots[0][boot]]
-
-            _, n_features = xx.shape
-
-            y_pred = solutions[boot, ...] @ xx.T + intercepts[boot, :][:, np.newaxis]
-
-            sdict_ = super(UoISelector, self).eBIC_selector(yy, y_pred, solutions[boot, ...],
-                                                            np.arange(n_supports),
-                                                            n_features)
-            selected_coefs[boot, :] = sdict_['coefs'] 
-
-        coefs = self.union(selected_coefs)
-        sdict = {}
-        sdict['coefs'] = coefs
         return sdict
 
     def aBIC_selector(self, X, y, true_model):
