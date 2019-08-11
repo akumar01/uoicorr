@@ -1,5 +1,6 @@
 import numpy as np
 from pyuoi.utils import log_likelihood_glm
+from sklearn.metrics import r2_score
 import scipy
 import pdb
 
@@ -35,6 +36,46 @@ def mBIC(y, y_pred, model_size, sparsity_prior):
     mBIC =  BIC(y, y_pred, model_size) + 2 * model_size * np.log(1/sparsity_prior - 1)
 
     return mBIC
+
+# mixture coding MDL criteria (eq. 34 in Hansen and Yu)
+# k : number of features in model 
+# n : number of samples
+def gMDL(y, y_pred, k):
+
+    n = y.size
+    threshold = k/n
+    r2 = r2_score(y, y_pred)
+
+    RSS = np.sum((y - y_pred)**2)
+    S = RSS/(n - k)
+    F = (np.sum(y**2) - RSS)/(k * S)
+
+    if r2 > threshold:
+        gMDL = n/2 * np.log(S) + k/2 * np.log(F) + np.log(n)
+    else:
+        gMDL = n/2 * np.log(np.sum(y**2)/n) + 1/2 * np.log(n)
+
+    return gMDL
+
+# Empirical bayesian procedure (Calibration and Empirical Bayes 
+# Variable Selection)
+def empirical_bayes(X, y, beta):
+
+    n, p = X.shape
+    beta = beta.ravel()
+    y = y.ravel()
+
+    # Paper provides closed form expression
+    # Using the conditional marginal likelihood criterion
+    k = np.count_nonzero(beta)
+    ssg = beta.T @ X.T @ X @ beta
+    # Noise variance estimate
+    ssq_hat = ?
+    thres = lambda x: x if x > 0 else 0
+    B = k * (1 + thres(np.log(ssg/(k * ssq_hat))))
+    R = -2 * ((p - k) * np.log(p - k) + k * np.log(k))
+
+    return ssg/ssq_hat - B - R
 
 # Full Bayes factor
 def full_bayes_factor(y, y_pred, n_features, model_size, sparsity_prior, penalty):
