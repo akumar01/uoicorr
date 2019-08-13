@@ -188,7 +188,6 @@ def main(args):
 
         exp_results = exp.run(X, y, params, selection_methods)
         if subrank == 0:
-
             results_dict = init_results_container(selection_methods)
 
             #### Calculate and log results for each selection method

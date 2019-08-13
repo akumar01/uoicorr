@@ -99,6 +99,10 @@ def calc_result(X, X_test, y, y_test, beta, field, exp_results):
     else:
         raise ValueError('field type %s not understood' % field)
 
+    # result needs to be wrapped in an array for proper behavior later
+    if np.isscalar(result):
+        result = np.array([result])
+
     return result
 
 # Calculate the best result along a solution path
