@@ -154,12 +154,13 @@ def beta_binomial_model(x, n, k):
     if len(x) < 2:
         return 0
     else:
-        try:
-            # Fit the parameterqs of the beta distribution
-            a, b, _, _ = scipy.stats.beta.fit(x, floc = 0, fscale = 1)
-            p = scipy.special.binom(n, k) * \
-                scipy.special.beta(k + a, n - k + b)/scipy.special.beta(a, b)
-        except:
+        # try:
+        #     # Fit the parameterqs of the beta distribution
+        #     a, b, _, _ = scipy.stats.beta.fit(x, floc = 0, fscale = 1)
+        #     p = scipy.special.binom(n, k) * \
+        #         scipy.special.beta(k + a, n - k + b)/scipy.special.beta(a, b)
+        # except:
             
-            p = np.mean(x)
+        # Too many edge cases, so for now just average over sparsity estimates
+        p = np.mean(x)
         return p
