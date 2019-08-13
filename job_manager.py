@@ -185,7 +185,7 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
             jobname = sbatch['jobname']
 
         script = 'mpi_submit.py'
-        results_file = '%s/%s' % (sbatch_dir, jobname)
+        results_dir = '%s/%s' % (sbatch_dir, jobname)
 
         with open(sbname, 'w') as sb:
             # Arguments common across jobs
@@ -222,7 +222,7 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
             # sb.write('sbcast -f --compress %s/%s /tmp/%s\n' % (script_dir, script, script))
             sb.write('srun python3 -u %s/%s %s %s %s' 
                      % (script_dir, script, sbatch['arg_file'],
-                     results_file, sbatch['exp_type']))
+                     results_dir, sbatch['exp_type']))
                 
 # Use skip_argfiles if arg_files have already been generated and just need to 
 # re-gen sbatch files

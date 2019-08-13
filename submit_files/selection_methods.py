@@ -28,9 +28,7 @@ cov_list, _ = get_cov_list(n_features, 14, correlation, block_sizes, L, n_supple
 
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 
-sparsity = np.logspace(np.log10(0.1), 0, 15)
-sparsity = sparsity[sparsity >= 0.1]
-sparsity = sparsity[sparsity <= 0.6]
+sparsity = np.linspace(0.1, 1, 10)
 
 iter_params = {
 
@@ -71,7 +69,7 @@ comm_params = {
 'n_boots_est' : 25,
 'betadict' : beta_dict,
 # Inverse Signal to noise ratio
-'kappa' : [5, 2, 1],
+'kappa' : [10, 5, 1],
 'sub_iter_params': ['betadict', 'sparsity', 'kappa']
 }
 
