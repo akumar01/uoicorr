@@ -1,5 +1,6 @@
 import numpy as np
 from pyuoi.utils import log_likelihood_glm
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 import scipy
 import pdb
@@ -41,7 +42,10 @@ def mBIC(y, y_pred, model_size, sparsity_prior):
 # k : number of features in model 
 # n : number of samples
 def gMDL(y, y_pred, k):
-
+    
+    # Doesn't seem to be able to handle the k = 0 case
+    if k == 0:
+        return np.inf, np.nan
     n = y.size
     threshold = k/n
     r2 = r2_score(y, y_pred)
@@ -51,11 +55,13 @@ def gMDL(y, y_pred, k):
     F = (np.sum(y**2) - RSS)/(k * S)
 
     if r2 > threshold:
+        penalty = k/2 * np.log(F) + np.log(n)
         gMDL = n/2 * np.log(S) + k/2 * np.log(F) + np.log(n)
     else:
+        penalty = 1/2 * np.log(n)
         gMDL = n/2 * np.log(np.sum(y**2)/n) + 1/2 * np.log(n)
 
-    return gMDL
+    return gMDL, penalty
 
 # Empirical bayesian procedure (Calibration and Empirical Bayes 
 # Variable Selection)
@@ -68,14 +74,22 @@ def empirical_bayes(X, y, beta):
     # Paper provides closed form expression
     # Using the conditional marginal likelihood criterion
     k = np.count_nonzero(beta)
-    ssg = beta.T @ X.T @ X @ beta
-    # Noise variance estimate
-    ssq_hat = ?
-    thres = lambda x: x if x > 0 else 0
-    B = k * (1 + thres(np.log(ssg/(k * ssq_hat))))
-    R = -2 * ((p - k) * np.log(p - k) + k * np.log(k))
 
-    return ssg/ssq_hat - B - R
+    ssg = beta.T @ X.T @ X @ beta
+    # Noise variance estimate. Use the full model recommendation
+    bfull = LinearRegression().fit(X, y).coef_    
+    ssq_hat = (y.T @ y - bfull.T @ X.T @ X @ bfull)/(n - p)
+    thres = lambda x: x if x > 0 else 0
+    
+    if k == 0:
+        B = 0
+    else:
+        B = k * (1 + thres(np.log(ssg/(k * ssq_hat))))
+    
+    safelog = lambda x: x * np.log(x) if x > 0 else 0
+    R = -2 * (safelog(p - k) + safelog(k))
+
+    return ssg/ssq_hat - B - R, B + R
 
 # Full Bayes factor
 def full_bayes_factor(y, y_pred, n_features, model_size, sparsity_prior, penalty):

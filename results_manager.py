@@ -63,8 +63,8 @@ def calc_result(X, X_test, y, y_test, beta, field, exp_results):
     elif field == 'oracle_penalty':
         result = exp_results['oracle_penalty']
 
-    elif field == 'bayesian_penalty':
-        result = exp_results['bayesian_penalty']
+    elif field == 'effective_penalty':
+        result = exp_results['effective_penalty']
 
     # Will need to investigate how this is handled (ndarray)
     elif field == 'sparsity_estimates':
@@ -97,7 +97,7 @@ def calc_result(X, X_test, y, y_test, beta, field, exp_results):
         result = mean_squared_error(y_test, X_test @ exp_results['oracle_coefs'])
 
     else:
-        raise ValueError('field type not understood')
+        raise ValueError('field type %s not understood' % field)
 
     return result
 

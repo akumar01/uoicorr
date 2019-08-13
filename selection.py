@@ -37,7 +37,7 @@ class Selector():
     def selector(self, X, y, y_pred, solutions, reg_params):
 
         n_samples, n_features = X.shape
-
+        sdict = {}
         if self.selection_method in ['AIC', 'BIC']:
             if self.selection_method == 'BIC':
                 penalty = np.log(n_samples)
@@ -47,22 +47,29 @@ class Selector():
             scores = np.array([GIC(y.ravel(), y_pred[i, :], 
                                np.count_nonzero(solutions[i, :]),
                                penalty) for i in range(solutions.shape[0])])
+            sidx = np.argmin(scores)
         if self.selection_method == 'mBIC':
             scores = mBIC(X, y, solutions)
+            sidx = np.argmax(scores)
         elif self.selection_method ==  'eBIC':
             scores = np.array([eBIC(y.ravel(), y_pred[i, :], n_features,
                                     np.count_nonzero(solutions[i, :]))
                                     for i in range(solutions.shape[0])])
+            sidx = np.argmin(scores)
         elif self.selection_method == 'gMDL':
             scores = np.array([gMDL(y.ravel(), y_pred[i, :],
                         np.count_nonzero(solutions[i, :]))
                         for i in range(solutions.shape[0])])
+            sidx = np.argmin(scores[:, 0])
+            sdict['effective_penalty'] = scores[sidx, 1] 
         elif self.selection_method == 'empirical_bayes':
             scores = np.array([empirical_bayes(X, y,
                                    solutions[i, :])
                    for i in range(solutions.shape[0])])
+            sidx = np.argmin(scores[:, 0])
+            sdict['effective_penalty'] = scores[sidx, 1]
         # Selection dict: Return coefs and selected_reg_param
-        sdict = {}
+        
         sdict['coefs'] = solutions[sidx, :]
         sdict['reg_param'] = reg_params[sidx]
         return sdict
@@ -78,7 +85,7 @@ class Selector():
         sdict['reg_param'] = reg_params[bidx]
         sdict['oracle_coefs'] = solutions[oidx, :]
         sdict['oracle_penalty'] = oracle_penalty
-        sdict['bayesian_penalty'] = bayesian_penalty
+        sdict['effective_penalty'] = bayesian_penalty
         sdict['sparsity_estimates'] = spest
 
         return sdict
@@ -209,7 +216,7 @@ class UoISelector(Selector):
         sdict = {}
         sdict['coefs'] = coefs
         sdict['oracle_coefs'] = oracle_coefs
-        sdict['bayesian_penalty'] = bayesian_penalties
+        sdict['effective_penalty'] = bayesian_penalties
         sdict['oracle_penalty'] = oracle_penalties
         sdict['sparsity_estimates'] = np.array(sparsity_estimates, dtype = float)
 
