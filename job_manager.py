@@ -245,8 +245,10 @@ def create_job_structure(submit_file, jobdir, qos, numtasks, cpu_per_task,
 
     iter_params = args.iter_params
     comm_params = args.comm_params
-    exp_types = args.exp_types
-    algorithm_times = args.algorithm_times
+    # exp_types = args.exp_types
+    exp_types = ['SLOPE']
+    algorithm_times = ['03:00:00']
+    # algorithm_times = args.algorithm_times
     script_dir = args.script_dir
 
     if hasattr(args, 'desc'):

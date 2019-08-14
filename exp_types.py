@@ -299,7 +299,7 @@ class SLOPE(StandardLM_experiment):
         # Hard code since we are using stale args
         self.lambda_method = 'FDR'
         # self.lambda_args = np.linspace(0.01, 0.9, 100)
-        self.lambda_args = [0.2]
+        self.lambda_args = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.75, 0.9]
         self.lambda_args = np.array(self.lambda_args)
         super(SLOPE, self).run(X, y, args, selection_methods)        
         return self.results

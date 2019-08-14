@@ -47,20 +47,25 @@ class Selector():
             scores = np.array([GIC(y.ravel(), y_pred[i, :], 
                                np.count_nonzero(solutions[i, :]),
                                penalty) for i in range(solutions.shape[0])])
+            sidx = np.argmin(scores)
         if self.selection_method == 'mBIC':
             scores = mBIC(X, y, solutions)
+            sidx = np.argmax(mBIC)
         elif self.selection_method ==  'eBIC':
             scores = np.array([eBIC(y.ravel(), y_pred[i, :], n_features,
                                     np.count_nonzero(solutions[i, :]))
                                     for i in range(solutions.shape[0])])
+            sidx = np.argmin(scores)
         elif self.selection_method == 'gMDL':
             scores = np.array([gMDL(y.ravel(), y_pred[i, :],
                         np.count_nonzero(solutions[i, :]))
                         for i in range(solutions.shape[0])])
+            sidx = np.argmin(scores)
         elif self.selection_method == 'empirical_bayes':
             scores = np.array([empirical_bayes(X, y,
                                    solutions[i, :])
                    for i in range(solutions.shape[0])])
+            sidx = np.argmin(scores)
         # Selection dict: Return coefs and selected_reg_param
         sdict = {}
         sdict['coefs'] = solutions[sidx, :]
@@ -118,6 +123,9 @@ class UoISelector(Selector):
             sdict['coefs'] /= sX.scale_
             sdict['coefs'] *= sy.scale_
 
+        # Dummy field to prevent errors later on 
+        sdict['reg_param'] = -1
+
         return sdict
 
     def r2_selector(self, X, y):
@@ -164,7 +172,7 @@ class UoISelector(Selector):
             n_samples, n_features = xx.shape
             y_pred = solutions[boot, ...] @ xx.T + intercepts[boot, :][:, np.newaxis]
 
-            sdict_ = super(UoISelector, self).selector(yy, y_pred, solutions[boot, ...], 
+            sdict_ = super(UoISelector, self).selector(xx, yy, y_pred, solutions[boot, ...], 
                                                            np.arange(n_supports)) 
 
             selected_coefs[boot, :] = sdict_['coefs']

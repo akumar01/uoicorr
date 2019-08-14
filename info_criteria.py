@@ -70,7 +70,7 @@ def empirical_bayes(X, y, beta):
     k = np.count_nonzero(beta)
     ssg = beta.T @ X.T @ X @ beta
     # Noise variance estimate
-    ssq_hat = ?
+    ssq_hat = 5
     thres = lambda x: x if x > 0 else 0
     B = k * (1 + thres(np.log(ssg/(k * ssq_hat))))
     R = -2 * ((p - k) * np.log(p - k) + k * np.log(k))
