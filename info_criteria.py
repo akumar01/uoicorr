@@ -76,10 +76,11 @@ def empirical_bayes(X, y, beta):
     k = np.count_nonzero(beta)
 
     ssg = beta.T @ X.T @ X @ beta
+
     # Noise variance estimate. Use the full model recommendation
     bfull = LinearRegression().fit(X, y).coef_    
     ssq_hat = (y.T @ y - bfull.T @ X.T @ X @ bfull)/(n - p)
-    thres = lambda x: x if x > 0 else 0
+        thres = lambda x: x if x > 0 else 0
     
     if k == 0:
         B = 0
@@ -151,11 +152,13 @@ def beta_binomial_model(x, n, k):
     if len(x) < 2:
         return 0
     else:
-        try:
-            # Fit the parameters of the beta distribution
-            a, b, _, _ = scipy.stats.beta.fit(x, floc = 0, fscale = 1)
-            p = scipy.special.binom(n, k) * \
-                    scipy.special.beta(k + a, n - k + b)/scipy.special.beta(a, b)
-        except:
-            p = np.mean(x)
+        p = np.mean(x)
+
+        # try:
+        #     # Fit the parameters of the beta distribution
+        #     a, b, _, _ = scipy.stats.beta.fit(x, floc = 0, fscale = 1)
+        #     p = scipy.special.binom(n, k) * \
+        #             scipy.special.beta(k + a, n - k + b)/scipy.special.beta(a, b)
+        # except:
+        #     p = np.mean(x)
         return p
