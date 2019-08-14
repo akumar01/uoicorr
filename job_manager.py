@@ -231,7 +231,6 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
 def create_job_structure(submit_file, jobdir, qos, numtasks, cpu_per_task,
                          skip_argfiles = False, single_test = False): 
                          
-
     if not os.path.exists(jobdir):
         os.makedirs(jobdir)
 

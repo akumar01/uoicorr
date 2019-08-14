@@ -144,6 +144,9 @@ def full_bayes_factor(y, y_pred, n_features, model_size, sparsity_prior, penalty
 # beta-distribution prior on estimates of that parameter 
 def beta_binomial_model(x, n, k):
 
+    # Treat warnings like errors
+    np.seterr(all='raise')
+
     # drop all entries that are 0 
     x = x[x != 0]
 
@@ -152,13 +155,13 @@ def beta_binomial_model(x, n, k):
     if len(x) < 2:
         return 0
     else:
-        p = np.mean(x)
-
         # try:
-        #     # Fit the parameters of the beta distribution
+        #     # Fit the parameterqs of the beta distribution
         #     a, b, _, _ = scipy.stats.beta.fit(x, floc = 0, fscale = 1)
         #     p = scipy.special.binom(n, k) * \
-        #             scipy.special.beta(k + a, n - k + b)/scipy.special.beta(a, b)
+        #         scipy.special.beta(k + a, n - k + b)/scipy.special.beta(a, b)
         # except:
-        #     p = np.mean(x)
+            
+        # Too many edge cases, so for now just average over sparsity estimates
+        p = np.mean(x)
         return p
