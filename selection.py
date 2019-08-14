@@ -6,6 +6,7 @@ import time
 from info_criteria import GIC, eBIC, gMDL, empirical_bayes
 from aBIC import aBIC, mBIC
 from sklearn.metrics import r2_score
+from sklearn.linear_model import LinearRegression
 
 class Selector():
 
@@ -16,19 +17,28 @@ class Selector():
     def select(self, solutions, reg_params, X, y, true_model, intercept=0):
 
         # Common operations to all
-        n_features, n_samples = X.shape
+        n_samples, n_features = X.shape
 
-        y_pred = solutions @ X.T + intercept
+        # Fit OLS models
+        OLS_solutions = np.zeros(soltions.shape)
+
+        for i in range(solutions.shape[0]):
+            support = solutions[i, :].astype(bool)
+            linmodel = LinearRegression(fit_intercept=False)
+            linmodel.fit(X[:, support], y)
+            OLS_solutions[i, support] = linmodel.coef_
+
+        y_pred = OLS_solutions @ X.T + intercept
 
         # Deal to the appropriate sub-function based on 
         # the provided selection method string
 
         if self.selection_method in ['mBIC', 'eBIC', 'BIC', 'AIC',
                                        'gMDL', 'empirical_bayes']:
-            sdict = self.selector(X, y, y_pred, solutions, 
+            sdict = self.selector(X, y, y_pred, OLS_solutions, 
                                   reg_params)
         elif self.selection_method == 'aBIC':
-            sdict = self.aBIC_selector(X, y, solutions, 
+            sdict = self.aBIC_selector(X, y, OLS_solutions, 
                                        reg_params, true_model)
         else:
             raise ValueError('Incorrect selection method specified')
