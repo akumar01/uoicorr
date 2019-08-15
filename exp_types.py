@@ -28,6 +28,7 @@ class CV_Lasso():
         alphas = _alpha_grid(X, y.ravel(), n_alphas = n_alphas)
         lasso = PycassoLasso(alphas=alphas, fit_intercept=False)
         lasso.fit(X, y)
+        results = {}
         results['coefs'] = lasso.coef_
         results['reg_params'] = alphas
         return results
@@ -43,6 +44,7 @@ class EN():
         l2 = rdge.alpha_
         en = PycassoElasticNet(fit_intercept=False, lambda1=alphas, lambda2=l2)
         en.fit(X, y.ravel())
+        results = {}
         results['coefs'] = en.coef_
 
         reg_params = np.zeros((alphas.size, 2))
@@ -75,14 +77,15 @@ class UoILasso():
             comm = comm, 
             solver = 'pyc'
             )
-
+        
+        results = {}
         results['coefs'] = uoi.estimates_
 
         return results
 
 # Same class can be used for both MCP and SCAD based on our implementation
 # of PycassoCV
-class PYC(StandardLM_experiment):
+class PYC():
 
     @classmethod
     def run(self, X, y, args):
@@ -100,6 +103,7 @@ class PYC(StandardLM_experiment):
             reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 0] = gamma
             reg_params[i * self.n_alphas:(i + 1) * self.n_alphas, 1] = estimator.alphas
 
+        results = {}
         results['coefs'] = estimators.coef_
         results['reg_params'] = reg_params
 
@@ -107,7 +111,7 @@ class PYC(StandardLM_experiment):
 
 
 # Run R to solve slope
-class SLOPE(StandardLM_experiment):
+class SLOPE():
 
     @classmethod
     def run(self, X, y, args):
@@ -121,7 +125,7 @@ class SLOPE(StandardLM_experiment):
             slope.fit(X, y)
             estimates[i, :] = slope.coef_
 
+        results = {}
         results['coefs'] = estimates
-        results['reg_params'] = np.array([np.nan])
 
         return results

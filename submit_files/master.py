@@ -35,7 +35,7 @@ iter_params = {
 'cov_params' : cov_params,
 # Sparsity
 'sparsity' : np.array_split(sparsity, 5),
-'kappa' : np.array_split(np.linspace(1, 10, 10)),
+'kappa' : np.array_split(np.linspace(1, 10, 10), 4)
 }
 
 #############################################################

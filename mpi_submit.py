@@ -184,7 +184,7 @@ def main(args):
         else: 
             exp = locate('exp_types.%s' % exp_type)
 
-        exp_results = exp.run(X, y, params, selection_methods)
+        exp_results = exp.run(X, y, params)
         if subrank == 0:
 
             # Directly save exp_results
