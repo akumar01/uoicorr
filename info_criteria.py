@@ -76,10 +76,11 @@ def empirical_bayes(X, y, beta):
     k = np.count_nonzero(beta)
 
     ssg = beta.T @ X.T @ X @ beta
+
     # Noise variance estimate. Use the full model recommendation
     bfull = LinearRegression().fit(X, y).coef_    
     ssq_hat = (y.T @ y - bfull.T @ X.T @ X @ bfull)/(n - p)
-    thres = lambda x: x if x > 0 else 0
+        thres = lambda x: x if x > 0 else 0
     
     if k == 0:
         B = 0
