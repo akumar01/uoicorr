@@ -20,13 +20,14 @@ class Selector():
         n_samples, n_features = X.shape
 
         # Fit OLS models
-        OLS_solutions = np.zeros(soltions.shape)
+        OLS_solutions = np.zeros(solutions.shape)
 
         for i in range(solutions.shape[0]):
             support = solutions[i, :].astype(bool)
-            linmodel = LinearRegression(fit_intercept=False)
-            linmodel.fit(X[:, support], y)
-            OLS_solutions[i, support] = linmodel.coef_
+            if np.count_nonzero(solutions[i, :] > 0):
+                linmodel = LinearRegression(fit_intercept=False)
+                linmodel.fit(X[:, support], y)
+                OLS_solutions[i, support] = linmodel.coef_
 
         y_pred = OLS_solutions @ X.T + intercept
 

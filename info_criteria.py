@@ -4,6 +4,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 import scipy
 import pdb
+import copy
 
 # Generalized information criterion with arbitrary penalty
 def GIC(y, y_pred, model_size, penalty):
@@ -71,23 +72,27 @@ def empirical_bayes(X, y, beta):
     beta = beta.ravel()
     y = y.ravel()
     support = np.array(beta).astype(bool)
+    
+    # Set the X not included in the support to 0
+    Xg = copy.deepcopy(X)    
+    Xg[:, np.invert(support)] = 0 
 
     # Paper provides closed form expression
     # Using the conditional marginal likelihood criterion
     k = np.count_nonzero(beta)
 
-    ssg = beta.T @ X[:, support].T @ X[:, support] @ beta
+    ssg = beta.T @ X.T @ X @ beta
 
     # Noise variance estimate. Use the full model recommendation
     bfull = LinearRegression().fit(X, y).coef_    
     ssq_hat = (y.T @ y - bfull.T @ X.T @ X @ bfull)/(n - p)
     thres = lambda x: x if x > 0 else 0
-    
+
     if k == 0:
         B = 0
     else:
         B = k * (1 + thres(np.log(ssg/(k * ssq_hat))))
-    
+        
     safelog = lambda x: x * np.log(x) if x > 0 else 0
     R = -2 * (safelog(p - k) + safelog(k))
 

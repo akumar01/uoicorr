@@ -220,7 +220,7 @@ def generate_sbatch_scripts(sbatch_array, sbatch_dir, script_dir):
             # sb.write('sbcast -f --compress %s/%s /tmp/%s\n' % (script_dir, script, script))
 
             # sb.write('sbcast -f --compress %s/%s /tmp/%s\n' % (script_dir, script, script))
-            sb.write('srun python3 -u %s/%s %s %s %s' 
+            sb.write('srun python3 -u -m mpi4py %s/%s %s %s %s' 
                      % (script_dir, script, sbatch['arg_file'],
                      results_file, sbatch['exp_type']))
                 
