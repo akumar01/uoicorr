@@ -183,7 +183,7 @@ class UoISelector(Selector):
             n_samples, n_features = xx.shape
             y_pred = solutions[boot, ...] @ xx.T + intercepts[boot, :][:, np.newaxis]
 
-            sdict_ = super(UoISelector, self).selector(yy, y_pred, solutions[boot, ...], 
+            sdict_ = super(UoISelector, self).selector(xx, yy, y_pred, solutions[boot, ...], 
                                                            np.arange(n_supports)) 
 
             selected_coefs[boot, :] = sdict_['coefs']
@@ -219,7 +219,7 @@ class UoISelector(Selector):
                                                             true_model)
             bselected_coefs[boot, :] = sdict_['coefs'] 
             oselected_coefs[boot, :] = sdict_['oracle_coefs']
-            bayesian_penalties[boot] = sdict_['bayesian_penalty']
+            bayesian_penalties[boot] = sdict_['effective_penalty']
             oracle_penalties[boot] = sdict_['oracle_penalty']
             sparsity_estimates.append(sdict_['sparsity_estimates'])
 

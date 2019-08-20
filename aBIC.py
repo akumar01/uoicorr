@@ -34,13 +34,13 @@ def sparsity_estimator0(X, y, n_boots = 48, train_frac = 0.75):
 
         coefs = solver.result['beta']
         y_pred = Xb @ coefs.T
+
         # Assess BIC on the LARS path to estimate the sparsity. 
         BIC_scores = np.array([GIC(yb.ravel(), y_pred[:, j].ravel(),
                                    np.count_nonzero(coefs[j, :]), np.log(n_samples)) 
                                for j in range(coefs.shape[0])])  
-        
         sparsity_estimates[boot] = float(np.count_nonzero(
-                            coefs[:, np.argmin(BIC_scores)]))/float(n_features)
+                            coefs[np.argmin(BIC_scores), :]))/float(n_features)
 
     return sparsity_estimates
 
@@ -71,7 +71,7 @@ def sparsity_estimator1(X, y, s0, n_boots = 48, train_frac = 0.75):
 
         y_pred = Xb @ coefs.T
         
-        mBIC_scores = np.zeros(coefs.shape[1])
+        mBIC_scores = np.zeros(coefs.shape[0])
         
         for j in range(coefs.shape[0]): 
         
@@ -81,7 +81,7 @@ def sparsity_estimator1(X, y, s0, n_boots = 48, train_frac = 0.75):
             mBIC_scores[j] = 2 * ll_ - BIC_ - BIC2_ + BIC3_ + P_M_ 
             
         sparsity_estimates[boot] = float(np.count_nonzero(
-                            coefs[:, np.argmax(mBIC_scores)]))/float(n_features)
+                            coefs[np.argmax(mBIC_scores), :]))/float(n_features)
 
     return sparsity_estimates
 

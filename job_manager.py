@@ -426,6 +426,10 @@ def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = Non
             mpi_string = srun_string.replace('srun', 'mpiexec -n %d' % nprocs)
             mpi_string = split(mpi_string)
 
+            # get rid of the -m mpi4py flags
+            mpi_string.pop(5)
+            mpi_string.pop(5)
+
             # Replace script and data dirs with local machine paths
             if script_dir is not None:
                 mpi_string[5] = script_dir

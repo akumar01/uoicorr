@@ -92,11 +92,11 @@ comm_params['selection_methods'] = ['aBIC', 'AIC', 'BIC', 'CV', 'gMDL']
 comm_params['fields'] = {
 						 'aBIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param',
 						 		   'sparsity_estimates', 'oracle_sa', 'oracle_FNR', 'oracle_FPR',
-						 		   'oracle_ee', 'oracle_r2', 'oracle_MSE', 'oracle_penalty', 'effective_penalty', 'll'],
-                         'AIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'],
-                         'BIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'],
-                         'CV' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'],
-                         'gMDL' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param', 'effective_penalty'],
+						 		   'oracle_ee', 'oracle_r2', 'oracle_MSE', 'oracle_penalty', 'effective_penalty'],
+                         'AIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE'],
+                         'BIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE'],
+                         'CV' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE'],
+                         'gMDL' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE'],
                          }
 
 
