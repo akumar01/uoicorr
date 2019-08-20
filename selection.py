@@ -20,17 +20,17 @@ class Selector():
         n_samples, n_features = X.shape
 
         # Fit OLS models
-        # OLS_solutions = np.zeros(solutions.shape)
+        OLS_solutions = np.zeros(solutions.shape)
 
-        # for i in range(solutions.shape[0]):
-        #    support = solutions[i, :].astype(bool)
-        #    if np.count_nonzero(solutions[i, :] > 0):
-        #        linmodel = LinearRegression(fit_intercept=False)
-        #        linmodel.fit(X[:, support], y)
-        #        OLS_solutions[i, support] = linmodel.coef_
+        for i in range(solutions.shape[0]):
+            support = solutions[i, :].astype(bool)
+            if np.count_nonzero(solutions[i, :] > 0):
+                linmodel = LinearRegression(fit_intercept=False)
+                linmodel.fit(X[:, support], y)
+                OLS_solutions[i, support] = linmodel.coef_
 
-        # y_pred = OLS_solutions @ X.T + intercept
-        y_pred = solutions @ X.T + intercept
+        y_pred = OLS_solutions @ X.T + intercept
+        # y_pred = solutions @ X.T + intercept
         # Deal to the appropriate sub-function based on 
         # the provided selection method string
 
