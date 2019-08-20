@@ -400,7 +400,7 @@ def run_(run_file):
                 
 # Sequentially run files locally:
 def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = None,
-                   script_dir=None, background = False):
+                   script_dir=None, background = False, reverse=False):
     # Crawl through all subdirectories and 
     # (1) Grab the sbatch files
     # (2) Extract the srun statement
@@ -408,11 +408,16 @@ def run_jobs_local(jobdir, nprocs, run_files = None, size = None, exp_type = Non
     # (4) Replace script and data dirs with local machine paths
     # (5) Run 
 
+    # Reverse: start from the end of run_files list if size is True
+
     if run_files is None:
         run_files = grab_files(jobdir, '*.sh', exp_type)
 
     if size is not None:
-        run_files = run_files[:size]
+        if reverse:
+            run_files = run_files[-size:]
+        else:
+            run_files = run_files[:size]
     cont = input("You are about to submit %d jobs, do you want to continue? [0/1]" % len(run_files))
 
     if cont:
