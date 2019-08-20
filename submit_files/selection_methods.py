@@ -8,7 +8,7 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['scad']
+exp_types =  ['CV_Lasso', 'mcp']
 
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
 algorithm_times = ['01:00:00', '01:00:00', '01:00:00', '01:00:00', '2:00:00']
@@ -95,8 +95,8 @@ comm_params['fields'] = {
 						 'aBIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param',
 						 		   'sparsity_estimates', 'oracle_sa', 'oracle_FNR', 'oracle_FPR',
 						 		   'oracle_ee', 'oracle_r2', 'oracle_MSE', 'oracle_penalty', 'effective_penalty', 'll'],
-                         'AIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param', 'effective_penalty'],
-                         'BIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param', 'effective_penalty'],
-                         'CV' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param', 'effective_penalty'],
-                         'gMDL' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param', 'effective_penalty'],
+                         'AIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'],
+                         'BIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'],
+                         'CV' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'],
+                         'gMDL' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param', 'effective_penalty']
                          }
