@@ -80,17 +80,20 @@ def empirical_bayes(X, y, beta):
     # Noise variance estimate. Use the full model recommendation
     bfull = LinearRegression().fit(X, y).coef_    
     ssq_hat = (y.T @ y - bfull.T @ X.T @ X @ bfull)/(n - p)
-        thres = lambda x: x if x > 0 else 0
+    thres = lambda x: x if x > 0 else 0
     
     if k == 0:
-        B = 0
+        return 0, 0
     else:
-        B = k * (1 + thres(np.log(ssg/(k * ssq_hat))))
-    
-    safelog = lambda x: x * np.log(x) if x > 0 else 0
-    R = -2 * (safelog(p - k) + safelog(k))
+        if ssg/(ssq_hat * k) > 1:
+            B = k * (1 + thres(np.log(ssg/(k * ssq_hat))))
+        else:
+            B = ssg/ssq_hat
 
-    return ssg/ssq_hat - B - R, B + R
+        safelog = lambda x: x * np.log(x) if x > 0 else 0
+        R = -2 * (safelog(p - k) + safelog(k))
+
+        return ssg/ssq_hat - B - R, B + R
 
 # Full Bayes factor
 def full_bayes_factor(y, y_pred, n_features, model_size, sparsity_prior, penalty):
