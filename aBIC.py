@@ -29,7 +29,7 @@ def sparsity_estimator0(X, y, n_boots = 48, train_frac = 0.75):
         yb -= np.mean(yb)
 
         # Use the pycasso solver
-        solver = pycasso.Solver(Xb, yb, penalty='mcp')        
+        solver = pycasso.Solver(Xb, yb, penalty='l1')        
         solver.train()
 
         coefs = solver.result['beta']
@@ -64,7 +64,7 @@ def sparsity_estimator1(X, y, s0, n_boots = 48, train_frac = 0.75):
         n_samples, n_features = Xb.shape
 
         # Use fast pycasso solver
-        solver = pycasso.Solver(Xb, yb, penalty='mcp')        
+        solver = pycasso.Solver(Xb, yb, penalty='l1')        
         solver.train()
 
         coefs = solver.result['beta']
