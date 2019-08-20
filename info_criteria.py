@@ -56,13 +56,13 @@ def gMDL(y, y_pred, k):
     F = (np.sum(y**2) - RSS)/(k * S)
 
     if r2 > threshold:
-        penalty = k/2 * np.log(F) + np.log(n)
+        eff_penalty = n/2 * np.log(S)/(k/2 * np.log(F) + np.log(n))
         gMDL = n/2 * np.log(S) + k/2 * np.log(F) + np.log(n)
     else:
-        penalty = 1/2 * np.log(n)
+        eff_penalty = n/2 * np.log(np.sum(y**2)/n)/(1/2 * np.log(n))
         gMDL = n/2 * np.log(np.sum(y**2)/n) + 1/2 * np.log(n)
 
-    return gMDL, penalty
+    return gMDL, eff_penalty
 
 # Empirical bayesian procedure (Calibration and Empirical Bayes 
 # Variable Selection)
@@ -81,22 +81,24 @@ def empirical_bayes(X, y, beta):
     # Using the conditional marginal likelihood criterion
     k = np.count_nonzero(beta)
 
-    ssg = beta.T @ X.T @ X @ beta
+    ssg = beta.T @ Xg.T @ Xg @ beta
 
     # Noise variance estimate. Use the full model recommendation
     bfull = LinearRegression().fit(X, y).coef_    
     ssq_hat = (y.T @ y - bfull.T @ X.T @ X @ bfull)/(n - p)
-    thres = lambda x: x if x > 0 else 0
-
+    
     if k == 0:
-        B = 0
+        return 0, 0
     else:
-        B = k * (1 + thres(np.log(ssg/(k * ssq_hat))))
-        
-    safelog = lambda x: x * np.log(x) if x > 0 else 0
-    R = -2 * (safelog(p - k) + safelog(k))
+        if ssg/(k * ssq_hat) > 1:
+            B = k * (1 + np.log(ssg/(k * ssq_hat)))
+        else:
+            B = ssg/ssq_hat        
 
-    return ssg/ssq_hat - B - R, B + R
+        safelog = lambda x: x * np.log(x) if x > 0 else 0
+        R = -2 * (safelog(p - k) + safelog(k))
+
+        return ssg/ssq_hat - B - R, ssg/ssq_hat/(B + R)
 
 # Full Bayes factor
 def full_bayes_factor(y, y_pred, n_features, model_size, sparsity_prior, penalty):

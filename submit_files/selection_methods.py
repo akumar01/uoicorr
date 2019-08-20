@@ -8,7 +8,7 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['CV_Lasso', 'mcp']
+exp_types =  ['scad']
 
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
 algorithm_times = ['01:00:00', '01:00:00', '01:00:00', '01:00:00', '2:00:00']
@@ -87,16 +87,16 @@ comm_params['lambda_args'] = np.linspace(0.01, 0.9, 50)
 ###############################################################
 
 # Which selection methods should we apply to the algorithms?
-comm_params['selection_methods'] = ['BIC', 'AIC', 'aBIC', 'eBIC', 'CV', 'mBIC', 'gMDL', 'empirical_bayes']
+comm_params['selection_methods'] = ['aBIC', 'AIC', 'BIC', 'CV', 'gMDL']
 # Which fields should we record for each selection method? 
-comm_params['fields'] = {'BIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'], 
+
+
+comm_params['fields'] = {
 						 'aBIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param',
 						 		   'sparsity_estimates', 'oracle_sa', 'oracle_FNR', 'oracle_FPR',
-						 		   'oracle_ee', 'oracle_r2', 'oracle_MSE', 'oracle_penalty', 'effective_penalty'], 
-						 'AIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'], 
-						 'eBIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'], 
-						 'CV' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'],
-                         'mBIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param'],
+						 		   'oracle_ee', 'oracle_r2', 'oracle_MSE', 'oracle_penalty', 'effective_penalty', 'll'],
+                         'AIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param', 'effective_penalty'],
+                         'BIC' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param', 'effective_penalty'],
+                         'CV' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param', 'effective_penalty'],
                          'gMDL' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param', 'effective_penalty'],
-                         'empirical_bayes' : ['beta_hats', 'FNR', 'FPR', 'sa', 'ee', 'r2', 'MSE', 'reg_param', 
-                                              'effective_penalty']}
+                         }

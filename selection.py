@@ -87,7 +87,7 @@ class Selector():
 
     def aBIC_selector(self, X, y, solutions, reg_params, true_model):
 
-        oracle_penalty, bayesian_penalty, bidx, oidx, spest = \
+        oracle_penalty, bayesian_penalty, bidx, oidx, spest, goft, pt = \
         aBIC(X, y, solutions, true_model)
 
         # Selection dict: Return coefs and selected_reg_param
@@ -98,6 +98,7 @@ class Selector():
         sdict['oracle_penalty'] = oracle_penalty
         sdict['effective_penalty'] = bayesian_penalty
         sdict['sparsity_estimates'] = spest
+        sdict['ll'] = goft
 
         return sdict
 

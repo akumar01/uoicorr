@@ -66,6 +66,9 @@ def calc_result(X, X_test, y, y_test, beta, field, exp_results):
     elif field == 'effective_penalty':
         result = exp_results['effective_penalty']
 
+    elif field == 'll':
+        result = exp_results['ll']
+
     # Will need to investigate how this is handled (ndarray)
     elif field == 'sparsity_estimates':
         result = exp_results['sparsity_estimates']
