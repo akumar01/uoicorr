@@ -8,34 +8,36 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 
 ###### Master list of parameters to be iterated over #######
 
-exp_types =  ['UoILasso',  'EN', 'CV_Lasso', 'scad', 'mcp']
+exp_types =  ['UoILasso']
 
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['08:00:00',  '02:00:00', '01:00:00', '01:00:00', '01:00:00']
+algorithm_times = ['02:00:00']
 
-n_features = 500
+n_features = 50
 
 # Block sizes
-block_sizes = [25, 50, 100]
+block_sizes = [2, 5, 10]
 
 # Block correlation
 correlation = [0, 0.08891397, 0.15811388, 0.28117066, 0.5]
 
 # Exponential length scales
-L = [10, 25, 50, 100]
+L = [1, 2, 5]
 
-cov_list, _ = get_cov_list(n_features, 60, correlation, block_sizes, L, n_supplement = 20)
+cov_list, _ = get_cov_list(n_features, 11, correlation, block_sizes, L, n_supplement = 7)
 
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 
-sparsity = np.logspace(np.log10(0.02), 0, 15)
-sparsity = sparsity[sparsity >= 0.04]
+sparsity = np.linspace(0.1, 1, 10)
 
 iter_params = {
 'cov_params' : cov_params,
 # Sparsity
 'sparsity' : np.array_split(sparsity, 5),
+<<<<<<< Updated upstream
 'kappa' : np.array_split(np.linspace(1, 10, 10), 4)
+=======
+>>>>>>> Stashed changes
 }
 
 #############################################################
@@ -50,7 +52,7 @@ betaseed = 1234
 # blocks as a seed for the shuffling that is done, so that for a fixed
 # sparsity and block size, all beta vectors should be identical
 
-betawidth = [0.1, np.inf, -1]
+betawidth = [np.inf]
 
 beta_dict = []
 for i, bw in enumerate(betawidth):
@@ -64,13 +66,14 @@ comm_params = {
 # n/p ratio #
 'np_ratio': 5,
 'est_score': 'BIC',
-'reps' : 20,
-'stability_selection' : [1.0],
+'reps' : 5,
+'stability_selection' : [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.25],
 'n_boots_sel': 25,
 'n_boots_est' : 25,
 'betadict' : beta_dict,
+'kappa' : 10,
 # Inverse Signal to noise ratio
-'sub_iter_params': ['betadict', 'sparsity', 'kappa']
+'sub_iter_params': ['betadict', 'sparsity', 'stability_selection']
 }
 
 # Parameters for ElasticNet
@@ -83,7 +86,4 @@ comm_params['gamma'] = [3]
 # Parameters for SLOPE
 comm_params['lambda_method'] = 'FDR'
 comm_params['lambda_args'] = np.linspace(0.01, 0.9, 50)
-
-
-
 ###############################################################

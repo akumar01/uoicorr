@@ -100,12 +100,6 @@ def generate_arg_files(argfile_array, jobdir):
 
         const_args = {k: arg_[k] for k in const_keys}
         # Make sure the keys match for selection methods and fields
-        const_args['selection_methods'].sort()
-        field_keys = list(const_args['fields'].keys())
-        field_keys.sort()
-
-        assert(const_args['selection_methods'] == field_keys)
-
         arg_comb = list(itertools.product(*[arg_[key] for key in arg_['sub_iter_params']]))
 
         iter_param_list = []
@@ -140,9 +134,9 @@ def generate_arg_files(argfile_array, jobdir):
 
         f = Indexed_Pickle(arg_file)
         f.init_save(len(iter_param_list), header_data = 
-                    {'n_features' : param_comb['n_features'], 
-                     'selection_methods' : param_comb['selection_methods'],
-                     'fields' : param_comb['fields']})
+                    {'n_features' : param_comb['n_features']}) 
+                    # 'selection_methods' : param_comb['selection_methods'],
+                    # 'fields' : param_comb['fields']})
         for elem in iter_param_list:
             f.save(elem)
 

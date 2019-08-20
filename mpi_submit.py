@@ -206,9 +206,9 @@ def main(args):
 
     if rank == 0:
         # concatenate and clean up results
-        rmanager.concatenate()
-        rmanager.cleanup()
-
+        # rmanager.concatenate()
+        # rmanager.cleanup()
+        pass
     print('Total time: %f' % (time.time() - total_start))
     print('Job completed!')
 

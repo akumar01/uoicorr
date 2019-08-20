@@ -8,6 +8,7 @@ from sklearn.linear_model import RidgeCV
 
 from pyuoi.linear_model import UoI_Lasso
 from pyuoi.linear_model import UoI_ElasticNet
+from pyuoi.linear_model.mcp import UoI_MCP
 
 from pyc_based.lm import PycassoLasso, PycassoElasticNet
 from pyc_based.pycasso_cv import PycassoCV, PycassoGrid, PycEnCV
@@ -73,15 +74,49 @@ class UoILasso():
             n_boots_est=int(args['n_boots_est']),
                 estimation_score=args['est_score'],
             stability_selection = args['stability_selection'],
-            n_lambdas = self.n_alphas,
+            n_lambdas = n_alphas,
             comm = comm, 
             solver = 'pyc'
             )
+
+        uoi.fit(X, y)
         
         results = {}
-        results['coefs'] = uoi.estimates_
+        results['coefs'] = uoi.supports_
 
         return results
+
+class UoIMCP():
+
+    @classmethod
+    def run(self, X, y, args):
+
+        if 'comm' in list(args.keys()):
+            comm = args['comm']
+            rank = comm.rank
+        else:
+            comm = None
+            rank = 0
+
+        n_alphas = args['n_alphas']
+
+        uoi = UoI_MCP(
+            fit_intercept=False,
+            n_boots_sel=int(args['n_boots_sel']),
+            n_boots_est=int(args['n_boots_est']),
+                estimation_score=args['est_score'],
+            stability_selection = args['stability_selection'],
+            n_lambdas = n_alphas,
+            comm = comm
+            )
+
+        uoi.fit(X, y)
+        
+        results = {}
+        results['coefs'] = uoi.supports_
+
+        return results
+
 
 # Same class can be used for both MCP and SCAD based on our implementation
 # of PycassoCV
