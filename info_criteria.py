@@ -81,7 +81,7 @@ def empirical_bayes(X, y, beta):
     bfull = LinearRegression().fit(X, y).coef_    
     ssq_hat = (y.T @ y - bfull.T @ X.T @ X @ bfull)/(n - p)
     thres = lambda x: x if x > 0 else 0
-    
+
     if k == 0:
         return 0, 0
     else:
