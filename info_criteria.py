@@ -1,7 +1,9 @@
 import numpy as np
 from pyuoi.utils import log_likelihood_glm
 from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScalaer
 from sklearn.metrics import r2_score
+from scipy.special import xlogy
 import scipy
 import pdb
 
@@ -71,29 +73,30 @@ def empirical_bayes(X, y, beta):
     beta = beta.ravel()
     y = y.ravel()
 
+    # Scale X, y properly before calculating quantities
+    X = StandardScaler().fit_transform(X)
+    y = StandardScaler().fit_transform(y)
+
     # Paper provides closed form expression
     # Using the conditional marginal likelihood criterion
-    k = np.count_nonzero(beta)
-
-    ssg = beta.T @ X.T @ X @ beta
+    q = np.count_nonzero(beta)
+    support = (beta !=0).astype(bool)
+    ssg = beta.T @ X[:, support].T @ X[:, support] @ beta
 
     # Noise variance estimate. Use the full model recommendation
     bfull = LinearRegression().fit(X, y).coef_    
     ssq_hat = (y.T @ y - bfull.T @ X.T @ X @ bfull)/(n - p)
-    thres = lambda x: x if x > 0 else 0
+    
+    R = -2 * (xlogy(p - q, p - q) + xlogy(q, q))
 
-    if k == 0:
-        return 0, 0
-    else:
-        if ssg/(ssq_hat * k) > 1:
-            B = k * (1 + thres(np.log(ssg/(k * ssq_hat))))
-        else:
-            B = ssg/ssq_hat
+    if np.divide(ssg, ssq_hat * q) > 1:
 
-        safelog = lambda x: x * np.log(x) if x > 0 else 0
-        R = -2 * (safelog(p - k) + safelog(k))
+        B = q + q * np.log(ssg/ssq_hat) - xlogy(q, q)
 
         return ssg/ssq_hat - B - R, B + R
+
+    else:
+        return -R, R
 
 # Full Bayes factor
 def full_bayes_factor(y, y_pred, n_features, model_size, sparsity_prior, penalty):
