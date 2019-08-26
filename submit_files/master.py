@@ -30,15 +30,12 @@ cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]}
 
 sparsity = np.logspace(np.log10(0.02), 0, 15)
 sparsity = sparsity[sparsity >= 0.04]
-sparsity = sparsity[sparsity <= 0.6]
 
 iter_params = {
-
 'cov_params' : cov_params,
-
 # Sparsity
-'sparsity' : np.array_split(sparsity, 5)
-
+'sparsity' : np.array_split(sparsity, 5),
+'kappa' : np.array_split(np.linspace(1, 10, 10)),
 }
 
 #############################################################
@@ -67,13 +64,12 @@ comm_params = {
 # n/p ratio #
 'np_ratio': 5,
 'est_score': 'BIC',
-'reps' : 10,
+'reps' : 20,
 'stability_selection' : [1.0],
 'n_boots_sel': 25,
 'n_boots_est' : 25,
 'betadict' : beta_dict,
 # Inverse Signal to noise ratio
-'kappa' : [5, 2, 1],
 'sub_iter_params': ['betadict', 'sparsity', 'kappa']
 }
 
@@ -83,5 +79,11 @@ comm_params['n_alphas'] = 100
 
 # Parameters for SCAD/MCP
 comm_params['gamma'] = [3]
+
+# Parameters for SLOPE
+comm_params['lambda_method'] = 'FDR'
+comm_params['lambda_args'] = np.linspace(0.01, 0.9, 50)
+
+
 
 ###############################################################
