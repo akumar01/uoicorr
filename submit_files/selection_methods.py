@@ -11,7 +11,7 @@ script_dir = '/global/homes/a/akumar25/repos/uoicorr'
 exp_types =  ['CV_Lasso', 'mcp']
 
 # Estimated worst case run-time for a single repitition for each algorithm in exp_types 
-algorithm_times = ['08:00:00', '01:00:00', '01:00:00', '01:00:00', '2:00:00']
+algorithm_times = ['01:00:00', '01:00:00', '01:00:00', '01:00:00', '2:00:00']
 
 n_features = 100
 
@@ -28,9 +28,7 @@ cov_list, _ = get_cov_list(n_features, 14, correlation, block_sizes, L, n_supple
 
 cov_params = [{'correlation' : t[0], 'block_size' : t[1], 'L' : t[2], 't': t[3]} for t in cov_list]
 
-sparsity = np.logspace(np.log10(0.1), 0, 15)
-sparsity = sparsity[sparsity >= 0.1]
-sparsity = sparsity[sparsity <= 0.6]
+sparsity = np.linspace(0.1, 1, 10)
 
 iter_params = {
 
@@ -65,7 +63,7 @@ comm_params = {
 # n/p ratio #
 'np_ratio': 5,
 'est_score': 'BIC',
-'reps' : 10,
+'reps' : 5,
 'stability_selection' : [1.0],
 'n_boots_sel': 25,
 'n_boots_est' : 25,

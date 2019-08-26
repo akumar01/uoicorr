@@ -72,6 +72,7 @@ def empirical_bayes(X, y, beta):
     n, p = X.shape
     beta = beta.ravel()
     y = y.ravel()
+    support = np.array(beta).astype(bool)
 
     # Scale X, y properly before calculating quantities
     X = StandardScaler().fit_transform(X)
