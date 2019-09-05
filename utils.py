@@ -201,8 +201,10 @@ def interpolated_dist(lmbda, t, sigma, n_features = 60, low = -5, high = 5):
 
 # Generate toy data to fit given number of features, covariance structure, signal to noise, and sparsity
 # Note that sparsity is applied within blocks. When this is not desired, set the block size to equal n_features
+# Flag kappaeqsigma: If true, interpret kappa to explicitly set the error variance as opposed to the SNR
 def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 3,
-            covariance = np.diag(np.ones(60)), beta = np.random.uniform(0, 10, (60, 1)), seed = None):
+             covariance = np.diag(np.ones(60)), beta = np.random.uniform(0, 10, (60, 1)), seed = None,
+             kappaeqsigma=False):
 
     # For consistency across different runs
     if seed is not None:
@@ -212,17 +214,20 @@ def gen_data(n_samples = 5 * 60, n_features = 60, kappa = 3,
     X = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)
     X_test = np.random.multivariate_normal(mean=np.zeros(n_features), cov=covariance, size=n_samples)
 
-
-    # Kappa is the signal to noise ratio
-
-    signal = np.var(X @ beta)
-    noise_variance = signal/kappa
+    if kappaeqsigma:
+        noise_variance = kappa
+    else:
+        signal = np.var(X @ beta)
+        noise_variance = signal/kappa
 
     # draw noise
     noise = np.random.normal(loc=0, scale=np.sqrt(noise_variance), size=(n_samples, 1))
 
-    signal = np.var(X_test @ beta)
-    noise_variance = signal/kappa
+    if kappaeqsigma:
+        noise_variance = kappa
+    else:
+        signal = np.var(X_test @ beta)    
+        noise_variance = signal/kappa
 
     noise_test = np.random.normal(loc=0, scale=np.sqrt(noise_variance), size=(n_samples, 1))
 
